@@ -764,6 +764,21 @@ class Volume(object):
             anatomical_coordinate_system=anatomical_coordinate_system,
             **kwargs,
         )
+    
+
+    @classmethod
+    def from_meshes(
+        cls,
+        voxel_size: float = 0.1,
+        world_from_anatomical: Optional[geo.FrameTransform] = None,
+        surfaces: List[Tuple[str, float, pv.PolyData]] = [], # material, density, surface
+    ):
+        volume_args = mesh_utils.voxelize_multisurface(voxel_size=voxel_size, surfaces=surfaces)
+        return cls(
+            world_from_anatomical=world_from_anatomical,
+            anatomical_coordinate_system=None,
+            **volume_args,
+        )
 
     @property
     def world_from_IJK(self) -> geo.FrameTransform:
