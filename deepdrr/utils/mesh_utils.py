@@ -202,8 +202,8 @@ def voxelize_multisurface(
 ):
     if len(surfaces) == 0:
         return kwargs_to_dict(
-            data=np.array(),
-            materials=dict(),
+            data=np.zeros((1,1,1), dtype=np.float64),
+            materials={"air": np.ones((1,1,1), dtype=np.uint8)},
             anatomical_from_IJK=None,
         )
     
