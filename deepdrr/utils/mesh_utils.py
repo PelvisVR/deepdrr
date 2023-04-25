@@ -168,29 +168,52 @@ def voxelize(
     Returns:
         Tuple[np.ndarray, geo.FrameTransform]: The voxelized segmentation of the surface as np.uint8 and the associated world_from_ijk transform.
     """
-    volume_args = voxelize_multisurface(voxel_size=density, surfaces=[("polyethylene", 0, surface)], bounds=bounds)
-    return volume_args["data"], volume_args["anatomical_from_IJK"]
+    density = listify(density, 3)
+    voxels = pv.voxelize(surface, density=density, check_surface=False)
+
+    spacing = np.array(density)
+    if bounds is None:
+        bounds = surface.bounds
+
+    x_min, x_max, y_min, y_max, z_min, z_max = bounds
+    size = np.array([(x_max - x_min), (y_max - y_min), (z_max - z_min)])
+    if np.any(size) < 0:
+        raise ValueError(f"invalid bounds: {bounds}")
+    x, y, z = np.ceil(size / spacing).astype(int) + 1
+    origin = np.array([x_min, y_min, z_min])
+    world_from_ijk = geo.FrameTransform.from_rt(np.diag(spacing), origin)
+    ijk_from_world = world_from_ijk.inv
+
+    data = np.zeros((x, y, z), dtype=np.uint8)
+    vectors = np.array(voxels.points)
+    A_h = np.hstack((vectors, np.ones((vectors.shape[0], 1))))
+    transform = np.array(ijk_from_world)
+    B = (transform @ A_h.T).T[:, :3]
+    B = np.round(B).astype(int)
+    data[B[:, 0], B[:, 1], B[:, 2]] = 1
+
+    return data, world_from_ijk
 
 
 def voxelize_multisurface(
     voxel_size: float = 0.1,
     surfaces: List[Tuple[str, float, pv.PolyData]] = [], # material, density, surface
-    bounds: Optional[List[float]] = None,
     default_densities: Dict[str, float] = {},
 ):
     if len(surfaces) == 0:
-        return empty_volume()
+        return kwargs_to_dict(
+            data=np.array(),
+            materials=dict(),
+            anatomical_from_IJK=None,
+        )
     
-    if bounds is None:
-        bounds = []
-        for material, density, surface in surfaces:
-            bounds.append(surface.bounds)
+    bounds = []
+    for material, density, surface in surfaces:
+        bounds.append(surface.bounds)
 
-        bounds = np.array(bounds)
-        x_min, y_min, z_min = bounds[:, [0, 2, 4]].min(0)
-        x_max, y_max, z_max = bounds[:, [1, 3, 5]].max(0)
-    else:
-        x_min, y_min, z_min, x_max, y_max, z_max = bounds
+    bounds = np.array(bounds)
+    x_min, y_min, z_min = bounds[:, [0, 2, 4]].min(0)
+    x_max, y_max, z_max = bounds[:, [1, 3, 5]].max(0)
 
     # combine surfaces wiht same material and approx same density
     surface_dict = defaultdict(list)

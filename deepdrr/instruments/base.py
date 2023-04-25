@@ -119,7 +119,6 @@ class Instrument(Volume, ABC):
         volume_kwargs = voxelize_multisurface(
             voxel_size=density,
             surfaces=[(material, -1, surface) for material, surface in materials.items()],
-            bounds=None,
             default_densities=self._densities,
         )
 
