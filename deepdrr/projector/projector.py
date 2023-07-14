@@ -40,7 +40,7 @@ from ..pyrenderdrr.renderer import Renderer
 
 from functools import lru_cache
 
-
+from pycuda.tools import make_default_context
 import pycuda.driver as cuda
 from pycuda.driver import Context as context
 import pycuda.gl
@@ -1016,6 +1016,8 @@ class Projector(object):
             return
 
         if self.initialized:
+            if len(self.primitives) > 0:
+                log.error("Changing sensor size while using meshes is not yet supported.")
             self.intensity_gpu.free()
             self.photon_prob_gpu.free()
             if self.collected_energy:
@@ -1068,7 +1070,11 @@ class Projector(object):
         self._egl_platform.init_context()
         self._egl_platform.make_current()
 
-        import pycuda.gl.autoinit # must happen after egl context is created
+        cuda.init() # must happen after egl context is created
+        assert cuda.Device.count() >= 1
+
+        self.cuda_context = make_default_context(lambda dev: pycuda.gl.make_context(dev))
+        device = self.cuda_context.get_device()
 
         # compile the module, moved to to initialize because it needs to happen after the context is created
         self.mod = _get_kernel_projector_module(
@@ -1087,6 +1093,8 @@ class Projector(object):
         self.kernel_reorder = self.peel_postprocess_mod.get_function("kernelReorder")
 
         if self.scatter_num > 0:
+            if len(self.primitives) > 0:
+                log.error("Scatter while using meshes is not yet supported.")
             self.scatter_mod = _get_kernel_scatter_module(len(self.all_materials))
             self.simulate_scatter = self.scatter_mod.get_function("simulate_scatter")
 
@@ -1800,6 +1808,8 @@ class Projector(object):
                 self.scatter_deposits_gpu.free()
                 self.num_scattered_hits_gpu.free()
                 self.num_unscattered_hits_gpu.free()
+
+            self.cuda_context.pop()
 
         self.initialized = False
 
