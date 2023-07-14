@@ -1,13 +1,23 @@
 # TODO
 - Add dep on pycuda with gl support
 - Add tests
-- Mesh priorities (is necessary?)
-- Scatter?
 - Zero mesh handling
 - Zero volume handling
 - Primitive merging
 - Save memory by using signed distances to represent front/back hits
 - Free all new allocs
+- Primary context?
+- Optional pycuda
+- WSL fallback, on by defualt
+- Pyrender morph targets
+- Classmethod that loads mesh from stl file
+- Autoinit don't do it as a import
+- Test multiple projectors
+- Scatter not supported warning
+- Watertight check in primitive
+- Support changing resolution (no, just show warning)
+
+<!-- - Mesh priorities (is necessary?) -->
 
 <!-- - Return peeling array up to 8 -->
 <!-- - Support multi material -->
@@ -16,7 +26,6 @@
 
 # Questions
 - Worth having a high-density mode, renders much faster, to handle nearly all cases?
-- Was deepdrr not locked to fixed resolution before?
 
 # Features
 <!-- - Use winding order in renderer -->
