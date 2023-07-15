@@ -493,7 +493,7 @@ class Projector(object):
 
             for prim_id, prim in enumerate(self.primitives):
                 prim_parent = prim.get_parent_mesh()
-                self.prim_nodes[prim_id].matrix = np.linalg.inv(np.array(prim_parent.IJK_from_world))
+                self.prim_nodes[prim_id].matrix = prim_parent.world_from_ijk
             
             # mesh_perf_entire_start = time.perf_counter()
             # mesh_perf_start = time.perf_counter()
