@@ -4,10 +4,12 @@ import numpy as np
 from deepdrr import geo, vis
 from deepdrr.utils import image_utils, test_utils
 from PIL import Image
+import pytest
 
 
 log = logging.getLogger(__name__)
 
+@pytest.mark.skip(reason="scatter is deprecated")
 def test_scatter_single_volume_aligned():
     """A single volume, aligned with the world XYZ planes"""
     file_path = test_utils.download_sampledata("CT-chest")

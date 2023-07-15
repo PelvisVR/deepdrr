@@ -15,10 +15,14 @@
 - Test multiple projectors
 <!-- - Scatter not supported warning -->
 <!-- - Support changing resolution (no, just show warning) -->
+<!-- - No parent pointer -->
 
 # Later
 - Primitive merging
 - Watertight check in primitive
+
+# Deepdrr arch ideas
+- glTF based tree scene interface
 
 <!-- - Mesh priorities (is necessary?) -->
 

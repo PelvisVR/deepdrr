@@ -38,6 +38,7 @@ class Primitive(object):
         density: float,
         mesh: pv.PolyData,
         morph_targets: Optional[np.ndarray] = None,
+        subtractive: bool = False,
     ) -> None:
         self.data = mesh
         self.morph_targets = morph_targets if morph_targets is not None else []
@@ -45,6 +46,7 @@ class Primitive(object):
             assert mt.shape[0] == self.data.n_points
         self.material = material
         self.density = density
+        self.subtractive = subtractive
 
     def compute_vertices(self):
         """Compute the vertices of the mesh in local coordinates, including the morph targets."""

@@ -2357,7 +2357,7 @@ __global__ void projectKernel(
   // if (debug) printf("start trace\n");
 
 
-#if NUM_MESHES > 0
+#if MESH_ADDITIVE_AND_SUBTRACTIVE_ENABLED > 0
   int mesh_hit_depth = 0;
   int mesh_hit_index = 0;
 #endif
@@ -2410,7 +2410,7 @@ __global__ void projectKernel(
 
     bool mesh_hit_this_step = false;
 
-#if NUM_MESHES > 0
+#if MESH_ADDITIVE_AND_SUBTRACTIVE_ENABLED > 0
     int hit_arr_index = 0;
     while (true) {
         hit_arr_index = (vdx * out_width + udx)*max_mesh_depth+mesh_hit_index;
@@ -2467,6 +2467,7 @@ __global__ void projectKernel(
     area_density[m] *= step;
   }
 
+#if MESH_ADDITIVE_ENABLED > 0
   for (int i = 0; i < mesh_unique_material_count; i++) {
     int add_dens_idx = i*(out_height*out_width*2)+(vdx * out_width + udx)*2;
     // If there is a matching number of front and back hits, add the density
@@ -2474,6 +2475,7 @@ __global__ void projectKernel(
         area_density[mesh_unique_materials[i]] += additive_densities[add_dens_idx];
     }
   }
+#endif
 
   // Convert to centimeters
   for (int m = 0; m < NUM_MATERIALS; m++) {
