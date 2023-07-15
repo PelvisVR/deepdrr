@@ -45,7 +45,6 @@ class Primitive(object):
             assert mt.shape[0] == self.data.n_points
         self.material = material
         self.density = density
-        self.parent_mesh = None
 
     def compute_vertices(self):
         """Compute the vertices of the mesh in local coordinates, including the morph targets."""
@@ -59,13 +58,3 @@ class Primitive(object):
             return self.data.faces.reshape((-1, 4))[..., 1:][..., [0, 2, 1]].astype(np.int32)
         else:
             return self.data.faces.reshape((-1, 4))[..., 1:][..., [0, 1, 2]].astype(np.int32)   # flip winding order
-
-    def set_parent_mesh(self, mesh: Mesh):
-        if self.parent_mesh is not None:
-            raise ValueError("Primitive already has a parent mesh")
-        self.parent_mesh = mesh
-
-    def get_parent_mesh(self):
-        if self.parent_mesh is None:
-            raise ValueError("Primitive does not have a parent mesh")
-        return self.parent_mesh

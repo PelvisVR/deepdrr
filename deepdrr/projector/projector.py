@@ -274,10 +274,12 @@ class Projector(object):
         self.volumes = []
         self.priorities = []
         self.primitives = []
+        self.meshes = []
         for _vol in volume:
             if isinstance(_vol, vol.Volume):
                 self.volumes.append(_vol)
             elif isinstance(_vol, vol.Mesh):
+                self.meshes.append(_vol)
                 for p in _vol.primitives:
                     self.primitives.append(p)
             else:
@@ -491,9 +493,8 @@ class Projector(object):
                     IJK_from_world,
                 )
 
-            for prim_id, prim in enumerate(self.primitives):
-                prim_parent = prim.get_parent_mesh()
-                self.prim_nodes[prim_id].matrix = prim_parent.world_from_ijk
+            for mesh_id, mesh in enumerate(self.meshes):
+                self.mesh_nodes[mesh_id].matrix = mesh.world_from_ijk
             
             # mesh_perf_entire_start = time.perf_counter()
             # mesh_perf_start = time.perf_counter()
@@ -1196,15 +1197,18 @@ class Projector(object):
 
         self.scene = Scene(bg_color=[0.0, 0.0, 0.0])
 
-        self.prim_nodes = []
+        self.mesh_nodes = []
         self.prim_meshes = []
         self.prim_meshes_by_mat = defaultdict(list)
-        for prim in self.primitives:
-            mesh = Mesh([Primitive(positions=prim.compute_vertices().copy(), indices=prim.triangles(flip_winding_order=False).copy(), density=prim.density)])
-            node = self.scene.add(mesh)
-            self.prim_nodes.append(node)
-            self.prim_meshes_by_mat[prim.material].append(mesh)
-            self.prim_meshes.append(mesh)
+        for drrmesh in self.meshes:
+            node = Node()
+            self.scene.add_node(node)
+            self.mesh_nodes.append(node)
+            for prim in drrmesh.primitives:
+                mesh = Mesh([Primitive(positions=prim.compute_vertices().copy(), indices=prim.triangles(flip_winding_order=False).copy(), density=prim.density)])
+                self.scene.add(mesh, parent_node=node)
+                self.prim_meshes_by_mat[prim.material].append(mesh)
+                self.prim_meshes.append(mesh)
 
         self.prim_meshes_by_mat_list = [self.prim_meshes_by_mat[mat] for mat in self.mesh_unique_materials]
         

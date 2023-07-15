@@ -38,8 +38,6 @@ class Mesh(Renderable):
     ) -> None:
         Renderable.__init__(self, None, world_from_anatomical)
         self.primitives = primitives if primitives is not None else []
-        for primitive in self.primitives:
-            primitive.set_parent_mesh(self)
         len_morph_targets = len(self.primitives[0].morph_targets) if len(self.primitives) > 0 else 0
         self.morph_weights = morph_weights if morph_weights is not None else np.zeros(len_morph_targets)
         assert len(self.morph_weights) == len_morph_targets
