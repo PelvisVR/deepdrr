@@ -1,9 +1,9 @@
 # TODO
-- Add dep on pycuda with gl support
 - Add tests
+- Add dep on pycuda with gl support
 - Zero mesh handling
 - Zero volume handling
-- Primitive merging
+
 - Save memory by using signed distances to represent front/back hits
 - Free all new allocs
 - Primary context?
@@ -11,11 +11,14 @@
 - WSL fallback, on by defualt
 - Pyrender morph targets
 - Classmethod that loads mesh from stl file
-- Autoinit don't do it as a import
+<!-- - Autoinit don't do it as a import -->
 - Test multiple projectors
-- Scatter not supported warning
+<!-- - Scatter not supported warning -->
+<!-- - Support changing resolution (no, just show warning) -->
+
+# Later
+- Primitive merging
 - Watertight check in primitive
-- Support changing resolution (no, just show warning)
 
 <!-- - Mesh priorities (is necessary?) -->
 
