@@ -18,7 +18,7 @@ class RenderFlags(object):
 
     Combine them with the bitwise or. For example,
 
-    >>> flags = OFFSCREEN | SHADOWS_DIRECTIONAL | VERTEX_NORMALS
+    >>> flags = RenderFlags.OFFSCREEN | RenderFlags.SHADOWS_DIRECTIONAL | RenderFlags.VERTEX_NORMALS
 
     would result in an offscreen render with directional shadows and
     vertex normals enabled.
