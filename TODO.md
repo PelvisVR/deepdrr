@@ -1,17 +1,14 @@
 # TODO
-- Add tests
 - Add dep on pycuda with gl support
-<!-- - Zero mesh handling -->
-
-- Save memory by using signed distances to represent front/back hits
 - Free all new allocs
-- Primary context?
 - Optional pycuda
 - WSL fallback, on by defualt
 - Pyrender morph targets
 - Classmethod that loads mesh from stl file
+<!-- - Zero mesh handling -->
 <!-- - Autoinit don't do it as a import -->
 - Test multiple projectors
+- Add tests
 <!-- - Scatter not supported warning -->
 <!-- - Support changing resolution (no, just show warning) -->
 <!-- - No parent pointer -->
@@ -20,6 +17,8 @@
 - Primitive merging
 - Watertight check in primitive
 - Zero volume handling
+- Save memory by using signed distances to represent front/back hits
+- Primary context?
 
 # Deepdrr arch ideas
 - glTF based tree scene interface
