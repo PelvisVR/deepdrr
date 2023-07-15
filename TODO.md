@@ -1,8 +1,7 @@
 # TODO
 - Add tests
 - Add dep on pycuda with gl support
-- Zero mesh handling
-- Zero volume handling
+<!-- - Zero mesh handling -->
 
 - Save memory by using signed distances to represent front/back hits
 - Free all new allocs
@@ -20,6 +19,7 @@
 # Later
 - Primitive merging
 - Watertight check in primitive
+- Zero volume handling
 
 # Deepdrr arch ideas
 - glTF based tree scene interface

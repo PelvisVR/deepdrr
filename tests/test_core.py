@@ -7,6 +7,7 @@ import deepdrr
 from deepdrr import geo
 from deepdrr.utils import test_utils
 from PIL import Image
+import pytest
 
 import pyvista as pv
 
@@ -21,14 +22,16 @@ def pytest_generate_tests(metafunc):
 
 
 class TestSingleVolume:
-    truth = Path.cwd() / "reference"
-    output_dir = Path.cwd() / "output"
+    d = Path(__file__).resolve().parent
+    truth = d / "reference"
+    output_dir = d / "output"
     output_dir.mkdir(exist_ok=True)
     file_path = test_utils.download_sampledata("CT-chest")
 
     params = {
         "test_simple": [dict()],
         "test_mesh": [dict()],
+        "test_mesh_only": [dict()],
         "test_translate": [
             dict(t=[0, 0, 0]),
             dict(t=[100, 0, 0]),
@@ -48,6 +51,13 @@ class TestSingleVolume:
         # set projector log level to debug
         import logging
         logging.basicConfig(level=logging.DEBUG)
+
+        try: 
+            truth_img = np.array(Image.open(self.truth / name))
+        except FileNotFoundError:
+            print(f"Truth image not found: {self.truth / name}")
+            # pytest.skip("Truth image not found")
+            pytest.fail("Truth image not found")
 
         with deepdrr.Projector(
             volume=volume,
@@ -71,12 +81,9 @@ class TestSingleVolume:
 
         image = (image * 255).astype(np.uint8)
         Image.fromarray(image).save(self.output_dir / name)
-        try: 
-            truth_img = np.array(Image.open(self.truth / name))
-            assert np.allclose(image, truth_img, atol=1)
-            print(f"Test {name} passed")
-        except FileNotFoundError:
-            print(f"Truth image not found: {self.truth / name}")
+
+        assert np.allclose(image, truth_img, atol=1)
+        print(f"Test {name} passed")
         return image
 
     def test_simple(self):
