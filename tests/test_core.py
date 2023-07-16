@@ -10,6 +10,7 @@ from PIL import Image
 import pytest
 
 import pyvista as pv
+import logging
 
 def pytest_generate_tests(metafunc):
     # called once per each test function
@@ -48,9 +49,6 @@ class TestSingleVolume:
         return volume
 
     def project(self, volume, carm, name):
-        # set projector log level to debug
-        import logging
-        logging.basicConfig(level=logging.DEBUG)
 
         try: 
             truth_img = np.array(Image.open(self.truth / name))
@@ -162,6 +160,9 @@ class TestSingleVolume:
 
 
 if __name__ == "__main__":
+    logging.getLogger("deepdrr").setLevel(logging.DEBUG)
+    # set projector log level to debug
+    logging.basicConfig(level=logging.DEBUG)
     test = TestSingleVolume()
     test.test_mesh()
     # volume = test.load_volume()
