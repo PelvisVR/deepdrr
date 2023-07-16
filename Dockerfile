@@ -46,4 +46,4 @@ COPY . .
 RUN pip install .
 
 # CMD python tests/test_core.py
-CMD python -m pytest
+CMD python -m pytest -v
