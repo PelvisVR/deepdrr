@@ -46,6 +46,8 @@ from pycuda.driver import Context as context
 import pycuda.gl
 import pycuda
 from pycuda.compiler import SourceModule
+from ..utils.output_logger import OutputLogger
+import contextlib
 
 log = logging.getLogger(__name__)
 
@@ -114,15 +116,15 @@ def _get_kernel_peel_postprocess_module(
         "-D",
         f"NUM_INTERSECTIONS={num_intersections}",
     ]
-    if log.getEffectiveLevel() <= logging.DEBUG:
-        options += ['-w'] # disable warnings
     assert num_intersections % 4 == 0, "num_intersections must be a multiple of 4"
 
-    return SourceModule(
-        source,
-        options=options,
-        no_extern_c=False,
-    )
+    with contextlib.redirect_stderr(OutputLogger(__name__, "DEBUG")):
+        sm = SourceModule(
+            source,
+            options=options,
+            no_extern_c=False,
+        )
+    return sm
 
 
 def _get_kernel_projector_module(
@@ -182,17 +184,18 @@ def _get_kernel_projector_module(
         "-D",
         f"AIR_INDEX={air_index}",
     ]
-    if log.getEffectiveLevel() <= logging.DEBUG:
-        options += ['-w'] # disable warnings
     log.debug(
         f"compiling {source_path} with NUM_VOLUMES={num_volumes}, NUM_MATERIALS={num_materials}"
     )
-    return SourceModule(
-        source,
-        include_dirs=[bicubic_path, str(d)],
-        options=options,
-        no_extern_c=True,
-    )
+
+    with contextlib.redirect_stderr(OutputLogger(__name__, "DEBUG")):
+        sm = SourceModule(
+            source,
+            include_dirs=[bicubic_path, str(d)],
+            options=options,
+            no_extern_c=True,
+        )
+    return sm
 
 
 def _get_kernel_scatter_module(num_materials) -> SourceModule:
@@ -209,15 +212,16 @@ def _get_kernel_scatter_module(num_materials) -> SourceModule:
     with open(source_path, "r") as file:
         source = file.read()
     options = ["-D", f"NUM_MATERIALS={num_materials}"]
-    if log.getEffectiveLevel() <= logging.DEBUG:
-        options += ['-w'] # disable warnings
     log.debug(f"compiling {source_path} with NUM_MATERIALS={num_materials}")
-    return SourceModule(
-        source,
-        include_dirs=[str(d)],
-        no_extern_c=True,
-        options=options,
-    )
+
+    with contextlib.redirect_stderr(OutputLogger(__name__, "DEBUG")):
+        sm = SourceModule(
+            source,
+            include_dirs=[str(d)],
+            no_extern_c=True,
+            options=options,
+        )
+    return sm
 
 
 class Projector(object):

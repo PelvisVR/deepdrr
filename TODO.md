@@ -1,5 +1,6 @@
 # TODO
-- Add dep on pycuda with gl support
+<!-- - Add dep on pycuda with gl support -->
+- Separate pyrender
 - Free all new allocs
 - Optional pycuda
 - WSL fallback, on by defualt
