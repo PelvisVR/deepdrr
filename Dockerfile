@@ -22,8 +22,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     freeglut3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-
-
+RUN mkdir -p /usr/share/glvnd/egl_vendor.d/ && \
+    echo "{\n\
+    \"file_format_version\" : \"1.0.0\",\n\
+    \"ICD\": {\n\
+    \"library_path\": \"libEGL_nvidia.so.0\"\n\
+    }\n\
+    }" > /usr/share/glvnd/egl_vendor.d/10_nvidia.json
 
 RUN conda install -c "nvidia/label/cuda-11.8.0" \
     cuda-toolkit \
@@ -34,22 +39,11 @@ RUN conda install -c "nvidia/label/cuda-11.8.0" \
     cuda-profiler-api \
     -y
 
-RUN mkdir -p /usr/share/glvnd/egl_vendor.d/ && \
-    echo "{\n\
-    \"file_format_version\" : \"1.0.0\",\n\
-    \"ICD\": {\n\
-    \"library_path\": \"libEGL_nvidia.so.0\"\n\
-    }\n\
-    }" > /usr/share/glvnd/egl_vendor.d/10_nvidia.json
-ENV VGL_DISPLAY egl
-
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY . .
 RUN pip install .
 
-CMD python tests/test_core.py
-# RUN python -m pytest
-# CMD ["python", "-m", "pytest"]
-
+# CMD python tests/test_core.py
+CMD python -m pytest
