@@ -13,13 +13,6 @@ rich
 opencv-python
 seaborn
 graphviz
-
-# development requirements
-black # proper python style
-pytest
-
-
-# pyrender
 freetype-py
 imageio
 networkx
@@ -33,4 +26,11 @@ trimesh
 sphinx
 sphinx_rtd_theme
 sphinx-automodapi
+
+# development requirements
+black # proper python style
+pytest
+trame
+ipykernel
+ipywidgets
 

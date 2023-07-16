@@ -114,6 +114,8 @@ def _get_kernel_peel_postprocess_module(
         "-D",
         f"NUM_INTERSECTIONS={num_intersections}",
     ]
+    if log.getEffectiveLevel() <= logging.DEBUG:
+        options += ['-w'] # disable warnings
     assert num_intersections % 4 == 0, "num_intersections must be a multiple of 4"
 
     return SourceModule(
@@ -180,6 +182,8 @@ def _get_kernel_projector_module(
         "-D",
         f"AIR_INDEX={air_index}",
     ]
+    if log.getEffectiveLevel() <= logging.DEBUG:
+        options += ['-w'] # disable warnings
     log.debug(
         f"compiling {source_path} with NUM_VOLUMES={num_volumes}, NUM_MATERIALS={num_materials}"
     )
@@ -204,13 +208,15 @@ def _get_kernel_scatter_module(num_materials) -> SourceModule:
 
     with open(source_path, "r") as file:
         source = file.read()
-
+    options = ["-D", f"NUM_MATERIALS={num_materials}"]
+    if log.getEffectiveLevel() <= logging.DEBUG:
+        options += ['-w'] # disable warnings
     log.debug(f"compiling {source_path} with NUM_MATERIALS={num_materials}")
     return SourceModule(
         source,
         include_dirs=[str(d)],
         no_extern_c=True,
-        options=["-D", f"NUM_MATERIALS={num_materials}"],
+        options=options,
     )
 
 
