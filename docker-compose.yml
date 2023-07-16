@@ -1,11 +1,7 @@
 version: "3.9"
 services:
   deepdrr:
-    # image: ghcr.io/pelvisvr/deepdrr_zmq:master
-    # environment:
-    #   - PATIENT_DATA_DIR=/patientdata
-    #   - LOG_DIR=/logdata
-    #   - DEEPDRR_DATA_DIR=/deepdrrcache
+    # image: ghcr.io/arcadelab/deepdrr:master
     pull_policy: build
     build:
       context: ./
@@ -17,5 +13,3 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu, utility, compute, graphics]
-              # capabilities: [gpu, utility, compute, graphics, video, display]
-              # device_ids:
