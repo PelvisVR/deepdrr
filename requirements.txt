@@ -1,5 +1,5 @@
 # general (redundant) requirements
-numpy
+numpy==1.24.4
 torch
 torchvision
 nibabel
@@ -7,7 +7,7 @@ scikit-image
 pydicom
 scipy
 pyvista
-pycuda # --config-settings "CUDA_ENABLE_GL=True"
+git+https://github.com/liamjwang/pycuda.git@main
 pynrrd
 rich
 opencv-python
@@ -26,8 +26,8 @@ networkx
 numpy
 Pillow
 pyglet==1.4.0a1
-PyOpenGL
-PyOpenGL_accelerate
+PyOpenGL==3.1.7
+PyOpenGL_accelerate==3.1.7
 six
 trimesh
 sphinx
