@@ -1,15 +1,18 @@
 name: deepdrr
 channels:
   - pytorch
-  - nvidia
+  - "nvidia/label/cuda-11.8.0"
   - conda-forge
 dependencies:
   - python=3.8
   - pytorch
   - torchvision
-  - cudatoolkit=11.1
-  - cudatoolkit-dev=11.1
-  - pycuda # https://github.com/harskish/ganspace/issues/9#issuecomment-730056660
+  - cuda-toolkit
+  - cuda-runtime
+  - cuda-nvprof
+  - cuda-gdb
+  - cuda-nvprof
+  - cuda-profiler-api
   - pip
   - pip:
       - -r requirements.txt
