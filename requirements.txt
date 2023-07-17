@@ -7,25 +7,17 @@ scikit-image
 pydicom
 scipy
 pyvista
-git+https://github.com/liamjwang/pycuda.git@main
+git+https://github.com/liamjwang/pycuda.git@main # pycuda with OpenGL interop enabled, TODO: make a PR with an option to enable this
 pynrrd
 rich
 opencv-python
 seaborn
 graphviz
-freetype-py
-imageio
-networkx
-numpy
-Pillow
-pyglet==1.4.0a1
-PyOpenGL==3.1.7
-PyOpenGL_accelerate==3.1.7
-six
+pyglet>=1.4.11
+PyOpenGL>=3.1.7
+PyOpenGL_accelerate>=3.1.7
 trimesh
-sphinx
-sphinx_rtd_theme
-sphinx-automodapi
+git+https://github.com/mmatl/pyrender.git@a59963ef890891656fd17c90e12d663233dcaa99 # pyrender without hard PyOpenGL version requirement, replace this when new version is released
 
 # development requirements
 black # proper python style
