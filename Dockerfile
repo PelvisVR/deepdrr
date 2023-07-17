@@ -30,17 +30,9 @@ RUN mkdir -p /usr/share/glvnd/egl_vendor.d/ && \
     }\n\
     }" > /usr/share/glvnd/egl_vendor.d/10_nvidia.json
 
-RUN conda install -c "nvidia/label/cuda-11.8.0" \
-    cuda-toolkit \
-    cuda-runtime \
-    cuda-nvprof \
-    cuda-gdb \
-    cuda-nvprof \
-    cuda-profiler-api \
-    -y
-
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+COPY environment.yml .
+RUN conda env create -f environment.yml
 
 COPY . .
 RUN pip install .
