@@ -17,8 +17,8 @@ from collections import defaultdict
 from OpenGL.GL import GL_TEXTURE_RECTANGLE
 from OpenGL.GL import *
 
-from ..pyrenderdrr import IntrinsicsCamera, Primitive, Mesh, Node, Scene, RenderFlags
-from ..pyrenderdrr.constants import DRRMode
+from pyrender import IntrinsicsCamera, Primitive, Mesh, Node, Scene, RenderFlags, MetallicRoughnessMaterial
+from ..pyrenderdrr.renderer import DRRMode
 
 from .. import geo, utils, vol
 from ..device import Device, MobileCArm
@@ -35,7 +35,7 @@ from .mcgpu_compton_data import COMPTON_DATA
 from .mcgpu_mfp_data import MFP_DATA
 from .mcgpu_rita_samplers import rita_samplers
 
-from ..pyrenderdrr.platforms import egl
+from pyrender.platforms import egl
 from ..pyrenderdrr.renderer import Renderer
 
 from functools import lru_cache
@@ -1250,7 +1250,7 @@ class Projector(object):
             self.scene.add_node(node)
             self.mesh_nodes.append(node)
             for prim in drrmesh.primitives:
-                mesh = Mesh([Primitive(positions=prim.compute_vertices().copy(), indices=prim.triangles(flip_winding_order=False).copy(), density=prim.density)])
+                mesh = Mesh([Primitive(positions=prim.compute_vertices().copy(), indices=prim.triangles(flip_winding_order=False).copy(), material=MetallicRoughnessMaterial(baseColorFactor=(prim.density/100,0,0,0)))])
                 self.scene.add(mesh, parent_node=node)
                 self.prim_meshes_by_mat[prim.material].append(mesh)
                 self.prim_meshes.append(mesh)

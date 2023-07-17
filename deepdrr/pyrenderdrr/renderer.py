@@ -1,12 +1,14 @@
-"""PBR renderer for Python.
-
-Author: Matthew Matl
-"""
 import numpy as np
 from OpenGL.GL import *
+from pathlib import Path
+from pyrender.constants import (RenderFlags, ProgramFlags)
+from pyrender.shader_program import ShaderProgramCache
 
-from .constants import (RenderFlags, ProgramFlags, DRRMode)
-from .shader_program import ShaderProgramCache
+class DRRMode:
+    NONE = 0
+    DENSITY = 1
+    DIST = 2
+    SEG = 3
 
 GL_COLOR_ATTACHMENT_LIST = [
     GL_COLOR_ATTACHMENT0,
@@ -55,7 +57,9 @@ class Renderer(object):
         self.g_densityFboId = None
 
         # Shader Program Cache
-        self._program_cache = ShaderProgramCache()
+        d = Path(__file__).resolve().parent
+        shader_dir = d / 'shaders'
+        self._program_cache = ShaderProgramCache(shader_dir=shader_dir)
         self._meshes = set()
         self._mesh_textures = set()
         self._texture_alloc_idx = 0
@@ -235,7 +239,7 @@ class Renderer(object):
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
             glDisable(GL_CULL_FACE)
         elif drr_mode == DRRMode.DENSITY:
-            program.set_uniform('density', float(primitive.density))
+            program.set_uniform('density', float(primitive.material.baseColorFactor[0]*100))
             glEnable(GL_BLEND)
             glBlendEquation(GL_FUNC_ADD)
             glBlendFunc(GL_ONE, GL_ONE)
