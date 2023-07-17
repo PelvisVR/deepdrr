@@ -8,12 +8,13 @@ from deepdrr import geo
 from deepdrr.utils import test_utils
 from PIL import Image
 import pytest
+import copy
 
 import pyvista as pv
 import logging
 import pyrender
 from deepdrr.pyrenderdrr.material import DRRMaterial
-from deepdrr.utils.mesh_utils import polydata_to_pyrender
+from deepdrr.utils.mesh_utils import *
 
 def pytest_generate_tests(metafunc):
     # called once per each test function
@@ -121,8 +122,8 @@ class TestSingleVolume:
         # scale from m to mm
         # mesh = deepdrr.Mesh("titanium", 7, stl, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("y", 90, degrees=True)))
         # mesh = deepdrr.Mesh("air", 0, stl, morph_targets=morph_targets, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 90, degrees=True)))
-        prim = polydata_to_pyrender(stl, material=DRRMaterial("titanium", density=2, subtractive=True))
-        mesh = deepdrr.Mesh(mesh=pyrender.Mesh([prim]), world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 90, degrees=True) * geo.Rotation.from_euler("y", 30, degrees=True)))
+        prim = pyrender.Mesh.from_trimesh(polydata_to_trimesh(stl), material=DRRMaterial("titanium", density=2, subtractive=True))
+        mesh = deepdrr.Mesh(mesh=prim, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 90, degrees=True) * geo.Rotation.from_euler("y", 30, degrees=True)))
 
         # prim2 = deepdrr.Primitive("titanium", 2, stl2, subtractive=True)
         prim2 = polydata_to_pyrender(stl2, material=DRRMaterial("titanium", density=2, subtractive=True))

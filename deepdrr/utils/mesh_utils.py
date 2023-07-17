@@ -196,17 +196,18 @@ def voxelize_dir(input_dir: str, output_dir: str, use_cached: bool = True, **kwa
             voxelize_file(path, output_path, **kwargs)
             progress.advance(surfaces_voxelized)
 
-def polydata_to_pyrender(polydata: pv.PolyData, material: pyrender.Material = None) -> pyrender.Primitive:
+
+def polydata_to_vertices_faces(polydata: pv.PolyData) -> Tuple[np.ndarray, np.ndarray]:
     positions = polydata.points.astype(np.float32).copy()
     polyfaces = polydata.faces.reshape((-1, 4))
     assert np.all(polyfaces[:, 0] == 3), "only triangular meshes are supported"
     indices = polyfaces[..., 1:].astype(np.int32).copy()
+    return positions, indices
+
+def polydata_to_pyrender(polydata: pv.PolyData, material: pyrender.Material = None) -> pyrender.Primitive:
+    positions, indices = polydata_to_vertices_faces(polydata)
     return pyrender.Primitive(positions=positions, indices=indices, material=material)
 
-# def polydata_to_trimesh(polydata: pv.PolyData, material) -> trimesh.Trimesh:
-#     return Mesh([Primitive(positions=np.array(polydata.points, dtype=np.float32).copy(), indices=self.data.faces.reshape((-1, 4))[..., 1:][..., [0, 1, 2]].astype(np.int32).copy())], material=material)
-#     # # mesh = polydata.extract_surface().triangulate()
-#     # mesh = polydata
-#     # faces_as_array = mesh.faces.reshape((mesh.n_faces, 4))[:, 1:]
-#     # mesh = trimesh.Trimesh(mesh.points, faces_as_array)
-#     # return mesh
+def polydata_to_trimesh(polydata: pv.PolyData) -> trimesh.Trimesh:
+    positions, indices = polydata_to_vertices_faces(polydata)
+    return trimesh.Trimesh(vertices=positions, faces=indices, process=False, validate=False)

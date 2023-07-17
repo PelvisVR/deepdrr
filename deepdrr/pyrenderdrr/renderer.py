@@ -1,7 +1,7 @@
 import numpy as np
 from OpenGL.GL import *
 from pathlib import Path
-from pyrender.constants import (RenderFlags, ProgramFlags)
+from pyrender.constants import (RenderFlags, ProgramFlags, BufFlags)
 from pyrender.shader_program import ShaderProgramCache
 from .material import DRRMaterial
 
@@ -411,6 +411,27 @@ class Renderer(object):
         # Set up vertex buffer DEFINES
         bf = primitive.buf_flags
         buf_idx = 1
+        if bf & BufFlags.NORMAL:
+            defines['NORMAL_LOC'] = buf_idx
+            buf_idx += 1
+        if bf & BufFlags.TANGENT:
+            defines['TANGENT_LOC'] = buf_idx
+            buf_idx += 1
+        if bf & BufFlags.TEXCOORD_0:
+            defines['TEXCOORD_0_LOC'] = buf_idx
+            buf_idx += 1
+        if bf & BufFlags.TEXCOORD_1:
+            defines['TEXCOORD_1_LOC'] = buf_idx
+            buf_idx += 1
+        if bf & BufFlags.COLOR_0:
+            defines['COLOR_0_LOC'] = buf_idx
+            buf_idx += 1
+        if bf & BufFlags.JOINTS_0:
+            defines['JOINTS_0_LOC'] = buf_idx
+            buf_idx += 1
+        if bf & BufFlags.WEIGHTS_0:
+            defines['WEIGHTS_0_LOC'] = buf_idx
+            buf_idx += 1
         defines['INST_M_LOC'] = buf_idx
 
         program = self._program_cache.get_program(
