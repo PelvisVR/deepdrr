@@ -36,6 +36,7 @@ class Mesh(Renderable):
         world_from_anatomical: Optional[geo.FrameTransform] = None,
         anatomical_from_ijk: Optional[geo.FrameTransform] = None,
         mesh: pyrender.Mesh = None,
+        **kwargs
     ) -> None:
         Renderable.__init__(self, 
             anatomical_from_IJK=anatomical_from_IJK,
@@ -46,40 +47,3 @@ class Mesh(Renderable):
             raise ValueError("mesh must be specified")
         
         self.mesh = mesh
-
-    # def set_all_materials(self, material: pyrender.Material) -> None:
-    #     for prim in self.mesh.primitives:
-    #         prim.material = material
-
-    # @classmethod
-    # def from_trimesh(
-    #     cls,
-    #     anatomical_from_IJK: Optional[geo.FrameTransform] = None,
-    #     world_from_anatomical: Optional[geo.FrameTransform] = None,
-    #     anatomical_from_ijk: Optional[geo.FrameTransform] = None,
-    #     mesh: Union[trimesh.Trimesh, List[trimesh.Trimesh], trimesh.Scene] = None,
-    #     material: pyrender.Material = None,
-    #     **kwargs
-    # ) -> Mesh:
-    #     if isinstance(mesh, trimesh.Scene):
-    #         mesh = mesh.dump()
-    #     mesh = pyrender.Mesh.from_trimesh(trimesh, **kwargs)
-    #     mesh = cls(
-    #         anatomical_from_IJK=anatomical_from_IJK,
-    #         world_from_anatomical=world_from_anatomical,
-    #         anatomical_from_ijk=anatomical_from_ijk,
-    #         mesh=mesh
-    #     )
-    #     mesh.set_all_materials(material)
-    #     return mesh
-
-    # @classmethod
-    # def from_polydata(
-    #     cls,
-    #     mesh: pv.PolyData = None,
-    #     **kwargs
-    # ) -> Mesh:
-    #     mesh = polydata_to_trimesh(mesh)
-    #     return cls.from_trimesh(mesh=mesh, **kwargs)
-        
-    

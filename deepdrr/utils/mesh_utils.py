@@ -204,10 +204,34 @@ def polydata_to_vertices_faces(polydata: pv.PolyData) -> Tuple[np.ndarray, np.nd
     indices = polyfaces[..., 1:].astype(np.int32).copy()
     return positions, indices
 
-def polydata_to_pyrender(polydata: pv.PolyData, material: pyrender.Material = None) -> pyrender.Primitive:
+def polydata_to_pyrender_prim(polydata: pv.PolyData, material: pyrender.Material = None) -> pyrender.Primitive:
     positions, indices = polydata_to_vertices_faces(polydata)
     return pyrender.Primitive(positions=positions, indices=indices, material=material)
+
+def polydata_to_pyrender_mesh(polydata: pv.PolyData, material: pyrender.Material = None) -> pyrender.Mesh:
+    return pyrender.Mesh([polydata_to_pyrender_prim(polydata, material=material)])
 
 def polydata_to_trimesh(polydata: pv.PolyData) -> trimesh.Trimesh:
     positions, indices = polydata_to_vertices_faces(polydata)
     return trimesh.Trimesh(vertices=positions, faces=indices, process=False, validate=False)
+
+def trimesh_to_pyrender_mesh(
+    mesh: Union[trimesh.Trimesh, List[trimesh.Trimesh], trimesh.Scene] = None,
+    material: pyrender.Material = None,
+    **kwargs
+) -> pyrender.Mesh:
+    if isinstance(mesh, trimesh.Scene):
+        mesh = mesh.dump()
+    mesh = pyrender.Mesh.from_trimesh(mesh, **kwargs)
+    if material is not None:
+        for prim in mesh.primitives:
+            prim.material = material
+    return mesh
+
+def trimesh_to_pyrender_prim(
+    mesh: trimesh.Trimesh = None,
+    material: pyrender.Material = None,
+) -> pyrender.Primitive:
+    mesh = trimesh_to_pyrender_mesh(mesh, material=material)
+    assert len(mesh.primitives) == 1, "only single primitive meshes are supported"
+    return mesh.primitives[0]
