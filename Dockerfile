@@ -30,9 +30,13 @@ RUN mkdir -p /usr/share/glvnd/egl_vendor.d/ && \
     }\n\
     }" > /usr/share/glvnd/egl_vendor.d/10_nvidia.json
 
-COPY requirements.txt .
+RUN touch requirements.txt
 COPY environment.yml .
-RUN conda env create -f environment.yml
+RUN conda env update -n base -f environment.yml
+RUN rm requirements.txt
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
 
 COPY . .
 RUN pip install .
