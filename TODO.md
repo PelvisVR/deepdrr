@@ -2,7 +2,7 @@
 <!-- - Add dep on pycuda with gl support -->
 <!-- - Separate pyrender -->
 - WSL fallback, on by defualt
-- Classmethod that loads mesh from stl file
+<!-- - Classmethod that loads mesh from stl file -->
 - Free all new allocs
 - Test multiple projectors
 - Add tests
