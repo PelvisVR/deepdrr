@@ -1,15 +1,15 @@
 # TODO
 <!-- - Add dep on pycuda with gl support -->
 - Separate pyrender
-- Free all new allocs
-- Optional pycuda
 - WSL fallback, on by defualt
 - Pyrender morph targets
 - Classmethod that loads mesh from stl file
-<!-- - Zero mesh handling -->
-<!-- - Autoinit don't do it as a import -->
+- Free all new allocs
 - Test multiple projectors
 - Add tests
+<!-- - Zero mesh handling -->
+<!-- - Autoinit don't do it as a import -->
+<!-- - Optional pycuda -->
 <!-- - Scatter not supported warning -->
 <!-- - Support changing resolution (no, just show warning) -->
 <!-- - No parent pointer -->

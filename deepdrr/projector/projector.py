@@ -40,12 +40,16 @@ from ..pyrenderdrr.renderer import Renderer
 
 from functools import lru_cache
 
-from pycuda.tools import make_default_context
-import pycuda.driver as cuda
-from pycuda.driver import Context as context
-import pycuda.gl
-import pycuda
-from pycuda.compiler import SourceModule
+try:
+    from pycuda.tools import make_default_context
+    from pycuda.driver import Context as context
+    import pycuda.driver as cuda
+    import pycuda.gl
+    import pycuda
+    from pycuda.compiler import SourceModule
+except ImportError:
+    logging.warning('pycuda unavailable')
+
 from ..utils.output_logger import OutputLogger
 import contextlib
 
