@@ -1,4 +1,5 @@
 from __future__ import annotations
+from re import T
 from typing import Any, Union, Tuple, List, Optional, Dict, Type
 
 import logging
@@ -19,25 +20,66 @@ from ..utils import mesh_utils
 from ..device import Device
 from ..projector.material_coefficients import material_coefficients
 from .renderable import Renderable
-from .primitive import Primitive
+import pyrender
+import trimesh
+# from deepdrr.utils.mesh_utils import polydata_to_trimesh
+
 
 vtk, nps, vtk_available = utils.try_import_vtk()
 
-
 log = logging.getLogger(__name__)
 
-
 class Mesh(Renderable):
-    primitives: List[Primitive]
-
     def __init__(
         self,
-        primitives: Optional[List[Primitive]] = None,
-        morph_weights: Optional[np.ndarray] = None,
+        anatomical_from_IJK: Optional[geo.FrameTransform] = None,
         world_from_anatomical: Optional[geo.FrameTransform] = None,
+        anatomical_from_ijk: Optional[geo.FrameTransform] = None,
+        mesh: pyrender.Mesh = None,
     ) -> None:
-        Renderable.__init__(self, None, world_from_anatomical)
-        self.primitives = primitives if primitives is not None else []
-        len_morph_targets = len(self.primitives[0].morph_targets) if len(self.primitives) > 0 else 0
-        self.morph_weights = morph_weights if morph_weights is not None else np.zeros(len_morph_targets)
-        assert len(self.morph_weights) == len_morph_targets
+        Renderable.__init__(self, 
+            anatomical_from_IJK=anatomical_from_IJK,
+            world_from_anatomical=world_from_anatomical,
+            anatomical_from_ijk=anatomical_from_ijk
+        )
+        if mesh is None:
+            raise ValueError("mesh must be specified")
+        
+        self.mesh = mesh
+
+    # def set_all_materials(self, material: pyrender.Material) -> None:
+    #     for prim in self.mesh.primitives:
+    #         prim.material = material
+
+    # @classmethod
+    # def from_trimesh(
+    #     cls,
+    #     anatomical_from_IJK: Optional[geo.FrameTransform] = None,
+    #     world_from_anatomical: Optional[geo.FrameTransform] = None,
+    #     anatomical_from_ijk: Optional[geo.FrameTransform] = None,
+    #     mesh: Union[trimesh.Trimesh, List[trimesh.Trimesh], trimesh.Scene] = None,
+    #     material: pyrender.Material = None,
+    #     **kwargs
+    # ) -> Mesh:
+    #     if isinstance(mesh, trimesh.Scene):
+    #         mesh = mesh.dump()
+    #     mesh = pyrender.Mesh.from_trimesh(trimesh, **kwargs)
+    #     mesh = cls(
+    #         anatomical_from_IJK=anatomical_from_IJK,
+    #         world_from_anatomical=world_from_anatomical,
+    #         anatomical_from_ijk=anatomical_from_ijk,
+    #         mesh=mesh
+    #     )
+    #     mesh.set_all_materials(material)
+    #     return mesh
+
+    # @classmethod
+    # def from_polydata(
+    #     cls,
+    #     mesh: pv.PolyData = None,
+    #     **kwargs
+    # ) -> Mesh:
+    #     mesh = polydata_to_trimesh(mesh)
+    #     return cls.from_trimesh(mesh=mesh, **kwargs)
+        
+    

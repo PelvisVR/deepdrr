@@ -19,6 +19,7 @@ from OpenGL.GL import *
 
 from pyrender import IntrinsicsCamera, Primitive, Mesh, Node, Scene, RenderFlags, MetallicRoughnessMaterial
 from ..pyrenderdrr.renderer import DRRMode
+from ..pyrenderdrr.material import DRRMaterial
 
 from .. import geo, utils, vol
 from ..device import Device, MobileCArm
@@ -133,7 +134,6 @@ def _get_kernel_peel_postprocess_module(
 
 def _get_kernel_projector_module(
     num_volumes: int,
-    num_meshes: int,
     num_materials: int,
     mesh_additive_enabled: bool,
     mesh_additive_and_subtractive_enabled: bool,
@@ -300,8 +300,13 @@ class Projector(object):
                 self.volumes.append(_vol)
             elif isinstance(_vol, vol.Mesh):
                 self.meshes.append(_vol)
-                for p in _vol.primitives:
-                    self.primitives.append(p)
+                for prim in _vol.mesh.primitives:
+                    if isinstance(prim.material, DRRMaterial):
+                        self.primitives.append(prim)
+                    else:
+                        raise ValueError(
+                            f"unrecognized Renderable type: {type(_vol)}."
+                        )
             else:
                 raise ValueError(
                     f"unrecognized Renderable type: {type(_vol)}."
@@ -311,7 +316,7 @@ class Projector(object):
         self.mesh_additive_and_subtractive_enabled = False
 
         for prim in self.primitives:
-            if prim.subtractive:
+            if prim.material.subtractive:
                 self.mesh_additive_and_subtractive_enabled = True
 
         def implies(a, b):
@@ -384,7 +389,7 @@ class Projector(object):
             all_mats.extend(list(_vol.materials.keys()))
 
         for _vol in self.primitives:
-            all_mats.append(_vol.material)
+            all_mats.append(_vol.material.drrMatName)
 
         self.all_materials = list(set(all_mats))
         self.all_materials.sort()
@@ -555,18 +560,10 @@ class Projector(object):
                 # print(f"init arrays: {mesh_perf_end - mesh_perf_start}")
                 # mesh_perf_start = mesh_perf_end
 
-                for mesh in self.prim_meshes:
-                    mesh.is_visible = True
-
                 zfar = self.device.source_to_detector_distance*2 # TODO (liam)
 
-                for mat_idx in range(len(self.prim_meshes_by_mat_list)):
-                    meshes_to_show = self.prim_meshes_by_mat_list[i]
-                    
-                    for node in meshes_to_show:
-                        node.is_visible = True
-
-                    rendered_layers = self.gl_renderer.render(self.scene, drr_mode=DRRMode.DENSITY, flags=RenderFlags.RGBA, zfar=zfar)
+                for mat_idx, mat in enumerate(self.mesh_unique_materials):
+                    rendered_layers = self.gl_renderer.render(self.scene, drr_mode=DRRMode.DENSITY, flags=RenderFlags.RGBA, zfar=zfar, mat=mat)
                     
                     reg_img = pycuda.gl.RegisteredImage(int(self.gl_renderer.g_densityTexId), GL_TEXTURE_RECTANGLE, pycuda.gl.graphics_map_flags.READ_ONLY)
                     mapping = reg_img.map()
@@ -582,12 +579,6 @@ class Projector(object):
 
                     mapping.unmap()
                     reg_img.unregister()
-                    
-                    for node in meshes_to_show:
-                        node.is_visible = False
-            
-                for mesh in self.prim_meshes:
-                    mesh.is_visible = True
 
                 # mesh_perf_end = time.perf_counter()
                 # print(f"density: {mesh_perf_end - mesh_perf_start}")
@@ -1117,7 +1108,6 @@ class Projector(object):
         # compile the module, moved to to initialize because it needs to happen after the context is created
         self.mod = _get_kernel_projector_module(
             len(self.volumes),
-            len(self.primitives),
             len(self.all_materials),
             self.mesh_additive_enabled,
             self.mesh_additive_and_subtractive_enabled,
@@ -1216,21 +1206,21 @@ class Projector(object):
             else:
                 return cuda.mem_alloc(size)
 
-        self.mesh_materials_gpu = cuda_mem_alloc_or_null(len(self.primitives) * NUMBYTES_INT32)
-        self.mesh_unique_materials = list(set([mesh.material for mesh in self.primitives]))
+        self.mesh_materials_gpu = cuda_mem_alloc_or_null(len(self.primitives) * NUMBYTES_INT32) # material mapping
+        self.mesh_unique_materials = list(set([mesh.material.drrMatName for mesh in self.primitives]))
         self.mesh_unique_materials_indices = [self.all_materials.index(mat) for mat in self.mesh_unique_materials]
         self.mesh_unique_materials_gpu = cuda_mem_alloc_or_null(len(self.mesh_unique_materials) * NUMBYTES_INT32)
         cuda.memcpy_htod(self.mesh_unique_materials_gpu, np.array(self.mesh_unique_materials_indices).astype(np.int32))
         mesh_materials = []
         for mesh in self.primitives:
-            mesh_materials.append(self.all_materials.index(mesh.material))
+            mesh_materials.append(self.all_materials.index(mesh.material.drrMatName))
         mesh_materials = np.array(mesh_materials).astype(np.int32)
         cuda.memcpy_htod(self.mesh_materials_gpu, mesh_materials)
 
         self.mesh_densities_gpu = cuda_mem_alloc_or_null(len(self.primitives) * NUMBYTES_FLOAT32)
         mesh_densities = []
         for mesh in self.primitives:
-            mesh_densities.append(mesh.density)
+            mesh_densities.append(mesh.material.density)
         mesh_densities = np.array(mesh_densities).astype(np.float32)
         cuda.memcpy_htod(self.mesh_densities_gpu, mesh_densities)
 
@@ -1243,20 +1233,12 @@ class Projector(object):
         self.scene = Scene(bg_color=[0.0, 0.0, 0.0])
 
         self.mesh_nodes = []
-        self.prim_meshes = []
-        self.prim_meshes_by_mat = defaultdict(list)
         for drrmesh in self.meshes:
             node = Node()
             self.scene.add_node(node)
             self.mesh_nodes.append(node)
-            for prim in drrmesh.primitives:
-                mesh = Mesh([Primitive(positions=prim.compute_vertices().copy(), indices=prim.triangles(flip_winding_order=False).copy(), material=MetallicRoughnessMaterial(baseColorFactor=(prim.density/100,0,0,0)))])
-                self.scene.add(mesh, parent_node=node)
-                self.prim_meshes_by_mat[prim.material].append(mesh)
-                self.prim_meshes.append(mesh)
+            self.scene.add(drrmesh.mesh, parent_node=node)
 
-        self.prim_meshes_by_mat_list = [self.prim_meshes_by_mat[mat] for mat in self.mesh_unique_materials]
-        
         cam_intr = self.device.camera_intrinsics
 
         self.cam = IntrinsicsCamera(

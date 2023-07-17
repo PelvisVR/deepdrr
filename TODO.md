@@ -1,12 +1,13 @@
 # TODO
 <!-- - Add dep on pycuda with gl support -->
-- Separate pyrender
+<!-- - Separate pyrender -->
 - WSL fallback, on by defualt
-- Pyrender morph targets
 - Classmethod that loads mesh from stl file
 - Free all new allocs
 - Test multiple projectors
 - Add tests
+- Pyrender morph targets
+- Test multi material
 <!-- - Zero mesh handling -->
 <!-- - Autoinit don't do it as a import -->
 <!-- - Optional pycuda -->
@@ -20,6 +21,7 @@
 - Zero volume handling
 - Save memory by using signed distances to represent front/back hits
 - Primary context?
+- Restructure to use pyrender-like scenes
 
 # Deepdrr arch ideas
 - glTF based tree scene interface

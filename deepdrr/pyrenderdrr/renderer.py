@@ -3,6 +3,7 @@ from OpenGL.GL import *
 from pathlib import Path
 from pyrender.constants import (RenderFlags, ProgramFlags)
 from pyrender.shader_program import ShaderProgramCache
+from .material import DRRMaterial
 
 class DRRMode:
     NONE = 0
@@ -94,14 +95,14 @@ class Renderer(object):
     def point_size(self, value):
         self._point_size = float(value)
 
-    def render(self, scene, flags, seg_node_map=None, drr_mode=DRRMode.NONE, zfar=0):
+    def render(self, scene, flags, seg_node_map=None, drr_mode=DRRMode.NONE, zfar=0, mat=None):
         self._update_context(scene, flags)
 
         if drr_mode != DRRMode.DENSITY:
             for i in range(self.max_peel_layers):
                 retval = self._forward_pass(scene, flags, seg_node_map=seg_node_map, drr_mode=drr_mode, zfar=zfar, peelnum=i)
         else:
-            retval = self._forward_pass(scene, flags, seg_node_map=seg_node_map, drr_mode=drr_mode, zfar=zfar, peelnum=0)
+            retval = self._forward_pass(scene, flags, seg_node_map=seg_node_map, drr_mode=drr_mode, zfar=zfar, peelnum=0, mat=mat)
 
         return retval
 
@@ -137,7 +138,7 @@ class Renderer(object):
     # Rendering passes
     ###########################################################################
 
-    def _forward_pass(self, scene, flags, seg_node_map=None, drr_mode=DRRMode.NONE, zfar=0, peelnum=0):
+    def _forward_pass(self, scene, flags, seg_node_map=None, drr_mode=DRRMode.NONE, zfar=0, peelnum=0, mat=None):
         # Set up viewport for render
         self._configure_forward_pass_viewport(flags, drr_mode=drr_mode, peelnum=peelnum)
 
@@ -178,6 +179,17 @@ class Renderer(object):
                 color = color / 255.0
 
             for primitive in mesh.primitives:
+                if not isinstance(primitive.material, DRRMaterial):
+                    continue
+                if drr_mode == DRRMode.DENSITY and not primitive.material.additive:
+                    continue
+                if drr_mode == DRRMode.DIST and not primitive.material.subtractive:
+                    continue
+                # if mat is not None and primitive.material.drrMatName != mat:
+                #     continue
+                # if mat is not None:
+                    # continue
+
                 # First, get and bind the appropriate program
                 program = self._get_primitive_program(
                     primitive, flags, ProgramFlags.USE_MATERIAL, drr_mode=drr_mode, peelnum=peelnum
@@ -223,6 +235,7 @@ class Renderer(object):
 
         # Bind mesh material
         material = primitive.material
+        assert isinstance(primitive.material, DRRMaterial), "Material must be DRRMaterial"
 
         if drr_mode == DRRMode.DIST:
             if peelnum > 0:
@@ -239,7 +252,13 @@ class Renderer(object):
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
             glDisable(GL_CULL_FACE)
         elif drr_mode == DRRMode.DENSITY:
-            program.set_uniform('density', float(primitive.material.baseColorFactor[0]*100))
+            density = material.density
+            assert density is not None, "Density must be set for DRRMode.DENSITY"
+            assert isinstance(density, float), "Density must be float"
+            if density < 0:
+                density = 0
+            program.set_uniform('density', float(density)) # TODO (liam)
+
             glEnable(GL_BLEND)
             glBlendEquation(GL_FUNC_ADD)
             glBlendFunc(GL_ONE, GL_ONE)

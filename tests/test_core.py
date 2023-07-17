@@ -11,6 +11,9 @@ import pytest
 
 import pyvista as pv
 import logging
+import pyrender
+from deepdrr.pyrenderdrr.material import DRRMaterial
+from deepdrr.utils.mesh_utils import polydata_to_pyrender
 
 def pytest_generate_tests(metafunc):
     # called once per each test function
@@ -118,14 +121,16 @@ class TestSingleVolume:
         # scale from m to mm
         # mesh = deepdrr.Mesh("titanium", 7, stl, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("y", 90, degrees=True)))
         # mesh = deepdrr.Mesh("air", 0, stl, morph_targets=morph_targets, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 90, degrees=True)))
-        prim = deepdrr.Primitive("titanium", 2, stl, subtractive=True)
-        mesh = deepdrr.Mesh([prim], world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 90, degrees=True) * geo.Rotation.from_euler("y", 30, degrees=True)))
+        prim = polydata_to_pyrender(stl, material=DRRMaterial("titanium", density=2, subtractive=True))
+        mesh = deepdrr.Mesh(mesh=prim, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 90, degrees=True) * geo.Rotation.from_euler("y", 30, degrees=True)))
 
-        prim2 = deepdrr.Primitive("titanium", 2, stl2, subtractive=True)
-        mesh2 = deepdrr.Mesh([prim2], world_from_anatomical=geo.FrameTransform.from_translation([30, 50, 200]))
+        # prim2 = deepdrr.Primitive("titanium", 2, stl2, subtractive=True)
+        prim2 = polydata_to_pyrender(stl2, material=DRRMaterial("titanium", density=2, subtractive=True))
+        mesh2 = deepdrr.Mesh(mesh=prim2, world_from_anatomical=geo.FrameTransform.from_translation([30, 50, 200]))
 
-        prim3 = deepdrr.Primitive("titanium", 0, stl2, subtractive=True)
-        mesh3 = deepdrr.Mesh([prim3], world_from_anatomical=geo.FrameTransform.from_translation([-30, 20, -70]))
+        # prim3 = deepdrr.Primitive("titanium", 0, stl2, subtractive=True)
+        prim3 = polydata_to_pyrender(stl2, material=DRRMaterial("titanium", density=0, subtractive=True))
+        mesh3 = deepdrr.Mesh(mesh=prim3, world_from_anatomical=geo.FrameTransform.from_translation([-30, 20, -70]))
         # mesh = deepdrr.Mesh("polyethylene", 1.05, stl)
         # mesh.morph_weights = np.array([-10])
         
