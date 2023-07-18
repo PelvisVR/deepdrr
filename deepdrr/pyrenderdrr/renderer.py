@@ -185,10 +185,8 @@ class Renderer(object):
                     continue
                 if drr_mode == DRRMode.DIST and not primitive.material.subtractive:
                     continue
-                # if mat is not None and primitive.material.drrMatName != mat:
-                #     continue
-                # if mat is not None:
-                    # continue
+                if mat is not None and primitive.material.drrMatName != mat:
+                    continue
 
                 # First, get and bind the appropriate program
                 program = self._get_primitive_program(

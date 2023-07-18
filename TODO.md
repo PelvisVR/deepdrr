@@ -1,19 +1,21 @@
 # TODO
 <!-- - Add dep on pycuda with gl support -->
 <!-- - Separate pyrender -->
-- WSL fallback, on by defualt
 <!-- - Classmethod that loads mesh from stl file -->
-- Free all new allocs
 - Test multiple projectors
-- Add tests
+<!-- - Test multi material -->
 - Pyrender morph targets
-- Test multi material
+- WSL fallback, on by defualt
 <!-- - Zero mesh handling -->
 <!-- - Autoinit don't do it as a import -->
 <!-- - Optional pycuda -->
 <!-- - Scatter not supported warning -->
 <!-- - Support changing resolution (no, just show warning) -->
 <!-- - No parent pointer -->
+
+# Recurring
+- Free all new allocs
+- Add tests
 
 # Later
 - Primitive merging

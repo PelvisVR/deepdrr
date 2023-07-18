@@ -83,7 +83,8 @@ class TestSingleVolume:
 
         image = (image * 255).astype(np.uint8)
         Image.fromarray(image).save(self.output_dir / name)
-
+        # diff
+        Image.fromarray(np.abs(image - truth_img)).save(self.output_dir / f"diff_{name}")
         assert np.allclose(image, truth_img, atol=1)
         print(f"Test {name} passed")
         return image
@@ -123,10 +124,11 @@ class TestSingleVolume:
         # mesh = deepdrr.Mesh("titanium", 7, stl, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("y", 90, degrees=True)))
         # mesh = deepdrr.Mesh("air", 0, stl, morph_targets=morph_targets, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 90, degrees=True)))
         prim = pyrender.Mesh.from_trimesh(polydata_to_trimesh(stl), material=DRRMaterial("titanium", density=2, subtractive=True))
+        # prim = pyrender.Mesh.from_trimesh(polydata_to_trimesh(stl), material=DRRMaterial("bone", density=2, subtractive=True))
         mesh = deepdrr.Mesh(mesh=prim, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 90, degrees=True) * geo.Rotation.from_euler("y", 30, degrees=True)))
 
         # prim2 = deepdrr.Primitive("titanium", 2, stl2, subtractive=True)
-        prim2 = trimesh_to_pyrender_mesh(polydata_to_trimesh(stl2), material=DRRMaterial("titanium", density=2, subtractive=True))
+        prim2 = trimesh_to_pyrender_mesh(polydata_to_trimesh(stl2), material=DRRMaterial("lung", density=2, subtractive=True))
         mesh2 = deepdrr.Mesh(mesh=prim2, world_from_anatomical=geo.FrameTransform.from_translation([30, 50, 200]))
 
         # prim3 = deepdrr.Primitive("titanium", 0, stl2, subtractive=True)
