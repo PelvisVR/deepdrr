@@ -252,7 +252,7 @@ class Projector(object):
         attenuate_outside_volume: bool = False,
         source_to_detector_distance: float = -1,
         carm: Optional[Device] = None,
-        max_mesh_depth = 32
+        num_mesh_layers = 32
     ) -> None:
         """Create the projector, which has info for simulating the DRR.
 
@@ -378,8 +378,8 @@ class Projector(object):
         # TODO (mjudish): handle intensity_upper_bound when [collected_energy is True]
         # Might want to disallow using intensity_upper_bound, due to nonsensicalness
 
-        self.max_mesh_depth = max_mesh_depth
-        if self.max_mesh_depth < 4 or self.max_mesh_depth % 4 != 0:
+        self.num_mesh_layers = num_mesh_layers
+        if self.num_mesh_layers < 4 or self.num_mesh_layers % 4 != 0:
             raise ValueError("max_mesh_depth must be a multiple of 4 and >= 4")
 
         assert len(self.volumes) > 0
@@ -593,7 +593,7 @@ class Projector(object):
                     # print(f"peel: {mesh_perf_end - mesh_perf_start}")
                     # mesh_perf_start = mesh_perf_end
 
-                    for tex_idx in range(self.gl_renderer.max_peel_layers):
+                    for tex_idx in range(self.gl_renderer.num_peel_passes):
                         reg_img = pycuda.gl.RegisteredImage(int(self.gl_renderer.g_peelTexId[tex_idx]), GL_TEXTURE_RECTANGLE, pycuda.gl.graphics_map_flags.READ_ONLY)
                         mapping = reg_img.map()
 
@@ -677,7 +677,7 @@ class Projector(object):
                 np.uint64(self.additive_densities_gpu),
                 np.uint64(self.prim_unique_materials_gpu),
                 np.int32(len(self.prim_unique_materials)),
-                np.int32(self.max_mesh_depth),
+                np.int32(self.num_mesh_layers),
             ]
 
             # Calculate required blocks
@@ -1117,7 +1117,7 @@ class Projector(object):
         self.project_kernel = self.mod.get_function("projectKernel")
 
         self.peel_postprocess_mod = _get_kernel_peel_postprocess_module(
-            num_intersections=self.max_mesh_depth
+            num_intersections=self.num_mesh_layers
         )
         self.kernel_tide = self.peel_postprocess_mod.get_function("kernelTide")
         self.kernel_reorder = self.peel_postprocess_mod.get_function("kernelReorder")
@@ -1238,7 +1238,7 @@ class Projector(object):
         
         self.cam_node = self.scene.add(self.cam)
 
-        self._renderer = Renderer(viewport_width=width, viewport_height=height, max_dual_peel_layers=4)
+        self._renderer = Renderer(viewport_width=width, viewport_height=height, num_peel_passes=self.num_mesh_layers//4)
         self.gl_renderer = self._renderer
 
         self.additive_densities_gpu = cuda_mem_alloc_or_null(len(self.prim_unique_materials) * total_pixels * 2 * NUMBYTES_FLOAT32)
@@ -1358,9 +1358,9 @@ class Projector(object):
             f"time elapsed after intializing rest of primary-signal stuff: {init_tock - init_tick}"
         )
 
-        self.mesh_hit_alphas_gpu = cuda.mem_alloc(total_pixels * self.max_mesh_depth * NUMBYTES_FLOAT32)
-        self.mesh_hit_alphas_tex_gpu = cuda.mem_alloc(total_pixels * self.max_mesh_depth * NUMBYTES_FLOAT32)
-        self.mesh_hit_facing_gpu = cuda.mem_alloc(total_pixels * self.max_mesh_depth * NUMBYTES_INT8)
+        self.mesh_hit_alphas_gpu = cuda.mem_alloc(total_pixels * self.num_mesh_layers * NUMBYTES_FLOAT32)
+        self.mesh_hit_alphas_tex_gpu = cuda.mem_alloc(total_pixels * self.num_mesh_layers * NUMBYTES_FLOAT32)
+        self.mesh_hit_facing_gpu = cuda.mem_alloc(total_pixels * self.num_mesh_layers * NUMBYTES_INT8)
 
         # Scatter-specific initializations
 

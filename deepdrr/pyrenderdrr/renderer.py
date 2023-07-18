@@ -41,13 +41,16 @@ class Renderer(object):
         Size of points in pixels. Defaults to 1.0.
     """
 
-    def __init__(self, viewport_width, viewport_height, point_size=1.0, max_dual_peel_layers=4):
+    def __init__(self, viewport_width, viewport_height, point_size=1.0, num_peel_passes=None):
         self.dpscale = 1
 
         self.viewport_width = viewport_width
         self.viewport_height = viewport_height
         self.point_size = point_size
-        self.max_peel_layers = max_dual_peel_layers
+        self.num_peel_passes = num_peel_passes
+
+        assert self.num_peel_passes is not None, "num_peel_passes must be set"
+        assert self.num_peel_passes > 0, "num_peel_passes must be > 0"
 
         # Optional framebuffer for offscreen renders
         self._fb_initialized = False
@@ -99,7 +102,7 @@ class Renderer(object):
         self._update_context(scene, flags)
 
         if drr_mode != DRRMode.DENSITY:
-            for i in range(self.max_peel_layers):
+            for i in range(self.num_peel_passes):
                 retval = self._forward_pass(scene, flags, seg_node_map=seg_node_map, drr_mode=drr_mode, zfar=zfar, peelnum=i)
         else:
             retval = self._forward_pass(scene, flags, seg_node_map=seg_node_map, drr_mode=drr_mode, zfar=zfar, peelnum=0, mat=mat)
@@ -468,6 +471,11 @@ class Renderer(object):
     ###########################################################################
 
     def _configure_main_framebuffer(self):
+        def listify(x):
+            if isinstance(x, (np.ndarray)):
+                return x
+            return np.array([x])
+
         # If mismatch with prior framebuffer, delete it
         if (self._fb_initialized and
                 self.viewport_width != self._main_fb_dims[0] or
@@ -478,10 +486,10 @@ class Renderer(object):
         if not self._fb_initialized:
             self._fb_initialized = True
 
-            self.g_peelTexId = glGenTextures(self.max_peel_layers)
-            self.g_peelFboIds = glGenFramebuffers(self.max_peel_layers)
+            self.g_peelTexId = listify(glGenTextures(self.num_peel_passes))
+            self.g_peelFboIds = listify(glGenFramebuffers(self.num_peel_passes))
 
-            for i in range(self.max_peel_layers):
+            for i in range(self.num_peel_passes):
                 glBindTexture(GL_TEXTURE_RECTANGLE, self.g_peelTexId[i])
                 glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
                 glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
@@ -489,7 +497,7 @@ class Renderer(object):
                 glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
                 glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGBA32F, self.viewport_width, self.viewport_height, 0, GL_RGBA, GL_FLOAT, None)
 
-            for i in range(self.max_peel_layers):
+            for i in range(self.num_peel_passes):
                 glBindFramebuffer(GL_FRAMEBUFFER, self.g_peelFboIds[i])
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT_LIST[0], GL_TEXTURE_RECTANGLE, self.g_peelTexId[i], 0)
 
@@ -510,10 +518,10 @@ class Renderer(object):
 
     def _delete_main_framebuffer(self):
         if self.g_peelTexId is not None:
-            glDeleteTextures(2, self.g_peelTexId)
+            glDeleteTextures(self.num_peel_passes, self.g_peelTexId)
             self.g_peelTexId = None
         if self.g_peelFboIds is not None:
-            glDeleteFramebuffers(self.max_peel_layers, self.g_peelFboIds)
+            glDeleteFramebuffers(self.num_peel_passes, self.g_peelFboIds)
             self.g_peelFboIds = None
         if self.g_densityTexId is not None:
             glDeleteTextures(1, [self.g_densityTexId])
