@@ -562,7 +562,7 @@ class Projector(object):
 
                 zfar = self.device.source_to_detector_distance*2 # TODO (liam)
 
-                for mat_idx, mat in enumerate(self.mesh_unique_materials):
+                for mat_idx, mat in enumerate(self.prim_unique_materials):
                     rendered_layers = self.gl_renderer.render(self.scene, drr_mode=DRRMode.DENSITY, flags=RenderFlags.RGBA, zfar=zfar, mat=mat)
                     
                     reg_img = pycuda.gl.RegisteredImage(int(self.gl_renderer.g_densityTexId), GL_TEXTURE_RECTANGLE, pycuda.gl.graphics_map_flags.READ_ONLY)
@@ -675,8 +675,8 @@ class Projector(object):
                 np.uint64(self.mesh_hit_alphas_gpu),
                 np.uint64(self.mesh_hit_facing_gpu),
                 np.uint64(self.additive_densities_gpu),
-                np.uint64(self.mesh_unique_materials_gpu),
-                np.int32(len(self.mesh_unique_materials)),
+                np.uint64(self.prim_unique_materials_gpu),
+                np.int32(len(self.prim_unique_materials)),
                 np.int32(self.max_mesh_depth),
             ]
 
@@ -1206,29 +1206,15 @@ class Projector(object):
             else:
                 return cuda.mem_alloc(size)
 
-        self.mesh_materials_gpu = cuda_mem_alloc_or_null(len(self.primitives) * NUMBYTES_INT32) # material mapping
-        self.mesh_unique_materials = list(set([mesh.material.drrMatName for mesh in self.primitives]))
-        self.mesh_unique_materials_indices = [self.all_materials.index(mat) for mat in self.mesh_unique_materials]
-        self.mesh_unique_materials_gpu = cuda_mem_alloc_or_null(len(self.mesh_unique_materials) * NUMBYTES_INT32)
-        cuda.memcpy_htod(self.mesh_unique_materials_gpu, np.array(self.mesh_unique_materials_indices).astype(np.int32))
-        mesh_materials = []
-        for mesh in self.primitives:
-            mesh_materials.append(self.all_materials.index(mesh.material.drrMatName))
-        mesh_materials = np.array(mesh_materials).astype(np.int32)
-        cuda.memcpy_htod(self.mesh_materials_gpu, mesh_materials)
-
-        self.mesh_densities_gpu = cuda_mem_alloc_or_null(len(self.primitives) * NUMBYTES_FLOAT32)
-        mesh_densities = []
-        for mesh in self.primitives:
-            mesh_densities.append(mesh.material.density)
-        mesh_densities = np.array(mesh_densities).astype(np.float32)
-        cuda.memcpy_htod(self.mesh_densities_gpu, mesh_densities)
+        self.prim_unique_materials = list(set([mesh.material.drrMatName for mesh in self.primitives]))
+        self.prim_unique_materials_indices = [self.all_materials.index(mat) for mat in self.prim_unique_materials]
+        self.prim_unique_materials_gpu = cuda_mem_alloc_or_null(len(self.prim_unique_materials) * NUMBYTES_INT32)
+        cuda.memcpy_htod(self.prim_unique_materials_gpu, np.array(self.prim_unique_materials_indices).astype(np.int32))
 
         init_tock = time.perf_counter()
         log.debug(
             f"time elapsed after intializing segmentations: {init_tock - init_tick}"
         )
-
 
         self.scene = Scene(bg_color=[0.0, 0.0, 0.0])
 
@@ -1255,7 +1241,7 @@ class Projector(object):
         self._renderer = Renderer(viewport_width=width, viewport_height=height, max_dual_peel_layers=4)
         self.gl_renderer = self._renderer
 
-        self.additive_densities_gpu = cuda_mem_alloc_or_null(len(self.mesh_unique_materials) * total_pixels * 2 * NUMBYTES_FLOAT32)
+        self.additive_densities_gpu = cuda_mem_alloc_or_null(len(self.prim_unique_materials) * total_pixels * 2 * NUMBYTES_FLOAT32)
 
         # allocate volumes' priority level on the GPU
         self.priorities_gpu = cuda_mem_alloc_or_null(len(self.volumes) * NUMBYTES_INT32)
@@ -1800,8 +1786,7 @@ class Projector(object):
             free_if_not_null(self.mesh_hit_alphas_tex_gpu)
             free_if_not_null(self.mesh_hit_facing_gpu)
             free_if_not_null(self.additive_densities_gpu)
-            free_if_not_null(self.mesh_materials_gpu)
-            free_if_not_null(self.mesh_unique_materials_gpu)
+            free_if_not_null(self.prim_unique_materials_gpu)
 
             self.priorities_gpu.free()
 

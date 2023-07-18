@@ -13,6 +13,9 @@
 <!-- - Support changing resolution (no, just show warning) -->
 <!-- - No parent pointer -->
 
+
+pytest --cov=deepdrr --cov-report=xml .
+
 # Recurring
 - Free all new allocs
 - Add tests
