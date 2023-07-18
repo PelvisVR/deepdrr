@@ -2,10 +2,10 @@
 <!-- - Add dep on pycuda with gl support -->
 <!-- - Separate pyrender -->
 <!-- - Classmethod that loads mesh from stl file -->
-- Test multiple projectors
-<!-- - Test multi material -->
+<!-- - Test multiple projectors -->
 - Pyrender morph targets
 - WSL fallback, on by defualt
+<!-- - Test multi material -->
 <!-- - Zero mesh handling -->
 <!-- - Autoinit don't do it as a import -->
 <!-- - Optional pycuda -->
@@ -27,6 +27,8 @@ pytest --cov=deepdrr --cov-report=xml .
 - Save memory by using signed distances to represent front/back hits
 - Primary context?
 - Restructure to use pyrender-like scenes
+- Paged locked/pinned memory for speedup
+- Test on windows
 
 # Deepdrr arch ideas
 - glTF based tree scene interface
@@ -39,7 +41,7 @@ pytest --cov=deepdrr --cov-report=xml .
 <!-- - Zero copy buffers to cuda -->
 
 # Questions
-- Worth having a high-density mode, renders much faster, to handle nearly all cases?
+<!-- - Worth having a high-density mode, renders much faster, to handle nearly all cases? -->
 
 # Features
 <!-- - Use winding order in renderer -->

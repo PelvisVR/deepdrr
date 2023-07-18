@@ -37,6 +37,7 @@ class TestSingleVolume:
         "test_simple": [dict()],
         "test_mesh": [dict()],
         "test_mesh_only": [dict()],
+        "test_multi_projector": [dict()],
         "test_translate": [
             dict(t=[0, 0, 0]),
             dict(t=[100, 0, 0]),
@@ -74,7 +75,7 @@ class TestSingleVolume:
             neglog=True,
         ) as projector:
             image = projector.project()
-            from timer_util import FPS
+            # from timer_util import FPS
             # fps = FPS()
             # for i in range(50):
             #     image = projector.project()
@@ -141,6 +142,11 @@ class TestSingleVolume:
         # self.project([volume], carm, "test_mesh.png")
         # self.project([mesh, mesh2, mesh3], carm, "test_mesh.png")
         self.project([volume, mesh, mesh2, mesh3], carm, "test_mesh.png")
+
+    
+    def test_multi_projector(self):
+        for i in range(10):
+            self.test_mesh()
 
 
     def test_translate(self, t):
