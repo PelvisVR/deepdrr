@@ -68,7 +68,7 @@ class TestSingleVolume:
             carm=carm,
             step=0.1,  # stepsize along projection ray, measured in voxels
             mode="linear",
-            max_block_index=200,
+            max_block_index=65535,
             spectrum="90KV_AL40",
             photon_count=100000,
             scatter_num=0,
@@ -109,9 +109,15 @@ class TestSingleVolume:
         stl2 = pv.read("tests/resources/10cmcube.stl")
         stl2.scale([200, 200, 200], inplace=True)
         # stl2.translate([0, 30, 0], inplace=True)
-        stl = pv.read("tests/resources/suzanne.stl")
-        stl.scale([200]*3, inplace=True)
-        stl.translate([0, -200, 0], inplace=True)
+        stl = pv.read("tests/resources/solenoidasm.stl")
+        stl.scale([400/1000]*3, inplace=True)
+        # stl = pv.read("tests/resources/suzanne.stl")
+        # stl.scale([200]*3, inplace=True)
+        # stl.translate([0, 0, 0], inplace=True)
+        stl.rotate_y(60, inplace=True)
+        stl.rotate_x(10, inplace=True)
+        stl.rotate_z(80, inplace=True)
+        stl.translate([40, -200, -0], inplace=True)
         # stl = pv.read("tests/resources/suzanne.stl")
         morph_targets = np.array([
             [1, 0, 0],
@@ -126,9 +132,11 @@ class TestSingleVolume:
         # scale from m to mm
         # mesh = deepdrr.Mesh("titanium", 7, stl, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("y", 90, degrees=True)))
         # mesh = deepdrr.Mesh("air", 0, stl, morph_targets=morph_targets, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 90, degrees=True)))
-        prim = pyrender.Mesh.from_trimesh(polydata_to_trimesh(stl), material=DRRMaterial("titanium", density=2, subtractive=True))
+        prim = pyrender.Mesh.from_trimesh(polydata_to_trimesh(stl), material=DRRMaterial("titanium", density=7, subtractive=False))
         # prim = pyrender.Mesh.from_trimesh(polydata_to_trimesh(stl), material=DRRMaterial("bone", density=2, subtractive=True))
-        mesh = deepdrr.Mesh(mesh=prim, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 90, degrees=True) * geo.Rotation.from_euler("y", 30, degrees=True)))
+        # mesh = deepdrr.Mesh(mesh=prim)
+        mesh = deepdrr.Mesh(mesh=prim, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 90, degrees=True)))
+        # mesh = deepdrr.Mesh(mesh=prim, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 90, degrees=True) * geo.Rotation.from_euler("y", 30, degrees=True)))
 
         # prim2 = deepdrr.Primitive("titanium", 2, stl2, subtractive=True)
         prim2 = trimesh_to_pyrender_mesh(polydata_to_trimesh(stl2), material=DRRMaterial("lung", density=2, subtractive=True))
@@ -143,7 +151,7 @@ class TestSingleVolume:
         carm = deepdrr.MobileCArm(isocenter=volume.center_in_world, sensor_width=300, sensor_height=200, pixel_size=0.6)
         # self.project([volume], carm, "test_mesh.png")
         # self.project([mesh, mesh2, mesh3], carm, "test_mesh.png")
-        self.project([volume, mesh, mesh2, mesh3], carm, "test_mesh.png")
+        self.project([volume, mesh, mesh2, mesh3], carm, "test_mesh.png", verify=False)
 
     
     def test_multi_projector(self):
@@ -238,8 +246,8 @@ if __name__ == "__main__":
     # set projector log level to debug
     logging.basicConfig(level=logging.DEBUG)
     test = TestSingleVolume()
-    test.test_layer_depth()
-    # test.test_mesh()
+    # test.test_layer_depth()
+    test.test_mesh()
     # volume = test.load_volume()
     # carm = deepdrr.MobileCArm(isocenter=volume.center_in_world)
     # test.project(volume, carm, "test.png")

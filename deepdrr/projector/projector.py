@@ -245,7 +245,7 @@ class Projector(object):
         add_noise: bool = False,
         photon_count: int = 10000,
         threads: int = 8,
-        max_block_index: int = 1024, # TODO (liam): why not 65535?
+        max_block_index: int = 65535, # TODO (liam): why not 65535?
         collected_energy: bool = False,
         neglog: bool = True,
         intensity_upper_bound: Optional[float] = None,
