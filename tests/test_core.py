@@ -128,7 +128,7 @@ class TestSingleVolume:
             [0, 0, 1],
             [-1, 0, 1],
             [0, 0, 1],
-                                  ]).reshape(1, -1, 3)
+        ]).reshape(1, -1, 3)
         # scale from m to mm
         # mesh = deepdrr.Mesh("titanium", 7, stl, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("y", 90, degrees=True)))
         # mesh = deepdrr.Mesh("air", 0, stl, morph_targets=morph_targets, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 90, degrees=True)))
