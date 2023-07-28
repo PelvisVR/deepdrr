@@ -3,8 +3,8 @@
 <!-- - Separate pyrender -->
 <!-- - Classmethod that loads mesh from stl file -->
 <!-- - Test multiple projectors -->
-- Pyrender morph targets
-- WSL fallback, on by defualt
+- Pyrender morph targets - How many targets?
+- WSL fallback, on by default
 <!-- - Test multi material -->
 <!-- - Zero mesh handling -->
 <!-- - Autoinit don't do it as a import -->
@@ -12,6 +12,7 @@
 <!-- - Scatter not supported warning -->
 <!-- - Support changing resolution (no, just show warning) -->
 <!-- - No parent pointer -->
+- Hide/show objects
 
 
 pytest --cov=deepdrr --cov-report=xml .
