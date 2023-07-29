@@ -1,11 +1,11 @@
 import logging
 import numpy as np
 
-try:
-    from pycuda import gpuarray, cumath
-    from pycuda.tools import DeviceMemoryPool
-except ImportError:
-    logging.warning('pycuda unavailable')
+# try:
+#     from pycuda import gpuarray, cumath
+#     from pycuda.tools import DeviceMemoryPool
+# except ImportError:
+#     logging.warning('pycuda unavailable')
     
 from .material_coefficients import material_coefficients
 

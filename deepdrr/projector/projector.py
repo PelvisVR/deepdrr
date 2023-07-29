@@ -24,13 +24,13 @@ from ..pyrenderdrr.material import DRRMaterial
 from .. import geo, utils, vol
 from ..device import Device, MobileCArm
 from . import analytic_generators, mass_attenuation, scatter, spectral_data
-from .cuda_scatter_structs import (
-    CudaComptonStruct,
-    CudaMatMfpStruct,
-    CudaPlaneSurfaceStruct,
-    CudaRayleighStruct,
-    CudaWoodcockStruct,
-)
+# from .cuda_scatter_structs import (
+#     CudaComptonStruct,
+#     CudaMatMfpStruct,
+#     CudaPlaneSurfaceStruct,
+#     CudaRayleighStruct,
+#     CudaWoodcockStruct,
+# )
 from .material_coefficients import material_coefficients
 from .mcgpu_compton_data import COMPTON_DATA
 from .mcgpu_mfp_data import MFP_DATA
