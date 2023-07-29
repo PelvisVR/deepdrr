@@ -2552,443 +2552,443 @@ __global__ void projectKernel(
   return;
 }
 
-/*** KERNEL RESAMPLING FUNCTION ***/
-/**
- * It's placed here so that it can properly access the CUDA textures of the
- * volumes and segmentations
- */
+// /*** KERNEL RESAMPLING FUNCTION ***/
+// /**
+//  * It's placed here so that it can properly access the CUDA textures of the
+//  * volumes and segmentations
+//  */
 
-#if NUM_MATERIALS == 1
-#define RESAMPLE_TEXTURES(vol_id)                                              \
-  do {                                                                         \
-    density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
-    mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
-  } while (0)
-#elif NUM_MATERIALS == 2
-#define RESAMPLE_TEXTURES(vol_id)                                              \
-  do {                                                                         \
-    density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
-    mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
-  } while (0)
-#elif NUM_MATERIALS == 3
-#define RESAMPLE_TEXTURES(vol_id)                                              \
-  do {                                                                         \
-    density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
-    mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
-  } while (0)
-#elif NUM_MATERIALS == 4
-#define RESAMPLE_TEXTURES(vol_id)                                              \
-  do {                                                                         \
-    density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
-    mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
-  } while (0)
-#elif NUM_MATERIALS == 5
-#define RESAMPLE_TEXTURES(vol_id)                                              \
-  do {                                                                         \
-    density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
-    mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
-  } while (0)
-#elif NUM_MATERIALS == 6
-#define RESAMPLE_TEXTURES(vol_id)                                              \
-  do {                                                                         \
-    density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
-    mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][5] = cubicTex3D(SEG(vol_id, 5), inp_x, inp_y, inp_z);   \
-  } while (0)
-#elif NUM_MATERIALS == 7
-#define RESAMPLE_TEXTURES(vol_id)                                              \
-  do {                                                                         \
-    density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
-    mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][5] = cubicTex3D(SEG(vol_id, 5), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][6] = cubicTex3D(SEG(vol_id, 6), inp_x, inp_y, inp_z);   \
-  } while (0)
-#elif NUM_MATERIALS == 8
-#define RESAMPLE_TEXTURES(vol_id)                                              \
-  do {                                                                         \
-    density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
-    mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][5] = cubicTex3D(SEG(vol_id, 5), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][6] = cubicTex3D(SEG(vol_id, 6), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][7] = cubicTex3D(SEG(vol_id, 7), inp_x, inp_y, inp_z);   \
-  } while (0)
-#elif NUM_MATERIALS == 9
-#define RESAMPLE_TEXTURES(vol_id)                                              \
-  do {                                                                         \
-    density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
-    mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][5] = cubicTex3D(SEG(vol_id, 5), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][6] = cubicTex3D(SEG(vol_id, 6), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][7] = cubicTex3D(SEG(vol_id, 7), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][8] = cubicTex3D(SEG(vol_id, 8), inp_x, inp_y, inp_z);   \
-  } while (0)
-#elif NUM_MATERIALS == 10
-#define RESAMPLE_TEXTURES(vol_id)                                              \
-  do {                                                                         \
-    density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
-    mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][5] = cubicTex3D(SEG(vol_id, 5), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][6] = cubicTex3D(SEG(vol_id, 6), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][7] = cubicTex3D(SEG(vol_id, 7), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][8] = cubicTex3D(SEG(vol_id, 8), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][9] = cubicTex3D(SEG(vol_id, 9), inp_x, inp_y, inp_z);   \
-  } while (0)
-#elif NUM_MATERIALS == 11
-#define RESAMPLE_TEXTURES(vol_id)                                              \
-  do {                                                                         \
-    density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
-    mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][5] = cubicTex3D(SEG(vol_id, 5), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][6] = cubicTex3D(SEG(vol_id, 6), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][7] = cubicTex3D(SEG(vol_id, 7), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][8] = cubicTex3D(SEG(vol_id, 8), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][9] = cubicTex3D(SEG(vol_id, 9), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][10] = cubicTex3D(SEG(vol_id, 10), inp_x, inp_y, inp_z); \
-  } while (0)
-#elif NUM_MATERIALS == 12
-#define RESAMPLE_TEXTURES(vol_id)                                              \
-  do {                                                                         \
-    density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
-    mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][5] = cubicTex3D(SEG(vol_id, 5), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][6] = cubicTex3D(SEG(vol_id, 6), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][7] = cubicTex3D(SEG(vol_id, 7), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][8] = cubicTex3D(SEG(vol_id, 8), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][9] = cubicTex3D(SEG(vol_id, 9), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][10] = cubicTex3D(SEG(vol_id, 10), inp_x, inp_y, inp_z); \
-    mat_sample[vol_id][11] = cubicTex3D(SEG(vol_id, 11), inp_x, inp_y, inp_z); \
-  } while (0)
-#elif NUM_MATERIALS == 13
-#define RESAMPLE_TEXTURES(vol_id)                                              \
-  do {                                                                         \
-    density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
-    mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][5] = cubicTex3D(SEG(vol_id, 5), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][6] = cubicTex3D(SEG(vol_id, 6), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][7] = cubicTex3D(SEG(vol_id, 7), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][8] = cubicTex3D(SEG(vol_id, 8), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][9] = cubicTex3D(SEG(vol_id, 9), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][10] = cubicTex3D(SEG(vol_id, 10), inp_x, inp_y, inp_z); \
-    mat_sample[vol_id][11] = cubicTex3D(SEG(vol_id, 11), inp_x, inp_y, inp_z); \
-    mat_sample[vol_id][12] = cubicTex3D(SEG(vol_id, 12), inp_x, inp_y, inp_z); \
-  } while (0)
-#elif NUM_MATERIALS == 14
-#define RESAMPLE_TEXTURES(vol_id)                                              \
-  do {                                                                         \
-    density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
-    mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][5] = cubicTex3D(SEG(vol_id, 5), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][6] = cubicTex3D(SEG(vol_id, 6), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][7] = cubicTex3D(SEG(vol_id, 7), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][8] = cubicTex3D(SEG(vol_id, 8), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][9] = cubicTex3D(SEG(vol_id, 9), inp_x, inp_y, inp_z);   \
-    mat_sample[vol_id][10] = cubicTex3D(SEG(vol_id, 10), inp_x, inp_y, inp_z); \
-    mat_sample[vol_id][11] = cubicTex3D(SEG(vol_id, 11), inp_x, inp_y, inp_z); \
-    mat_sample[vol_id][12] = cubicTex3D(SEG(vol_id, 12), inp_x, inp_y, inp_z); \
-    mat_sample[vol_id][13] = cubicTex3D(SEG(vol_id, 13), inp_x, inp_y, inp_z); \
-  } while (0)
-#else
-#define RESAMPLE_TEXTURES(vol_id)                                              \
-  do {                                                                         \
-    printf("NUM_MATERIALS not in [1, 14]");                                    \
-  } while (0)
-#endif
+// #if NUM_MATERIALS == 1
+// #define RESAMPLE_TEXTURES(vol_id)                                              \
+//   do {                                                                         \
+//     density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
+//     mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
+//   } while (0)
+// #elif NUM_MATERIALS == 2
+// #define RESAMPLE_TEXTURES(vol_id)                                              \
+//   do {                                                                         \
+//     density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
+//     mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
+//   } while (0)
+// #elif NUM_MATERIALS == 3
+// #define RESAMPLE_TEXTURES(vol_id)                                              \
+//   do {                                                                         \
+//     density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
+//     mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
+//   } while (0)
+// #elif NUM_MATERIALS == 4
+// #define RESAMPLE_TEXTURES(vol_id)                                              \
+//   do {                                                                         \
+//     density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
+//     mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
+//   } while (0)
+// #elif NUM_MATERIALS == 5
+// #define RESAMPLE_TEXTURES(vol_id)                                              \
+//   do {                                                                         \
+//     density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
+//     mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
+//   } while (0)
+// #elif NUM_MATERIALS == 6
+// #define RESAMPLE_TEXTURES(vol_id)                                              \
+//   do {                                                                         \
+//     density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
+//     mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][5] = cubicTex3D(SEG(vol_id, 5), inp_x, inp_y, inp_z);   \
+//   } while (0)
+// #elif NUM_MATERIALS == 7
+// #define RESAMPLE_TEXTURES(vol_id)                                              \
+//   do {                                                                         \
+//     density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
+//     mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][5] = cubicTex3D(SEG(vol_id, 5), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][6] = cubicTex3D(SEG(vol_id, 6), inp_x, inp_y, inp_z);   \
+//   } while (0)
+// #elif NUM_MATERIALS == 8
+// #define RESAMPLE_TEXTURES(vol_id)                                              \
+//   do {                                                                         \
+//     density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
+//     mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][5] = cubicTex3D(SEG(vol_id, 5), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][6] = cubicTex3D(SEG(vol_id, 6), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][7] = cubicTex3D(SEG(vol_id, 7), inp_x, inp_y, inp_z);   \
+//   } while (0)
+// #elif NUM_MATERIALS == 9
+// #define RESAMPLE_TEXTURES(vol_id)                                              \
+//   do {                                                                         \
+//     density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
+//     mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][5] = cubicTex3D(SEG(vol_id, 5), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][6] = cubicTex3D(SEG(vol_id, 6), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][7] = cubicTex3D(SEG(vol_id, 7), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][8] = cubicTex3D(SEG(vol_id, 8), inp_x, inp_y, inp_z);   \
+//   } while (0)
+// #elif NUM_MATERIALS == 10
+// #define RESAMPLE_TEXTURES(vol_id)                                              \
+//   do {                                                                         \
+//     density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
+//     mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][5] = cubicTex3D(SEG(vol_id, 5), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][6] = cubicTex3D(SEG(vol_id, 6), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][7] = cubicTex3D(SEG(vol_id, 7), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][8] = cubicTex3D(SEG(vol_id, 8), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][9] = cubicTex3D(SEG(vol_id, 9), inp_x, inp_y, inp_z);   \
+//   } while (0)
+// #elif NUM_MATERIALS == 11
+// #define RESAMPLE_TEXTURES(vol_id)                                              \
+//   do {                                                                         \
+//     density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
+//     mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][5] = cubicTex3D(SEG(vol_id, 5), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][6] = cubicTex3D(SEG(vol_id, 6), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][7] = cubicTex3D(SEG(vol_id, 7), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][8] = cubicTex3D(SEG(vol_id, 8), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][9] = cubicTex3D(SEG(vol_id, 9), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][10] = cubicTex3D(SEG(vol_id, 10), inp_x, inp_y, inp_z); \
+//   } while (0)
+// #elif NUM_MATERIALS == 12
+// #define RESAMPLE_TEXTURES(vol_id)                                              \
+//   do {                                                                         \
+//     density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
+//     mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][5] = cubicTex3D(SEG(vol_id, 5), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][6] = cubicTex3D(SEG(vol_id, 6), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][7] = cubicTex3D(SEG(vol_id, 7), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][8] = cubicTex3D(SEG(vol_id, 8), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][9] = cubicTex3D(SEG(vol_id, 9), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][10] = cubicTex3D(SEG(vol_id, 10), inp_x, inp_y, inp_z); \
+//     mat_sample[vol_id][11] = cubicTex3D(SEG(vol_id, 11), inp_x, inp_y, inp_z); \
+//   } while (0)
+// #elif NUM_MATERIALS == 13
+// #define RESAMPLE_TEXTURES(vol_id)                                              \
+//   do {                                                                         \
+//     density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
+//     mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][5] = cubicTex3D(SEG(vol_id, 5), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][6] = cubicTex3D(SEG(vol_id, 6), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][7] = cubicTex3D(SEG(vol_id, 7), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][8] = cubicTex3D(SEG(vol_id, 8), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][9] = cubicTex3D(SEG(vol_id, 9), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][10] = cubicTex3D(SEG(vol_id, 10), inp_x, inp_y, inp_z); \
+//     mat_sample[vol_id][11] = cubicTex3D(SEG(vol_id, 11), inp_x, inp_y, inp_z); \
+//     mat_sample[vol_id][12] = cubicTex3D(SEG(vol_id, 12), inp_x, inp_y, inp_z); \
+//   } while (0)
+// #elif NUM_MATERIALS == 14
+// #define RESAMPLE_TEXTURES(vol_id)                                              \
+//   do {                                                                         \
+//     density_sample[vol_id] = tex3D(VOLUME(vol_id), inp_x, inp_y, inp_z);       \
+//     mat_sample[vol_id][0] = cubicTex3D(SEG(vol_id, 0), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][1] = cubicTex3D(SEG(vol_id, 1), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][2] = cubicTex3D(SEG(vol_id, 2), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][3] = cubicTex3D(SEG(vol_id, 3), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][4] = cubicTex3D(SEG(vol_id, 4), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][5] = cubicTex3D(SEG(vol_id, 5), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][6] = cubicTex3D(SEG(vol_id, 6), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][7] = cubicTex3D(SEG(vol_id, 7), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][8] = cubicTex3D(SEG(vol_id, 8), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][9] = cubicTex3D(SEG(vol_id, 9), inp_x, inp_y, inp_z);   \
+//     mat_sample[vol_id][10] = cubicTex3D(SEG(vol_id, 10), inp_x, inp_y, inp_z); \
+//     mat_sample[vol_id][11] = cubicTex3D(SEG(vol_id, 11), inp_x, inp_y, inp_z); \
+//     mat_sample[vol_id][12] = cubicTex3D(SEG(vol_id, 12), inp_x, inp_y, inp_z); \
+//     mat_sample[vol_id][13] = cubicTex3D(SEG(vol_id, 13), inp_x, inp_y, inp_z); \
+//   } while (0)
+// #else
+// #define RESAMPLE_TEXTURES(vol_id)                                              \
+//   do {                                                                         \
+//     printf("NUM_MATERIALS not in [1, 14]");                                    \
+//   } while (0)
+// #endif
 
-__global__ void resample_megavolume(
-    int *inp_priority,
-    int *inp_voxelBoundX, // number of voxels in x direction for each volume
-    int *inp_voxelBoundY, int *inp_voxelBoundZ,
-    float *inp_ijk_from_world, // ijk_from_world transforms for input volumes
-                               // TODO: is each transform 3x3?
-    float megaMinX, // bounding box for output megavolume, in world coordinates
-    float megaMinY, float megaMinZ, float megaMaxX, float megaMaxY,
-    float megaMaxZ,
-    float megaVoxelSizeX, // voxel size for output megavolume, in world
-                          // coordinates
-    float megaVoxelSizeY, float megaVoxelSizeZ,
-    int mega_x_len, // the (exclusive, upper) array index bound of the
-                    // megavolume
-    int mega_y_len, int mega_z_len,
-    float *output_density, // volume-sized array
-    char *output_mat_id,   // volume-sized array to hold the material IDs of the
-                           // voxels,
-    int offsetX, int offsetY, int offsetZ) {
-  /*
-   * Sample in voxel centers.
-   *
-   * Loop keeps track of {x,y,z} position in world coord.s as well as IJK
-   * indices for megavolume voxels. The first voxel has IJK indices (0,0,0)
-   * and is centered at (minX + 0.5 * voxX, minY + 0.5 * voxY, minZ + 0.5 *
-   * voxZ)
-   *
-   * The upper bound of the loop checking for:
-   *       {x,y,z} <= megaMax{X,Y,Z}
-   * is sufficient because the preprocessing of the boudning box ensured that
-   * the voxels fit neatly into the bounding box
-   */
+// __global__ void resample_megavolume(
+//     int *inp_priority,
+//     int *inp_voxelBoundX, // number of voxels in x direction for each volume
+//     int *inp_voxelBoundY, int *inp_voxelBoundZ,
+//     float *inp_ijk_from_world, // ijk_from_world transforms for input volumes
+//                                // TODO: is each transform 3x3?
+//     float megaMinX, // bounding box for output megavolume, in world coordinates
+//     float megaMinY, float megaMinZ, float megaMaxX, float megaMaxY,
+//     float megaMaxZ,
+//     float megaVoxelSizeX, // voxel size for output megavolume, in world
+//                           // coordinates
+//     float megaVoxelSizeY, float megaVoxelSizeZ,
+//     int mega_x_len, // the (exclusive, upper) array index bound of the
+//                     // megavolume
+//     int mega_y_len, int mega_z_len,
+//     float *output_density, // volume-sized array
+//     char *output_mat_id,   // volume-sized array to hold the material IDs of the
+//                            // voxels,
+//     int offsetX, int offsetY, int offsetZ) {
+//   /*
+//    * Sample in voxel centers.
+//    *
+//    * Loop keeps track of {x,y,z} position in world coord.s as well as IJK
+//    * indices for megavolume voxels. The first voxel has IJK indices (0,0,0)
+//    * and is centered at (minX + 0.5 * voxX, minY + 0.5 * voxY, minZ + 0.5 *
+//    * voxZ)
+//    *
+//    * The upper bound of the loop checking for:
+//    *       {x,y,z} <= megaMax{X,Y,Z}
+//    * is sufficient because the preprocessing of the boudning box ensured that
+//    * the voxels fit neatly into the bounding box
+//    */
 
-  // local storage to store the results of the tex3D calls.
-  // As a switch, we rely on the fact that the results of the tex3D calls
-  // should never be negative
-  float density_sample[NUM_VOLUMES];
-  // local storage to store the results of the cubicTex3D calls
-  float mat_sample[NUM_VOLUMES][NUM_MATERIALS];
+//   // local storage to store the results of the tex3D calls.
+//   // As a switch, we rely on the fact that the results of the tex3D calls
+//   // should never be negative
+//   float density_sample[NUM_VOLUMES];
+//   // local storage to store the results of the cubicTex3D calls
+//   float mat_sample[NUM_VOLUMES][NUM_MATERIALS];
 
-  int x_low = threadIdx.x + (blockIdx.x + offsetX) *
-                                blockDim.x; // the x-index of the lowest voxel
-  int y_low = threadIdx.y + (blockIdx.y + offsetY) * blockDim.y;
-  int z_low = threadIdx.z + (blockIdx.z + offsetZ) * blockDim.z;
+//   int x_low = threadIdx.x + (blockIdx.x + offsetX) *
+//                                 blockDim.x; // the x-index of the lowest voxel
+//   int y_low = threadIdx.y + (blockIdx.y + offsetY) * blockDim.y;
+//   int z_low = threadIdx.z + (blockIdx.z + offsetZ) * blockDim.z;
 
-  int x_high = min(x_low + blockDim.x, mega_x_len);
-  int y_high = min(y_low + blockDim.y, mega_y_len);
-  int z_high = min(z_low + blockDim.z, mega_z_len);
+//   int x_high = min(x_low + blockDim.x, mega_x_len);
+//   int y_high = min(y_low + blockDim.y, mega_y_len);
+//   int z_high = min(z_low + blockDim.z, mega_z_len);
 
-  if ((x_low == 0) && (y_low == 0) && (z_low == 0) && (threadIdx.x == 0) &&
-      (threadIdx.y == 0) && (threadIdx.z == 0)) {
-    printf("blockDim: {%d, %d, %d}\n", blockDim.x, blockDim.y, blockDim.z);
-  }
+//   if ((x_low == 0) && (y_low == 0) && (z_low == 0) && (threadIdx.x == 0) &&
+//       (threadIdx.y == 0) && (threadIdx.z == 0)) {
+//     printf("blockDim: {%d, %d, %d}\n", blockDim.x, blockDim.y, blockDim.z);
+//   }
 
-  for (int x_ind = x_low; x_ind < x_high; x_ind++) {
-    for (int y_ind = y_low; y_ind < y_high; y_ind++) {
-      for (int z_ind = z_low; z_ind < z_high; z_ind++) {
-        float x = megaMinX + (0.5f + (float)x_ind) * megaVoxelSizeX;
-        float y = megaMinY + (0.5f + (float)y_ind) * megaVoxelSizeY;
-        float z = megaMinZ + (0.5f + (float)z_ind) * megaVoxelSizeZ;
-        // for each volume, check whether we are inside its bounds
-        int curr_priority = NUM_VOLUMES;
+//   for (int x_ind = x_low; x_ind < x_high; x_ind++) {
+//     for (int y_ind = y_low; y_ind < y_high; y_ind++) {
+//       for (int z_ind = z_low; z_ind < z_high; z_ind++) {
+//         float x = megaMinX + (0.5f + (float)x_ind) * megaVoxelSizeX;
+//         float y = megaMinY + (0.5f + (float)y_ind) * megaVoxelSizeY;
+//         float z = megaMinZ + (0.5f + (float)z_ind) * megaVoxelSizeZ;
+//         // for each volume, check whether we are inside its bounds
+//         int curr_priority = NUM_VOLUMES;
 
-        for (int i = 0; i < NUM_VOLUMES; i++) {
-          density_sample[i] = -1.0f; // "reset" this volume's sample
+//         for (int i = 0; i < NUM_VOLUMES; i++) {
+//           density_sample[i] = -1.0f; // "reset" this volume's sample
 
-          int offset = 3 * 4 * i; // TODO: check that this matrix
-                                  // multiplication is done properly
-          float inp_x = (inp_ijk_from_world[offset + 0] * x) +
-                        (inp_ijk_from_world[offset + 1] * y) +
-                        (inp_ijk_from_world[offset + 2] * z) +
-                        inp_ijk_from_world[offset + 3];
-          if ((inp_x < 0.0) || (inp_x >= inp_voxelBoundX[i]))
-            continue; // TODO: make sure this behavior agrees with the
-                      // behavior of ijk_from_world transforms
+//           int offset = 3 * 4 * i; // TODO: check that this matrix
+//                                   // multiplication is done properly
+//           float inp_x = (inp_ijk_from_world[offset + 0] * x) +
+//                         (inp_ijk_from_world[offset + 1] * y) +
+//                         (inp_ijk_from_world[offset + 2] * z) +
+//                         inp_ijk_from_world[offset + 3];
+//           if ((inp_x < 0.0) || (inp_x >= inp_voxelBoundX[i]))
+//             continue; // TODO: make sure this behavior agrees with the
+//                       // behavior of ijk_from_world transforms
 
-          float inp_y = (inp_ijk_from_world[offset + 4] * x) +
-                        (inp_ijk_from_world[offset + 5] * y) +
-                        (inp_ijk_from_world[offset + 6] * z) +
-                        inp_ijk_from_world[offset + 7];
-          if ((inp_y < 0.0) || (inp_y >= inp_voxelBoundY[i]))
-            continue;
+//           float inp_y = (inp_ijk_from_world[offset + 4] * x) +
+//                         (inp_ijk_from_world[offset + 5] * y) +
+//                         (inp_ijk_from_world[offset + 6] * z) +
+//                         inp_ijk_from_world[offset + 7];
+//           if ((inp_y < 0.0) || (inp_y >= inp_voxelBoundY[i]))
+//             continue;
 
-          float inp_z = (inp_ijk_from_world[offset + 8] * x) +
-                        (inp_ijk_from_world[offset + 9] * y) +
-                        (inp_ijk_from_world[offset + 10] * z) +
-                        inp_ijk_from_world[offset + 11];
-          if ((inp_z < 0.0) || (inp_z >= inp_voxelBoundZ[i]))
-            continue;
+//           float inp_z = (inp_ijk_from_world[offset + 8] * x) +
+//                         (inp_ijk_from_world[offset + 9] * y) +
+//                         (inp_ijk_from_world[offset + 10] * z) +
+//                         inp_ijk_from_world[offset + 11];
+//           if ((inp_z < 0.0) || (inp_z >= inp_voxelBoundZ[i]))
+//             continue;
 
-          if (inp_priority[i] < curr_priority)
-            curr_priority = inp_priority[i];
-          else if (inp_priority[i] > curr_priority)
-            continue;
+//           if (inp_priority[i] < curr_priority)
+//             curr_priority = inp_priority[i];
+//           else if (inp_priority[i] > curr_priority)
+//             continue;
 
-          // mjudish understands that this is ugly, but it compiles
-          if (0 == i) {
-            RESAMPLE_TEXTURES(0);
-          }
-#if NUM_VOLUMES > 1
-          else if (1 == i) {
-            RESAMPLE_TEXTURES(1);
-          }
-#endif
-#if NUM_VOLUMES > 2
-          else if (2 == i) {
-            RESAMPLE_TEXTURES(2);
-          }
-#endif
-#if NUM_VOLUMES > 3
-          else if (3 == i) {
-            RESAMPLE_TEXTURES(3);
-          }
-#endif
-#if NUM_VOLUMES > 4
-          else if (4 == i) {
-            RESAMPLE_TEXTURES(4);
-          }
-#endif
-#if NUM_VOLUMES > 5
-          else if (5 == i) {
-            RESAMPLE_TEXTURES(5);
-          }
-#endif
-#if NUM_VOLUMES > 6
-          else if (6 == i) {
-            RESAMPLE_TEXTURES(6);
-          }
-#endif
-#if NUM_VOLUMES > 7
-          else if (7 == i) {
-            RESAMPLE_TEXTURES(7);
-          }
-#endif
-#if NUM_VOLUMES > 8
-          else if (8 == i) {
-            RESAMPLE_TEXTURES(8);
-          }
-#endif
-#if NUM_VOLUMES > 9
-          else if (9 == i) {
-            RESAMPLE_TEXTURES(9);
-          }
-#endif
-#if NUM_VOLUMES > 10
-          else if (10 == i) {
-            RESAMPLE_TEXTURES(10);
-          }
-#endif
-#if NUM_VOLUMES > 11
-          else if (11 == i) {
-            RESAMPLE_TEXTURES(11);
-          }
-#endif
-#if NUM_VOLUMES > 12
-          else if (12 == i) {
-            RESAMPLE_TEXTURES(12);
-          }
-#endif
-#if NUM_VOLUMES > 13
-          else if (13 == i) {
-            RESAMPLE_TEXTURES(13);
-          }
-#endif
-#if NUM_VOLUMES > 14
-          else if (14 == i) {
-            RESAMPLE_TEXTURES(14);
-          }
-#endif
-#if NUM_VOLUMES > 15
-          else if (15 == i) {
-            RESAMPLE_TEXTURES(15);
-          }
-#endif
-#if NUM_VOLUMES > 16
-          else if (16 == i) {
-            RESAMPLE_TEXTURES(16);
-          }
-#endif
-#if NUM_VOLUMES > 17
-          else if (17 == i) {
-            RESAMPLE_TEXTURES(17);
-          }
-#endif
-#if NUM_VOLUMES > 18
-          else if (18 == i) {
-            RESAMPLE_TEXTURES(18);
-          }
-#endif
-#if NUM_VOLUMES > 19
-          else if (19 == i) {
-            RESAMPLE_TEXTURES(19);
-          }
-#endif
-#if NUM_VOLUMES > 20
-#define INTERPOLATE(multiplier)                                                \
-  do {                                                                         \
-    printf("INTERPOLATE not supported for NUM_VOLUMES outside [1, 10]");       \
-  } while (0)
-#endif
-          // Maximum supported value of NUM_VOLUMES is 10
-        }
+//           // mjudish understands that this is ugly, but it compiles
+//           if (0 == i) {
+//             RESAMPLE_TEXTURES(0);
+//           }
+// #if NUM_VOLUMES > 1
+//           else if (1 == i) {
+//             RESAMPLE_TEXTURES(1);
+//           }
+// #endif
+// #if NUM_VOLUMES > 2
+//           else if (2 == i) {
+//             RESAMPLE_TEXTURES(2);
+//           }
+// #endif
+// #if NUM_VOLUMES > 3
+//           else if (3 == i) {
+//             RESAMPLE_TEXTURES(3);
+//           }
+// #endif
+// #if NUM_VOLUMES > 4
+//           else if (4 == i) {
+//             RESAMPLE_TEXTURES(4);
+//           }
+// #endif
+// #if NUM_VOLUMES > 5
+//           else if (5 == i) {
+//             RESAMPLE_TEXTURES(5);
+//           }
+// #endif
+// #if NUM_VOLUMES > 6
+//           else if (6 == i) {
+//             RESAMPLE_TEXTURES(6);
+//           }
+// #endif
+// #if NUM_VOLUMES > 7
+//           else if (7 == i) {
+//             RESAMPLE_TEXTURES(7);
+//           }
+// #endif
+// #if NUM_VOLUMES > 8
+//           else if (8 == i) {
+//             RESAMPLE_TEXTURES(8);
+//           }
+// #endif
+// #if NUM_VOLUMES > 9
+//           else if (9 == i) {
+//             RESAMPLE_TEXTURES(9);
+//           }
+// #endif
+// #if NUM_VOLUMES > 10
+//           else if (10 == i) {
+//             RESAMPLE_TEXTURES(10);
+//           }
+// #endif
+// #if NUM_VOLUMES > 11
+//           else if (11 == i) {
+//             RESAMPLE_TEXTURES(11);
+//           }
+// #endif
+// #if NUM_VOLUMES > 12
+//           else if (12 == i) {
+//             RESAMPLE_TEXTURES(12);
+//           }
+// #endif
+// #if NUM_VOLUMES > 13
+//           else if (13 == i) {
+//             RESAMPLE_TEXTURES(13);
+//           }
+// #endif
+// #if NUM_VOLUMES > 14
+//           else if (14 == i) {
+//             RESAMPLE_TEXTURES(14);
+//           }
+// #endif
+// #if NUM_VOLUMES > 15
+//           else if (15 == i) {
+//             RESAMPLE_TEXTURES(15);
+//           }
+// #endif
+// #if NUM_VOLUMES > 16
+//           else if (16 == i) {
+//             RESAMPLE_TEXTURES(16);
+//           }
+// #endif
+// #if NUM_VOLUMES > 17
+//           else if (17 == i) {
+//             RESAMPLE_TEXTURES(17);
+//           }
+// #endif
+// #if NUM_VOLUMES > 18
+//           else if (18 == i) {
+//             RESAMPLE_TEXTURES(18);
+//           }
+// #endif
+// #if NUM_VOLUMES > 19
+//           else if (19 == i) {
+//             RESAMPLE_TEXTURES(19);
+//           }
+// #endif
+// #if NUM_VOLUMES > 20
+// #define INTERPOLATE(multiplier)                                                \
+//   do {                                                                         \
+//     printf("INTERPOLATE not supported for NUM_VOLUMES outside [1, 10]");       \
+//   } while (0)
+// #endif
+//           // Maximum supported value of NUM_VOLUMES is 10
+//         }
 
-        int output_idx =
-            x_ind + (y_ind * mega_x_len) + (z_ind * mega_x_len * mega_y_len);
-        if (NUM_VOLUMES == curr_priority) {
-          // no input volumes at the current point
-          output_density[output_idx] = 0.0f;
-          output_mat_id[output_idx] = NUM_MATERIALS; // out of range for mat id,
-                                                     // so indicates no material
-        } else {
-          // for averaging the densities of the volumes to "mix"
-          int n_vols_at_curr_priority = 0;
-          float total_density = 0.0f;
+//         int output_idx =
+//             x_ind + (y_ind * mega_x_len) + (z_ind * mega_x_len * mega_y_len);
+//         if (NUM_VOLUMES == curr_priority) {
+//           // no input volumes at the current point
+//           output_density[output_idx] = 0.0f;
+//           output_mat_id[output_idx] = NUM_MATERIALS; // out of range for mat id,
+//                                                      // so indicates no material
+//         } else {
+//           // for averaging the densities of the volumes to "mix"
+//           int n_vols_at_curr_priority = 0;
+//           float total_density = 0.0f;
 
-          // for determining the material most
-          float total_mat_seg[NUM_MATERIALS];
-          for (int m = 0; m < NUM_MATERIALS; m++) {
-            total_mat_seg[m] = 0.0f;
-          }
+//           // for determining the material most
+//           float total_mat_seg[NUM_MATERIALS];
+//           for (int m = 0; m < NUM_MATERIALS; m++) {
+//             total_mat_seg[m] = 0.0f;
+//           }
 
-          for (int i = 0; i < NUM_VOLUMES; i++) {
-            if (curr_priority == inp_priority[i]) {
-              n_vols_at_curr_priority++;
-              total_density += density_sample[i];
+//           for (int i = 0; i < NUM_VOLUMES; i++) {
+//             if (curr_priority == inp_priority[i]) {
+//               n_vols_at_curr_priority++;
+//               total_density += density_sample[i];
 
-              for (int m = 0; m < NUM_MATERIALS; m++) {
-                total_mat_seg[m] = mat_sample[i][m];
-              }
-            }
-          }
+//               for (int m = 0; m < NUM_MATERIALS; m++) {
+//                 total_mat_seg[m] = mat_sample[i][m];
+//               }
+//             }
+//           }
 
-          int mat_id = NUM_MATERIALS;
-          float highest_mat_seg = 0.0f;
-          for (int m = 0; m < NUM_MATERIALS; m++) {
-            if (total_mat_seg[m] > highest_mat_seg) {
-              mat_id = m;
-              highest_mat_seg = total_mat_seg[m];
-            }
-          }
+//           int mat_id = NUM_MATERIALS;
+//           float highest_mat_seg = 0.0f;
+//           for (int m = 0; m < NUM_MATERIALS; m++) {
+//             if (total_mat_seg[m] > highest_mat_seg) {
+//               mat_id = m;
+//               highest_mat_seg = total_mat_seg[m];
+//             }
+//           }
 
-          output_density[output_idx] =
-              total_density / ((float)n_vols_at_curr_priority);
-          output_mat_id[output_idx] = mat_id;
-        }
-      }
-    }
-  }
+//           output_density[output_idx] =
+//               total_density / ((float)n_vols_at_curr_priority);
+//           output_mat_id[output_idx] = mat_id;
+//         }
+//       }
+//     }
+//   }
 
-  return;
-}
+//   return;
+// }
 }
