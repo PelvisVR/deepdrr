@@ -30,6 +30,7 @@ RUN mkdir -p /usr/share/glvnd/egl_vendor.d/ && \
     }\n\
     }" > /usr/share/glvnd/egl_vendor.d/10_nvidia.json
 
+# dummy empty requirements.txt so that requirements can be updated without invalidating the conda step 
 RUN touch requirements.txt
 COPY environment.yml .
 RUN conda env update -n base -f environment.yml
