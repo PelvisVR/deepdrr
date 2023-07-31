@@ -1286,13 +1286,13 @@ class Projector(object):
         if self.initialized and self.output_shape == sensor_size:
             return
 
-        if self.initialized:
-            if len(self.primitives) > 0:
-                log.error("Changing sensor size while using meshes is not yet supported.")
-            self.intensity_gpu.free()
-            self.photon_prob_gpu.free()
-            if self.collected_energy:
-                self.solid_angle_gpu.free()
+        # if self.initialized:
+        #     if len(self.primitives) > 0:
+        #         log.error("Changing sensor size while using meshes is not yet supported.")
+        #     self.intensity_gpu.free()
+        #     self.photon_prob_gpu.free()
+        #     if self.collected_energy:
+        #         self.solid_angle_gpu.free()
 
         # Changes the output size as well
         self.output_shape = sensor_size
