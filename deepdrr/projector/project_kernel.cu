@@ -1,11 +1,10 @@
 #include <cubicTex3D.cu>
 #include <stdio.h>
+#include <math_constants.h>
 
 // Supports at most 20 volumes.
 
 #include "kernel_vol_seg_data.cu"
-
-#define PI_FLOAT 3.14159265358979323846f
 
 extern "C" {
 __device__ static void calculate_solid_angle(
@@ -125,11 +124,11 @@ __device__ static void calculate_solid_angle(
 
   float solid_angle_012 = 2.f * atan2(numer_012, denom_012);
   if (solid_angle_012 < 0.0f) {
-    solid_angle_012 += PI_FLOAT;
+    solid_angle_012 += CUDART_PI_F;
   }
   float solid_angle_023 = 2.f * atan2(numer_023, denom_023);
   if (solid_angle_023 < 0.0f) {
-    solid_angle_023 += PI_FLOAT;
+    solid_angle_023 += CUDART_PI_F;
   }
 
   solid_angle[img_dx] = solid_angle_012 + solid_angle_023;
