@@ -429,7 +429,7 @@ class Projector(object):
         collected_energy: bool = False, # TODO: add unit test for this
         neglog: bool = True,
         intensity_upper_bound: Optional[float] = None,
-        attenuate_outside_volume: bool = False,
+        attenuate_outside_volume: bool = False, # TODO: add unit tests for this, doesn't work with meshes?
         source_to_detector_distance: float = -1,
         carm: Optional[Device] = None,
         num_mesh_layers = 32
