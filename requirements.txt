@@ -7,7 +7,6 @@ scikit-image
 pydicom
 scipy
 pyvista
-git+https://github.com/liamjwang/pycuda.git@main # pycuda with OpenGL interop enabled, TODO: make a PR with an option to enable this
 pynrrd
 rich
 opencv-python
