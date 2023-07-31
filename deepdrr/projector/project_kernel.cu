@@ -2,9 +2,10 @@
 #include <stdio.h>
 #include <math_constants.h>
 
-// Supports at most 20 volumes.
+#ifndef AIR_DENSITY
+#define AIR_DENSITY 0.1129
+#endif
 
-#include "kernel_vol_seg_data.cu"
 
 extern "C" {
 __device__ static void calculate_solid_angle(
