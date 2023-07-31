@@ -89,6 +89,6 @@ __device__ T CUBICTEX3D(cudaTextureObject_t tex, float3 coord)
 // allow the cubicTex3D function to be called without any template arguments,
 // thus with any <> brackets.
 
-template<T> __device__ T CUBICTEX3D(cudaTextureObject_t tex, float3 coord) {return CUBICTEX3D<T>(tex, coord);}
+// template<class T> __device__ T CUBICTEX3D(cudaTextureObject_t tex, float3 coord) {return CUBICTEX3D<T>(tex, coord);}
 // Function definitions with (float x, float y, float z) instead of (float3 coord)
-template<T> __device__ T CUBICTEX3D(cudaTextureObject_t tex, float x, float y, float z) {return CUBICTEX3D<T>(tex, make_float3(x,y,z));}
+template<class T> __device__ T CUBICTEX3D(cudaTextureObject_t tex, float x, float y, float z) {return CUBICTEX3D<T>(tex, make_float3(x,y,z));}
