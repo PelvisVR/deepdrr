@@ -9,6 +9,7 @@ import os
 import warnings
 
 import math
+from pyvista import DeprecationError
 import torch
 import numpy as np
 from pyparsing import alphas
@@ -23,7 +24,7 @@ from ..pyrenderdrr.material import DRRMaterial
 
 from .. import geo, utils, vol
 from ..device import Device, MobileCArm
-from . import analytic_generators, mass_attenuation, scatter, spectral_data
+from . import analytic_generators, mass_attenuation, spectral_data
 from .material_coefficients import material_coefficients
 from .mcgpu_compton_data import COMPTON_DATA
 from .mcgpu_mfp_data import MFP_DATA
@@ -375,31 +376,6 @@ def _get_kernel_projector_module(
     return sm
 
 
-# def _get_kernel_scatter_module(num_materials) -> SourceModule:
-#     """Compile the cuda code for the scatter simulation.
-
-#     Assumes `scatter_kernel.cu` and `scatter_header.cu` are in the same directory as THIS file.
-
-#     Returns:
-#         SourceModule: pycuda SourceModule object.
-#     """
-#     d = Path(__file__).resolve().parent
-#     source_path = str(d / "scatter_kernel.cu")
-
-#     with open(source_path, "r") as file:
-#         source = file.read()
-#     options = ["-D", f"NUM_MATERIALS={num_materials}"]
-#     log.debug(f"compiling {source_path} with NUM_MATERIALS={num_materials}")
-
-#     with contextlib.redirect_stderr(OutputLogger(__name__, "DEBUG")):
-#         sm = SourceModule(
-#             source,
-#             include_dirs=[str(d)],
-#             no_extern_c=True,
-#             options=options,
-#         )
-#     return sm
-
 
 class Projector(object):
     volumes: List[vol.Volume]
@@ -540,6 +516,9 @@ class Projector(object):
 
         if self.scatter_num > 0 and self.device is None:
             raise ValueError("Must provide device to simulate scatter.")
+        
+        if self.scatter_num > 0:
+            raise DeprecationError("Scatter is deprecated.")
 
         self.add_noise = add_noise
         self.photon_count = photon_count
@@ -969,216 +948,6 @@ class Projector(object):
                 f"projection #{i}: time elapased after copy from kernel: {project_tock - project_tick}"
             )
 
-            # if self.scatter_num > 0:
-            #     print("starting scatter")
-            #     # TODO (mjudish): the resampled density never gets used in the scatter kernel
-            #     log.debug(
-            #         f"Starting scatter simulation, scatter_num={self.scatter_num}. Time: {time.asctime()}"
-            #     )
-
-            #     # index_from_ijk = (
-            #     #    self.megavol_ijk_from_world @ proj.world_from_index
-            #     # ).inv
-            #     # index_from_ijk = np.array(index_from_ijk).astype(np.float32) # 2x4 matrix
-            #     # print(f"index_from_ijk on GPU:\n{index_from_ijk}")
-            #     # cuda.memcpy_htod(self.index_from_ijk_gpu, index_from_ijk)
-            #     print(f"index_from_world on GPU:\n{np.array(proj.index_from_world)}")
-            #     cuda.memcpy_htod(
-            #         self.index_from_world_gpu, np.array(proj.index_from_world)
-            #     )
-
-            #     scatter_source_ijk = np.array(
-            #         self.megavol_ijk_from_world @ proj.center_in_world
-            #     ).astype(np.float32)
-
-            #     print(
-            #         f"np.array(self.megavol_ijk_from_world) dims:{np.array(self.megavol_ijk_from_world).shape}\n{np.array(self.megavol_ijk_from_world)}"
-            #     )
-            #     print(f"world_from_index:\n{world_from_index}")
-
-            #     scatter_source_world = np.array(proj.center_in_world).astype(np.float32)
-
-            #     detector_plane = scatter.get_detector_plane(
-            #         # np.array(self.megavol_ijk_from_world @ proj.world_from_index),
-            #         np.array(proj.world_from_index),
-            #         proj.index_from_camera2d,
-            #         self.source_to_detector_distance,
-            #         geo.Point3D.from_any(scatter_source_world),
-            #         self.output_shape,
-            #     )
-            #     detector_plane_struct = CudaPlaneSurfaceStruct(
-            #         detector_plane, int(self.detector_plane_gpu)
-            #     )
-
-            #     # print the detector's corners in IJK
-            #     _tmp_corners_idx = [
-            #         np.array([0, 0, 1]),
-            #         np.array([self.output_shape[0], 0, 1]),
-            #         np.array([self.output_shape[0], self.output_shape[1], 1]),
-            #         np.array([0, self.output_shape[1], 1]),
-            #     ]
-            #     _tmp_corner_rays_world = [
-            #         proj.world_from_index @ corner for corner in _tmp_corners_idx
-            #     ]
-
-            #     print(f"Detector corner rays in world: (0,0), (W,0), (W,H), (0, H):")
-            #     for _corner_ray in _tmp_corner_rays_world:
-            #         print(f"\t{_corner_ray}")
-            #     # end print corners
-
-            #     print(f"source in world:\n\t{proj.center_in_world}")
-            #     detector_ctr_in_world = (
-            #         detector_plane.surface_origin
-            #         + (detector_plane.basis_1 * self.output_shape[0] * 0.5)
-            #         + (detector_plane.basis_2 * self.output_shape[1] * 0.5)
-            #     )
-            #     print(f"detector center in world:\n\t{detector_ctr_in_world}")
-            #     print(f"Detector corners in world, FROM RAYS:")
-            #     for _corner_ray in _tmp_corner_rays_world:
-            #         print(
-            #             f"\t{proj.center_in_world + self.source_to_detector_distance * _corner_ray}"
-            #         )
-            #     print(f"Detector corners in world, FROM PLANE_SURFACE:")
-            #     for indices in _tmp_corners_idx:
-            #         corner = (
-            #             detector_plane.surface_origin
-            #             + (detector_plane.basis_1 * indices[0])
-            #             + (detector_plane.basis_2 * indices[1])
-            #         )
-            #         print(f"\t{corner}")
-
-            #     world_from_ijk_arr = np.array(self.megavol_ijk_from_world.inv)[:-1]
-            #     cuda.memcpy_htod(self.world_from_ijk_gpu, world_from_ijk_arr)
-            #     # print(f"world_from_ijk_arr:\n{world_from_ijk_arr}")
-
-            #     ijk_from_world_arr = np.array(self.megavol_ijk_from_world)[:-1]
-            #     cuda.memcpy_htod(self.ijk_from_world_gpu, ijk_from_world_arr)
-            #     # print(f"ijk_from_world_arr:\n{ijk_from_world_arr}")
-
-            #     E_abs_keV = 5  # E_abs == 5000 eV
-
-            #     scatter_args = [
-            #         np.int32(proj.sensor_width),  # detector_width
-            #         np.int32(proj.sensor_height),  # detector_height
-            #         np.int32(self.histories_per_thread),  # histories_for_thread
-            #         self.megavol_labeled_seg_gpu,  # labeled_segmentation
-            #         scatter_source_ijk[0],  # sx
-            #         scatter_source_ijk[1],  # sy
-            #         scatter_source_ijk[2],  # sz
-            #         np.float32(
-            #             self.source_to_detector_distance
-            #         ),  # sdd # TODO: if carm is not None, get this from the carm. May not work for independent source/detector movement.
-            #         np.int32(self.megavol_shape[0]),  # volume_shape_x
-            #         np.int32(self.megavol_shape[1]),  # volume_shape_y
-            #         np.int32(self.megavol_shape[2]),  # volume_shape_z
-            #         np.float32(-0.5),  # gVolumeEdgeMinPointX
-            #         np.float32(-0.5),  # gVolumeEdgeMinPointY
-            #         np.float32(-0.5),  # gVolumeEdgeMinPointZ
-            #         np.float32(self.megavol_shape[0] - 0.5),  # gVolumeEdgeMaxPointX
-            #         np.float32(self.megavol_shape[1] - 0.5),  # gVolumeEdgeMaxPointY
-            #         np.float32(self.megavol_shape[2] - 0.5),  # gVolumeEdgeMaxPointZ
-            #         np.float32(self.megavol_spacing[0]),  # gVoxelElementSizeX
-            #         np.float32(self.megavol_spacing[1]),  # gVoxelElementSizeY
-            #         np.float32(self.megavol_spacing[2]),  # gVoxelElementSizeZ
-            #         self.index_from_world_gpu,  # index_from_world
-            #         self.mat_mfp_structs_gpu,  # mat_mfp_arr
-            #         self.woodcock_struct_gpu,  # woodcock_mfp
-            #         self.compton_structs_gpu,  # compton_arr
-            #         self.rayleigh_structs_gpu,  # rayleigh_arr
-            #         self.detector_plane_gpu,  # detector_plane
-            #         self.world_from_ijk_gpu,  # world_from_ijk
-            #         self.ijk_from_world_gpu,  # ijk_from_world
-            #         np.int32(self.spectrum.shape[0]),  # n_bins
-            #         self.energies_gpu,  # spectrum_energies
-            #         self.cdf_gpu,  # spectrum_cdf
-            #         np.float32(E_abs_keV),  # E_abs
-            #         np.int32(12345),  # seed_input
-            #         self.scatter_deposits_gpu,  # deposited_energy
-            #         self.num_scattered_hits_gpu,  # num_scattered_hits
-            #         self.num_unscattered_hits_gpu,  # num_unscattered_hits
-            #     ]
-
-            #     # same number of threads per block as the ray-casting
-            #     block = (self.threads * self.threads, 1, 1)
-
-            #     log.info("Starting scatter simulation")
-            #     # Call the kernel
-            #     if self.num_scatter_blocks <= self.max_block_index:
-            #         print("running single call to scatter kernel")
-            #         self.simulate_scatter(
-            #             *scatter_args, block=block, grid=(self.num_scatter_blocks, 1)
-            #         )
-            #     else:
-            #         print("running scatter kernel patchwise")
-            #         for i in range(
-            #             int(np.ceil(self.num_scatter_blocks / self.max_block_index))
-            #         ):
-            #             blocks_left_to_run = self.num_scatter_blocks - (
-            #                 i * self.max_block_index
-            #             )
-            #             blocks_for_grid = min(blocks_left_to_run, self.max_block_index)
-            #             self.simulate_scatter(
-            #                 *scatter_args, block=block, grid=(blocks_for_grid, 1)
-            #             )
-            #             context.synchronize()
-
-            #     # Copy results from the GPU
-            #     scatter_intensity = np.zeros(self.output_shape, dtype=np.float32)
-            #     cuda.memcpy_dtoh(scatter_intensity, self.scatter_deposits_gpu)
-            #     scatter_intensity = np.swapaxes(scatter_intensity, 0, 1).copy()
-            #     # Here, scatter_intensity is just the recorded deposited_energy. Will need to adjust later
-
-            #     n_sc = np.zeros(self.output_shape, dtype=np.int32)
-            #     cuda.memcpy_dtoh(n_sc, self.num_scattered_hits_gpu)
-            #     n_sc = np.swapaxes(n_sc, 0, 1).copy()
-
-            #     n_pri = np.zeros(self.output_shape, dtype=np.int32)
-            #     cuda.memcpy_dtoh(n_pri, self.num_unscattered_hits_gpu)
-            #     n_pri = np.swapaxes(n_pri, 0, 1).copy()
-
-            #     # TODO TEMP -- save the scatter outputs to .npy files
-            #     np.save("scatter_intensity", scatter_intensity)
-            #     np.save("hits_scatter", n_sc)
-            #     np.save("hits_primary", n_pri)
-            #     #
-
-            #     # Adjust scatter_img to reflect the "intensity per photon". We need to account for the
-            #     # fact that the pixels are not uniform in term of solid angle.
-            #     #   [scatter_intensity] = [ideal deposited_energy] / [ideal number of recorded photons],
-            #     # where
-            #     #   [ideal number of recorded photons] = [recorded photons] * (solid_angle[pixel] / average(solid_angle))
-            #     # Since [ideal deposited_energy] would be transformed the same way, we simply calculate:
-            #     #   [scatter_intensity] = [recorded deposited_energy] / [recorded number of photons]
-            #     assert np.all(np.equal(0 == scatter_intensity, 0 == n_sc))
-            #     # Since [deposited_energy] is zero whenever [num_scattered_hits] is zero, we can add 1 to
-            #     # every pixel that [num_scattered_hits] is zero to avoid a "divide by zero" error
-
-            #     scatter_intensity = np.divide(
-            #         scatter_intensity, 1 * (0 == n_sc) + n_sc * (0 != n_sc)
-            #     )
-            #     # scatter_intensity now actually reflects "intensity per photon"
-            #     log.info(
-            #         f"Finished scatter simulation, scatter_num={self.scatter_num}. Time: {time.asctime()}"
-            #     )
-
-            #     hits_sc = np.sum(n_sc)  # total number of recorded scatter hits
-            #     # total number of recorded primary hits
-            #     hits_pri = np.sum(n_pri)
-
-            #     log.debug(f"hits_sc: {hits_sc}, hits_pri: {hits_pri}")
-            #     print(f"hits_sc: {hits_sc}, hits_pri: {hits_pri}")
-
-            #     f_sc = hits_sc / (hits_pri + hits_sc)
-            #     f_pri = hits_pri / (hits_pri + hits_sc)
-
-            #     ### Reasoning: prob_tot = (f_pri * prob_pri) + (f_sc * prob_sc)
-            #     # such that: prob_tot / prob_pri = f_pri + f_sc * (prob_sc / prob_pri)
-            #     # photon_prob *= (f_pri + f_sc * (n_sc / n_pri))
-
-            #     # total intensity = (f_pri * intensity_pri) * (f_sc * intensity_sc)
-            #     intensity = (f_pri * intensity) + (f_sc * scatter_intensity)  # / f_pri
-            # # end scatter calculation
-
             # transform to collected energy in keV per cm^2 (or keV per mm^2)
             if self.collected_energy:
                 assert np.array_equal(self.solid_angle_gpu, np.uint64(0)) == False
@@ -1364,32 +1133,6 @@ class Projector(object):
         )
         self.kernel_tide = self.peel_postprocess_mod.get_function("kernelTide")
         self.kernel_reorder = self.peel_postprocess_mod.get_function("kernelReorder")
-
-        # if self.scatter_num > 0:
-        #     if len(self.primitives) > 0:
-        #         log.error("Scatter while using meshes is not yet supported.")
-        #     self.scatter_mod = _get_kernel_scatter_module(len(self.all_materials))
-        #     self.simulate_scatter = self.scatter_mod.get_function("simulate_scatter")
-
-        #     # Calculate CUDA block parameters. Number of blocks is constant, each with
-        #     # (self.threads * self.threads) threads, so that each block has same number
-        #     # of threads as the projection kernel.
-        #     self.num_scatter_blocks = min(32768, self.max_block_index)
-        #     # TODO (mjudish): discuss with killeen max_block_index and what makes sense
-        #     # for the scatter block structure
-
-        #     total_threads = self.num_scatter_blocks * self.threads * self.threads
-        #     log.debug(f"total threads: {total_threads}")
-        #     self.histories_per_thread = int(np.ceil(self.scatter_num / total_threads))
-
-        #     self.scatter_num = self.histories_per_thread * total_threads
-        #     # log.info(
-        #         # f"input scatter_num: {scatter_num}, rounded up to {self.scatter_num}\nhistories per thread: {self.histories_per_thread}"
-        #     # )
-
-        #     if len(self.volumes) > 1:
-        #         self.resample_megavolume = self.mod.get_function("resample_megavolume")
-
         # allocate and transfer the volume texture to GPU
         # self.volumes_gpu = []
 
