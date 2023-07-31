@@ -18,7 +18,15 @@ from collections import defaultdict
 from OpenGL.GL import GL_TEXTURE_RECTANGLE
 from OpenGL.GL import *
 
-from pyrender import IntrinsicsCamera, Primitive, Mesh, Node, Scene, RenderFlags, MetallicRoughnessMaterial
+from pyrender import (
+    IntrinsicsCamera,
+    Primitive,
+    Mesh,
+    Node,
+    Scene,
+    RenderFlags,
+    MetallicRoughnessMaterial,
+)
 from ..pyrenderdrr.renderer import DRRMode
 from ..pyrenderdrr.material import DRRMaterial
 
@@ -58,10 +66,10 @@ import contextlib
 log = logging.getLogger(__name__)
 
 
-
 NUMBYTES_INT8 = 1
 NUMBYTES_INT32 = 4
 NUMBYTES_FLOAT32 = 4
+
 
 def format_cudart_err(err):
     # https://gist.github.com/keckj/e37d312128eac8c5fca790ce1e7fc437
@@ -140,7 +148,9 @@ def create_cuda_texture(
         )
 
     if not (num_channels == 1 or num_channels == 2 or num_channels == 4):
-        raise ValueError(f"Invalid number of channels ({num_channels}), must be 1, 2., 3 or 4")
+        raise ValueError(
+            f"Invalid number of channels ({num_channels}), must be 1, 2., 3 or 4"
+        )
 
     if array.size != numpy.prod(texture_shape) * num_channels:
         raise ValueError(
@@ -164,7 +174,9 @@ def create_cuda_texture(
     else:
         raise ValueError(f"dtype '{address_mode}' is not supported")
 
-    format_descriptor = cupy.cuda.texture.ChannelFormatDescriptor(*channels, channel_type)
+    format_descriptor = cupy.cuda.texture.ChannelFormatDescriptor(
+        *channels, channel_type
+    )
 
     cuda_array = cupy.cuda.texture.CUDAarray(format_descriptor, *(texture_shape[::-1]))
     ressource_descriptor = cupy.cuda.texture.ResourceDescriptor(
@@ -206,7 +218,9 @@ def create_cuda_texture(
         maxAnisotropy=None,
     )
 
-    texture_object = cupy.cuda.texture.TextureObject(ressource_descriptor, texture_descriptor)
+    texture_object = cupy.cuda.texture.TextureObject(
+        ressource_descriptor, texture_descriptor
+    )
 
     # 'copy_from' from CUDAArray requires that the num of channels be multiplied
     # to the last axis of the array (see cupy docs!)
@@ -268,7 +282,6 @@ def _get_spectrum(spectrum: Union[np.ndarray, str]):
 #         attrs = cuda.Device(devicenum).get_attributes()
 #         ret = min(attrs[cuda.device_attribute.MAX_GRID_DIM_X], ret)
 #     return ret
-        
 
 
 def _get_kernel_peel_postprocess_module(
@@ -361,7 +374,6 @@ def _get_kernel_projector_module(
     return sm
 
 
-
 class Projector(object):
     volumes: List[vol.Volume]
 
@@ -379,15 +391,15 @@ class Projector(object):
         add_noise: bool = False,
         photon_count: int = 10000,
         threads: int = 8,
-        max_block_index: int = 65535, # TODO (liam): why not 65535?
-        collected_energy: bool = False, # TODO: add unit test for this
+        max_block_index: int = 65535,  # TODO (liam): why not 65535?
+        collected_energy: bool = False,  # TODO: add unit test for this
         neglog: bool = True,
         intensity_upper_bound: Optional[float] = None,
-        attenuate_outside_volume: bool = False, # TODO: add unit tests for this, doesn't work with meshes?
+        attenuate_outside_volume: bool = False,  # TODO: add unit tests for this, doesn't work with meshes?
         source_to_detector_distance: float = -1,
         carm: Optional[Device] = None,
-        num_mesh_layers = 32,
-        cuda_device_id = None,
+        num_mesh_layers=32,
+        cuda_device_id=None,
     ) -> None:
         """Create the projector, which has info for simulating the DRR.
 
@@ -441,13 +453,9 @@ class Projector(object):
                     if isinstance(prim.material, DRRMaterial):
                         self.primitives.append(prim)
                     else:
-                        raise ValueError(
-                            f"unrecognized Renderable type: {type(_vol)}."
-                        )
+                        raise ValueError(f"unrecognized Renderable type: {type(_vol)}.")
             else:
-                raise ValueError(
-                    f"unrecognized Renderable type: {type(_vol)}."
-                )
+                raise ValueError(f"unrecognized Renderable type: {type(_vol)}.")
 
         self.mesh_additive_enabled = len(self.meshes) > 0
         self.mesh_additive_and_subtractive_enabled = False
@@ -458,8 +466,10 @@ class Projector(object):
 
         def implies(a, b):
             return not a or b
-            
-        assert implies(self.mesh_additive_and_subtractive_enabled, self.mesh_additive_enabled)
+
+        assert implies(
+            self.mesh_additive_and_subtractive_enabled, self.mesh_additive_enabled
+        )
 
         if len(self.volumes) > 20:
             raise ValueError("Only up to 20 volumes are supported")
@@ -504,7 +514,7 @@ class Projector(object):
 
         if self.scatter_num > 0 and self.device is None:
             raise ValueError("Must provide device to simulate scatter.")
-        
+
         if self.scatter_num > 0:
             raise DeprecationError("Scatter is deprecated.")
 
@@ -622,7 +632,9 @@ class Projector(object):
 
         log.debug("Initiating projection and attenuation...")
 
-        width = self.device.sensor_width # TODO (liam): was deepdrr not locked to fixed resolution before?
+        width = (
+            self.device.sensor_width
+        )  # TODO (liam): was deepdrr not locked to fixed resolution before?
         height = self.device.sensor_height
         total_pixels = width * height
 
@@ -653,7 +665,8 @@ class Projector(object):
 
             for vol_id, _vol in enumerate(self.volumes):
                 source_ijk = np.array(
-                    _vol.IJK_from_world @ proj.center_in_world # TODO (liam): Remove unused center arguments
+                    _vol.IJK_from_world
+                    @ proj.center_in_world  # TODO (liam): Remove unused center arguments
                 ).astype(np.float32)
 
                 sourceX[vol_id] = source_ijk[0]
@@ -662,18 +675,19 @@ class Projector(object):
 
                 # TODO: prefer toarray() to get transform throughout
                 IJK_from_world = _vol.IJK_from_world.toarray()
-                ijk_from_world_cpu[IJK_from_world.size * vol_id : IJK_from_world.size * (vol_id + 1)] = IJK_from_world.flatten()
+                ijk_from_world_cpu[
+                    IJK_from_world.size * vol_id : IJK_from_world.size * (vol_id + 1)
+                ] = IJK_from_world.flatten()
             self.ijk_from_world_gpu = cp.asarray(ijk_from_world_cpu)
 
             self.sourceX_gpu = cp.asarray(sourceX)
             self.sourceY_gpu = cp.asarray(sourceY)
             self.sourceZ_gpu = cp.asarray(sourceZ)
 
-
             if self.mesh_additive_enabled:
                 for mesh_id, mesh in enumerate(self.meshes):
                     self.mesh_nodes[mesh_id].matrix = mesh.world_from_ijk
-                
+
                 # mesh_perf_entire_start = time.perf_counter()
                 # mesh_perf_start = time.perf_counter()
 
@@ -683,59 +697,81 @@ class Projector(object):
                 self.cam.fy = proj.intrinsic.fy
                 self.cam.cx = proj.intrinsic.cx
                 self.cam.cy = proj.intrinsic.cy
-                self.cam.znear = self.device.source_to_detector_distance/1000
+                self.cam.znear = self.device.source_to_detector_distance / 1000
                 self.cam.zfar = self.device.source_to_detector_distance
 
-                deepdrr_to_opengl_cam = np.array([
-                    [1, 0, 0, 0],
-                    [0, -1, 0, 0],
-                    [0, 0, -1, 0],
-                    [0, 0, 0, 1]
-                ])
+                deepdrr_to_opengl_cam = np.array(
+                    [[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]]
+                )
 
-                self.cam_node.matrix = np.array(proj.extrinsic.inv) @ deepdrr_to_opengl_cam
+                self.cam_node.matrix = (
+                    np.array(proj.extrinsic.inv) @ deepdrr_to_opengl_cam
+                )
 
                 # mesh_perf_end = time.perf_counter()
                 # print(f"init arrays: {mesh_perf_end - mesh_perf_start}")
                 # mesh_perf_start = mesh_perf_end
 
-                zfar = self.device.source_to_detector_distance*2 # TODO (liam)
+                zfar = self.device.source_to_detector_distance * 2  # TODO (liam)
 
                 for mat_idx, mat in enumerate(self.prim_unique_materials):
-                    self.gl_renderer.render(self.scene, drr_mode=DRRMode.DENSITY, flags=RenderFlags.RGBA, zfar=zfar, mat=mat)
-                    
+                    self.gl_renderer.render(
+                        self.scene,
+                        drr_mode=DRRMode.DENSITY,
+                        flags=RenderFlags.RGBA,
+                        zfar=zfar,
+                        mat=mat,
+                    )
+
                     # TODO: need gl synchronization here?
 
-                    pointer_into_additive_densities = int(self.additive_densities_gpu.data.ptr) + mat_idx * total_pixels * 2 * NUMBYTES_FLOAT32
-                    flags = cudart.cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsReadOnly
+                    pointer_into_additive_densities = (
+                        int(self.additive_densities_gpu.data.ptr)
+                        + mat_idx * total_pixels * 2 * NUMBYTES_FLOAT32
+                    )
 
-                    reg_img = check_cudart_err(cudart.cudaGraphicsGLRegisterImage(int(self.gl_renderer.g_densityTexId), GL_TEXTURE_RECTANGLE, flags))
+                    reg_img = check_cudart_err(
+                        cudart.cudaGraphicsGLRegisterImage(
+                            int(self.gl_renderer.g_densityTexId),
+                            GL_TEXTURE_RECTANGLE,
+                            cudart.cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsReadOnly,
+                        )
+                    )
                     check_cudart_err(cudart.cudaGraphicsMapResources(1, reg_img, None))
 
-                    cuda_array = check_cudart_err(cudart.cudaGraphicsSubResourceGetMappedArray(reg_img, 0, 0))
+                    cuda_array = check_cudart_err(
+                        cudart.cudaGraphicsSubResourceGetMappedArray(reg_img, 0, 0)
+                    )
 
-                    check_cudart_err(cudart.cudaMemcpy2DFromArray(
-                        dst=pointer_into_additive_densities,
-                        dpitch=int(width * 2 * NUMBYTES_FLOAT32),
-                        src=cuda_array,
-                        wOffset=0,
-                        hOffset=0,
-                        width=int(width * 2 * NUMBYTES_FLOAT32),
-                        height=int(height),
-                        kind=cudart.cudaMemcpyKind.cudaMemcpyDeviceToDevice
-                    ))
+                    check_cudart_err(
+                        cudart.cudaMemcpy2DFromArray(
+                            dst=pointer_into_additive_densities,
+                            dpitch=int(width * 2 * NUMBYTES_FLOAT32),
+                            src=cuda_array,
+                            wOffset=0,
+                            hOffset=0,
+                            width=int(width * 2 * NUMBYTES_FLOAT32),
+                            height=int(height),
+                            kind=cudart.cudaMemcpyKind.cudaMemcpyDeviceToDevice,
+                        )
+                    )
 
-                    check_cudart_err(cudart.cudaGraphicsUnmapResources(1, reg_img, None))
+                    check_cudart_err(
+                        cudart.cudaGraphicsUnmapResources(1, reg_img, None)
+                    )
                     check_cudart_err(cudart.cudaGraphicsUnregisterResource(reg_img))
-
 
                 # mesh_perf_end = time.perf_counter()
                 # print(f"density: {mesh_perf_end - mesh_perf_start}")
                 # mesh_perf_start = mesh_perf_end
 
-
                 if self.mesh_additive_and_subtractive_enabled:
-                    self.gl_renderer.render(self.scene, drr_mode=DRRMode.DIST, flags=RenderFlags.RGBA, zfar=zfar)
+                    self.gl_renderer.render(
+                        self.scene,
+                        drr_mode=DRRMode.DIST,
+                        flags=RenderFlags.RGBA,
+                        zfar=zfar,
+                    )
 
                     # mesh_perf_end = time.perf_counter()
                     # print(f"peel: {mesh_perf_end - mesh_perf_start}")
@@ -744,40 +780,59 @@ class Projector(object):
                     for tex_idx in range(self.gl_renderer.num_peel_passes):
                         # TODO: need gl synchronization here?
 
-                        pointer_into_additive_densities = int(int(self.mesh_hit_alphas_tex_gpu.data.ptr) + tex_idx * total_pixels * 4 * NUMBYTES_FLOAT32)
-                        flags = cudart.cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsReadOnly
+                        pointer_into_additive_densities = int(
+                            int(self.mesh_hit_alphas_tex_gpu.data.ptr)
+                            + tex_idx * total_pixels * 4 * NUMBYTES_FLOAT32
+                        )
+                        flags = (
+                            cudart.cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsReadOnly
+                        )
 
-                        reg_img = check_cudart_err(cudart.cudaGraphicsGLRegisterImage(int(self.gl_renderer.g_peelTexId[tex_idx]), GL_TEXTURE_RECTANGLE, flags))
-                        check_cudart_err(cudart.cudaGraphicsMapResources(1, reg_img, None))
+                        reg_img = check_cudart_err(
+                            cudart.cudaGraphicsGLRegisterImage(
+                                int(self.gl_renderer.g_peelTexId[tex_idx]),
+                                GL_TEXTURE_RECTANGLE,
+                                flags,
+                            )
+                        )
+                        check_cudart_err(
+                            cudart.cudaGraphicsMapResources(1, reg_img, None)
+                        )
 
-                        cuda_array = check_cudart_err(cudart.cudaGraphicsSubResourceGetMappedArray(reg_img, 0, 0))
+                        cuda_array = check_cudart_err(
+                            cudart.cudaGraphicsSubResourceGetMappedArray(reg_img, 0, 0)
+                        )
 
-                        check_cudart_err(cudart.cudaMemcpy2DFromArray(
-                            dst=pointer_into_additive_densities,
-                            dpitch=int(width * 4 * NUMBYTES_FLOAT32),
-                            src=cuda_array,
-                            wOffset=0,
-                            hOffset=0,
-                            width=int(width * 4 * NUMBYTES_FLOAT32),
-                            height=int(height),
-                            kind=cudart.cudaMemcpyKind.cudaMemcpyDeviceToDevice
-                        ))
+                        check_cudart_err(
+                            cudart.cudaMemcpy2DFromArray(
+                                dst=pointer_into_additive_densities,
+                                dpitch=int(width * 4 * NUMBYTES_FLOAT32),
+                                src=cuda_array,
+                                wOffset=0,
+                                hOffset=0,
+                                width=int(width * 4 * NUMBYTES_FLOAT32),
+                                height=int(height),
+                                kind=cudart.cudaMemcpyKind.cudaMemcpyDeviceToDevice,
+                            )
+                        )
 
-                        check_cudart_err(cudart.cudaGraphicsUnmapResources(1, reg_img, None))
+                        check_cudart_err(
+                            cudart.cudaGraphicsUnmapResources(1, reg_img, None)
+                        )
                         check_cudart_err(cudart.cudaGraphicsUnregisterResource(reg_img))
 
                     # mesh_perf_end = time.perf_counter()
                     # print(f"peel copy: {mesh_perf_end - mesh_perf_start}")
                     # mesh_perf_start = mesh_perf_end
-                    
+
                     self.kernel_reorder(
                         args=(
                             self.mesh_hit_alphas_tex_gpu,
                             self.mesh_hit_alphas_gpu,
-                            np.int32(total_pixels)
-                        ), 
-                        block=(256,1,1), # TODO (liam)
-                        grid=(16,1) # TODO (liam)
+                            np.int32(total_pixels),
+                        ),
+                        block=(256, 1, 1),  # TODO (liam)
+                        grid=(16, 1),  # TODO (liam)
                     )
 
                     # mesh_perf_end = time.perf_counter()
@@ -788,11 +843,11 @@ class Projector(object):
                         args=(
                             self.mesh_hit_alphas_gpu,
                             self.mesh_hit_facing_gpu,
-                            np.int32(total_pixels), 
-                            np.float32(self.device.source_to_detector_distance*2)
+                            np.int32(total_pixels),
+                            np.float32(self.device.source_to_detector_distance * 2),
                         ),
-                        block=(256,1,1), # TODO (liam)
-                        grid=(16,1) # TODO (liam)
+                        block=(256, 1, 1),  # TODO (liam)
+                        grid=(16, 1),  # TODO (liam)
                     )
 
                 # mesh_perf_end = time.perf_counter()
@@ -802,9 +857,10 @@ class Projector(object):
                 # context.synchronize()
                 # print(f"entire mesh: {time.perf_counter() - mesh_perf_entire_start}")
 
-            volumes_texobs_gpu = cp.array([x.ptr for x in self.volumes_texobs], dtype=np.uint64)
+            volumes_texobs_gpu = cp.array(
+                [x.ptr for x in self.volumes_texobs], dtype=np.uint64
+            )
             seg_texobs_gpu = cp.array([x.ptr for x in self.seg_texobs], dtype=np.uint64)
-
 
             args = [
                 volumes_texobs_gpu,
@@ -854,13 +910,19 @@ class Projector(object):
                 f"Running: {blocks_w}x{blocks_h} blocks with {self.threads}x{self.threads} threads each"
             )
 
-            log.debug("args: {}".format('\n'.join(map(str, args))))
+            log.debug("args: {}".format("\n".join(map(str, args))))
             if blocks_w <= self.max_block_index and blocks_h <= self.max_block_index:
                 offset_w = np.int32(0)
                 offset_h = np.int32(0)
-                self.project_kernel(block=block, grid=(blocks_w, blocks_h), args=(*args, offset_w, offset_h))
+                self.project_kernel(
+                    block=block,
+                    grid=(blocks_w, blocks_h),
+                    args=(*args, offset_w, offset_h),
+                )
             else:
-                raise DeprecationWarning("Patchwise projection is deprecated, try increasing max_block_index and/or threads. Please raise an issue if you need this feature.")
+                raise DeprecationWarning(
+                    "Patchwise projection is deprecated, try increasing max_block_index and/or threads. Please raise an issue if you need this feature."
+                )
 
             project_tock = time.perf_counter()
             log.debug(
@@ -880,12 +942,16 @@ class Projector(object):
             log.debug("swapped photon_prob")
 
             project_tock = time.perf_counter()
-            log.debug(f"projection #{i}: time elapased after copy from kernel: {project_tock - project_tick}")
+            log.debug(
+                f"projection #{i}: time elapased after copy from kernel: {project_tock - project_tick}"
+            )
 
             # transform to collected energy in keV per cm^2 (or keV per mm^2)
             if self.collected_energy:
                 assert np.array_equal(self.solid_angle_gpu, np.uint64(0)) == False
-                solid_angle = cp.asnumpy(self.solid_angle_gpu).reshape(self.output_shape)
+                solid_angle = cp.asnumpy(self.solid_angle_gpu).reshape(
+                    self.output_shape
+                )
                 solid_angle = np.swapaxes(solid_angle, 0, 1).copy()
 
                 # TODO (mjudish): is this calculation valid? SDD is in [mm], what does f{x,y} measure?
@@ -915,7 +981,7 @@ class Projector(object):
         photon_prob = np.stack(photon_probs)
         log.debug("Completed projection and attenuation")
 
-        if self.add_noise: # TODO: add tests
+        if self.add_noise:  # TODO: add tests
             log.info("adding Poisson noise")
             images = analytic_generators.add_noise(
                 images, photon_prob, self.photon_count
@@ -982,7 +1048,9 @@ class Projector(object):
 
         if self.initialized:
             if len(self.primitives) > 0:
-                log.error("Changing sensor size while using meshes is not yet supported.")
+                log.error(
+                    "Changing sensor size while using meshes is not yet supported."
+                )
             self.intensity_gpu = None
             self.photon_prob_gpu = None
             if self.collected_energy:
@@ -1024,21 +1092,24 @@ class Projector(object):
         log.debug(f"beginning call to Projector.initialize")
         init_tick = time.perf_counter()
 
-        width = self.device.sensor_width # TODO (liam): was deepdrr not locked to fixed resolution before?
+        width = (
+            self.device.sensor_width
+        )  # TODO (liam): was deepdrr not locked to fixed resolution before?
         height = self.device.sensor_height
         total_pixels = width * height
 
-        device_id = int(os.environ.get('EGL_DEVICE_ID', '0'))
+        device_id = int(os.environ.get("EGL_DEVICE_ID", "0"))
         egl_device = egl.get_device_by_index(device_id)
-        self._egl_platform = egl.EGLPlatform(viewport_width=width, viewport_height=height,
-                                            device=egl_device)
+        self._egl_platform = egl.EGLPlatform(
+            viewport_width=width, viewport_height=height, device=egl_device
+        )
         self._egl_platform.init_context()
         self._egl_platform.make_current()
 
         self.cupy_device = cupy.cuda.Device(self.cuda_device_id)
         self.cupy_device.__enter__()
 
-        cp.cuda.memory._set_thread_local_allocator(None) # TODO: what does this do?
+        cp.cuda.memory._set_thread_local_allocator(None)  # TODO: what does this do?
 
         # compile the module, moved to to initialize because it needs to happen after the context is created
         self.mod = _get_kernel_projector_module(
@@ -1078,16 +1149,23 @@ class Projector(object):
                 if mat in _vol.materials:
                     seg = _vol.materials[mat]
                 else:
-                    seg = np.zeros(_vol.shape).astype(np.float32) # TODO (liam): 8 bit textures to save VRAM?
+                    seg = np.zeros(_vol.shape).astype(
+                        np.float32
+                    )  # TODO (liam): 8 bit textures to save VRAM?
                 seg = np.moveaxis(seg, [0, 1, 2], [2, 1, 0]).copy()
                 texobj, texarr = create_cuda_texture(seg)
                 self.seg_texobs.append(texobj)
                 self.seg_texarrs.append(texarr)
 
-
-        self.prim_unique_materials = list(set([mesh.material.drrMatName for mesh in self.primitives]))
-        self.prim_unique_materials_indices = [self.all_materials.index(mat) for mat in self.prim_unique_materials]
-        self.prim_unique_materials_gpu = cp.array(self.prim_unique_materials_indices, dtype=np.int32)
+        self.prim_unique_materials = list(
+            set([mesh.material.drrMatName for mesh in self.primitives])
+        )
+        self.prim_unique_materials_indices = [
+            self.all_materials.index(mat) for mat in self.prim_unique_materials
+        ]
+        self.prim_unique_materials_gpu = cp.array(
+            self.prim_unique_materials_indices, dtype=np.int32
+        )
 
         init_tock = time.perf_counter()
         log.debug(
@@ -1110,16 +1188,23 @@ class Projector(object):
             fy=cam_intr.fy,
             cx=cam_intr.cx,
             cy=cam_intr.cy,
-            znear=self.device.source_to_detector_distance/1000, # TODO (liam) near clipping plane parameter
-            zfar=self.device.source_to_detector_distance
-            )
-        
+            znear=self.device.source_to_detector_distance
+            / 1000,  # TODO (liam) near clipping plane parameter
+            zfar=self.device.source_to_detector_distance,
+        )
+
         self.cam_node = self.scene.add(self.cam)
 
-        self._renderer = Renderer(viewport_width=width, viewport_height=height, num_peel_passes=self.num_mesh_layers//4)
+        self._renderer = Renderer(
+            viewport_width=width,
+            viewport_height=height,
+            num_peel_passes=self.num_mesh_layers // 4,
+        )
         self.gl_renderer = self._renderer
 
-        self.additive_densities_gpu = cp.zeros(len(self.prim_unique_materials) * total_pixels * 2, dtype=np.float32)
+        self.additive_densities_gpu = cp.zeros(
+            len(self.prim_unique_materials) * total_pixels * 2, dtype=np.float32
+        )
 
         # allocate volumes' priority level on the GPU
         self.priorities_gpu = cp.zeros(len(self.volumes), dtype=np.int32)
@@ -1167,9 +1252,7 @@ class Projector(object):
         self.world_from_index_gpu = cp.zeros(3 * 3, dtype=np.float32)
 
         # allocate ijk_from_world for each volume.
-        self.ijk_from_world_gpu = cp.zeros(
-            len(self.volumes) * 3 * 4, dtype=np.float32
-        )
+        self.ijk_from_world_gpu = cp.zeros(len(self.volumes) * 3 * 4, dtype=np.float32)
 
         # Initializes the output_shape as well.
         self.initialize_output_arrays(self.camera_intrinsics.sensor_size)
@@ -1211,9 +1294,15 @@ class Projector(object):
             f"time elapsed after intializing rest of primary-signal stuff: {init_tock - init_tick}"
         )
 
-        self.mesh_hit_alphas_gpu = cp.zeros((total_pixels, self.num_mesh_layers), dtype=np.float32)
-        self.mesh_hit_alphas_tex_gpu = cp.zeros((total_pixels, self.num_mesh_layers), dtype=np.float32)
-        self.mesh_hit_facing_gpu = cp.zeros((total_pixels, self.num_mesh_layers), dtype=np.int8)
+        self.mesh_hit_alphas_gpu = cp.zeros(
+            (total_pixels, self.num_mesh_layers), dtype=np.float32
+        )
+        self.mesh_hit_alphas_tex_gpu = cp.zeros(
+            (total_pixels, self.num_mesh_layers), dtype=np.float32
+        )
+        self.mesh_hit_facing_gpu = cp.zeros(
+            (total_pixels, self.num_mesh_layers), dtype=np.int8
+        )
 
         init_tock = time.perf_counter()
         log.debug(
@@ -1226,7 +1315,6 @@ class Projector(object):
     def free(self):
         """Free the allocated GPU memory."""
         if self.initialized:
-
             self.gl_renderer.delete()
 
             self.volumes_texobs = None
