@@ -1,4 +1,4 @@
-// #include <cubicTex3D.cu>
+#include <cubicTex3D.cu>
 #include <stdio.h>
 
 // Supports at most 20 volumes.
@@ -25,9 +25,8 @@
 #define LOAG_SEGS_FOR_VOL_MAT(vol_id, mat_id)                                  \
   do {                                                                         \
     seg_at_alpha[vol_id][mat_id] = round(                                      \
-        tex3D(SEG(vol_id, mat_id), px[vol_id], py[vol_id], pz[vol_id]));  \
+        cubicTex3D(SEG(vol_id, mat_id), px[vol_id], py[vol_id], pz[vol_id]));  \
   } while (0)
-        // cubicTex3D(SEG(vol_id, mat_id), px[vol_id], py[vol_id], pz[vol_id]));  \
 
 // TODO: rather than having num vols lines for each macro, define the macro once
 // with #if statements for each vol_id.
@@ -2387,7 +2386,7 @@ __global__ void projectKernel(
             pz[vol_id] = sz_ijk[vol_id] + alpha * rz_ijk[vol_id] - 0.5;
 
             for (int mat_id = 0; mat_id < NUM_MATERIALS; mat_id++) {
-                seg_at_alpha[vol_id][mat_id] = round(tex3D<float>(seg_texs[vol_id*NUM_MATERIALS+mat_id], px[vol_id], py[vol_id], pz[vol_id]));
+                seg_at_alpha[vol_id][mat_id] = round(cubicTex3D<float, float>(seg_texs[vol_id*NUM_MATERIALS+mat_id], make_float3(px[vol_id], py[vol_id], pz[vol_id])));
             }
         }
     }
