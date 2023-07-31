@@ -313,7 +313,7 @@ def _get_kernel_projector_module(
         num_materials (int): The number of materials to assume
 
     Returns:
-        SourceModule: pycuda SourceModule object.
+        RawModule: The compiled cuda module
 
     """
     # path to files for cubic interpolation (folder cubic in DeepDRR)
