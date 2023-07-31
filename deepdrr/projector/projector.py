@@ -1188,7 +1188,7 @@ class Projector(object):
 
             # transform to collected energy in keV per cm^2 (or keV per mm^2)
             if self.collected_energy:
-                assert self.solid_angle_gpu != np.uint64(0)
+                assert np.array_equal(self.solid_angle_gpu, np.uint64(0)) == False
                 # solid_angle = np.zeros(self.output_shape, dtype=np.float32)
                 # cuda.memcpy_dtoh(solid_angle, self.solid_angle_gpu)
                 solid_angle = cp.asnumpy(self.solid_angle_gpu).reshape(self.output_shape)
@@ -1221,7 +1221,7 @@ class Projector(object):
         photon_prob = np.stack(photon_probs)
         log.debug("Completed projection and attenuation")
 
-        if self.add_noise:
+        if self.add_noise: # TODO: add tests
             log.info("adding Poisson noise")
             images = analytic_generators.add_noise(
                 images, photon_prob, self.photon_count
