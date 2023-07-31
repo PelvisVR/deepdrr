@@ -41,15 +41,20 @@ from ..pyrenderdrr.renderer import Renderer
 
 from functools import lru_cache
 
-try:
-    from pycuda.tools import make_default_context
-    from pycuda.driver import Context as context
-    import pycuda.driver as cuda
-    import pycuda.gl
-    import pycuda
-    from pycuda.compiler import SourceModule
-except ImportError:
-    logging.warning('pycuda unavailable')
+import cupy as cp
+import cupy
+
+import numpy
+
+# try:
+#     from pycuda.tools import make_default_context
+#     from pycuda.driver import Context as context
+#     import pycuda.driver as cuda
+#     import pycuda.gl
+#     import pycuda
+#     from pycuda.compiler import SourceModule
+# except ImportError:
+#     logging.warning('pycuda unavailable')
 
 from ..utils.output_logger import OutputLogger
 import contextlib
@@ -61,6 +66,145 @@ log = logging.getLogger(__name__)
 NUMBYTES_INT8 = 1
 NUMBYTES_INT32 = 4
 NUMBYTES_FLOAT32 = 4
+
+
+
+def create_cuda_texture(
+    array,
+    texture_shape: Tuple[int, ...] = None,
+    num_channels: int = 1,
+    normalised_values: bool = False,
+    normalised_coords: bool = False,
+    sampling_mode: str = "linear",
+    address_mode: str = "clamp",
+    dtype=None,
+):
+    """Creates a Cuda texture and takes care of a lot of the needed 'know-how'
+
+    Parameters
+    ----------
+    array
+    texture_shape
+    num_channels
+    normalised_values
+    normalised_coords
+    sampling_mode
+    address_mode
+    dtype
+
+    Returns
+    -------
+
+    """
+    import cupy
+
+    if texture_shape is None:
+        if num_channels > 1:
+            texture_shape = array.shape[0:-1]
+        else:
+            texture_shape = array.shape
+
+    if array.dtype == numpy.float16 or dtype == numpy.float16:
+        raise ValueError("float16 types not yet supported!")
+
+    if dtype is None:
+        dtype = array.dtype
+
+    if not (1 <= len(texture_shape) <= 3):
+        raise ValueError(
+            f"Invalid number of dimensions ({len(texture_shape)}), must be 1, 2 or 3 (shape={texture_shape}) "
+        )
+
+    if not (num_channels == 1 or num_channels == 2 or num_channels == 4):
+        raise ValueError(f"Invalid number of channels ({num_channels}), must be 1, 2., 3 or 4")
+
+    if array.size != numpy.prod(texture_shape) * num_channels:
+        raise ValueError(
+            f"Texture shape {texture_shape}, num of channels ({num_channels}), "
+            + f"and array size ({array.size}) are mismatched!"
+        )
+
+    dtype = numpy.dtype(dtype)
+
+    if array.dtype != dtype:
+        array = array.astype(dtype, copy=False)
+
+    nbits = 8 * dtype.itemsize
+    channels = (nbits,) * num_channels + (0,) * (4 - num_channels)
+    if "f" in dtype.kind:
+        channel_type = cupy.cuda.runtime.cudaChannelFormatKindFloat
+    elif "i" in dtype.kind:
+        channel_type = cupy.cuda.runtime.cudaChannelFormatKindSigned
+    elif "u" in dtype.kind:
+        channel_type = cupy.cuda.runtime.cudaChannelFormatKindUnsigned
+    else:
+        raise ValueError(f"dtype '{address_mode}' is not supported")
+
+    format_descriptor = cupy.cuda.texture.ChannelFormatDescriptor(*channels, channel_type)
+
+    cuda_array = cupy.cuda.texture.CUDAarray(format_descriptor, *(texture_shape[::-1]))
+    ressource_descriptor = cupy.cuda.texture.ResourceDescriptor(
+        cupy.cuda.runtime.cudaResourceTypeArray, cuArr=cuda_array
+    )
+
+    if address_mode == "clamp":
+        address_mode = cupy.cuda.runtime.cudaAddressModeClamp
+    elif address_mode == "border":
+        address_mode = cupy.cuda.runtime.cudaAddressModeBorder
+    elif address_mode == "wrap":
+        address_mode = cupy.cuda.runtime.cudaAddressModeWrap
+    elif address_mode == "mirror":
+        address_mode = cupy.cuda.runtime.cudaAddressModeMirror
+    else:
+        raise ValueError(f"Address mode '{address_mode}' is not supported")
+
+    address_mode = (address_mode,) * len(texture_shape)
+
+    if sampling_mode == "nearest":
+        filter_mode = cupy.cuda.runtime.cudaFilterModePoint
+    elif sampling_mode == "linear":
+        filter_mode = cupy.cuda.runtime.cudaFilterModeLinear
+    else:
+        raise ValueError(f"Sampling mode '{sampling_mode}' is not supported")
+
+    if normalised_values:
+        read_mode = cupy.cuda.runtime.cudaReadModeNormalizedFloat
+    else:
+        read_mode = cupy.cuda.runtime.cudaReadModeElementType
+
+    texture_descriptor = cupy.cuda.texture.TextureDescriptor(
+        addressModes=address_mode,
+        filterMode=filter_mode,
+        readMode=read_mode,
+        sRGB=None,
+        borderColors=None,
+        normalizedCoords=normalised_coords,
+        maxAnisotropy=None,
+    )
+
+    texture_object = cupy.cuda.texture.TextureObject(ressource_descriptor, texture_descriptor)
+
+    # 'copy_from' from CUDAArray requires that the num of channels be multiplied
+    # to the last axis of the array (see cupy docs!)
+    if num_channels > 1:
+        array_shape_for_copy = texture_shape[:-1] + (texture_shape[-1] * num_channels,)
+    else:
+        array_shape_for_copy = texture_shape
+    axp = cupy.get_array_module(array)
+    array = axp.reshape(array, newshape=array_shape_for_copy)
+
+    if not array.flags.owndata or not not array.flags.c_contiguous:
+        # the array must be contiguous, we check if this is a derived array,
+        # if yes we must unfortunately copy the data...
+        array = array.copy()
+
+    # We need to synchronise otherwise some weird stuff happens! see warp 3d demo does not work withoutv this!
+    # Backend.current().synchronise()
+    cuda_array.copy_from(array)
+
+    del format_descriptor, texture_descriptor, ressource_descriptor
+
+    return texture_object, cuda_array
 
 
 def _get_spectrum(spectrum: Union[np.ndarray, str]):
@@ -85,21 +229,21 @@ def _get_spectrum(spectrum: Union[np.ndarray, str]):
         raise TypeError(f"unrecognized spectrum type: {type(spectrum)}")
 
 
-@lru_cache(maxsize=1)
-def max_block_dim(): # TODO (liam): use this maybe?
-    ret = np.inf
-    for devicenum in range(cuda.Device.count()):
-        attrs = cuda.Device(devicenum).get_attributes()
-        ret = min(attrs[cuda.device_attribute.MAX_BLOCK_DIM_X], ret)
-    return ret
+# @lru_cache(maxsize=1)
+# def max_block_dim(): # TODO (liam): use this maybe?
+#     ret = np.inf
+#     for devicenum in range(cuda.Device.count()):
+#         attrs = cuda.Device(devicenum).get_attributes()
+#         ret = min(attrs[cuda.device_attribute.MAX_BLOCK_DIM_X], ret)
+#     return ret
 
-@lru_cache(maxsize=1)
-def max_grid_dim(): # TODO (liam): use this maybe?
-    ret = np.inf
-    for devicenum in range(cuda.Device.count()):
-        attrs = cuda.Device(devicenum).get_attributes()
-        ret = min(attrs[cuda.device_attribute.MAX_GRID_DIM_X], ret)
-    return ret
+# @lru_cache(maxsize=1)
+# def max_grid_dim(): # TODO (liam): use this maybe?
+#     ret = np.inf
+#     for devicenum in range(cuda.Device.count()):
+#         attrs = cuda.Device(devicenum).get_attributes()
+#         ret = min(attrs[cuda.device_attribute.MAX_GRID_DIM_X], ret)
+#     return ret
         
 
 
@@ -123,12 +267,13 @@ def _get_kernel_peel_postprocess_module(
     ]
     assert num_intersections % 4 == 0, "num_intersections must be a multiple of 4"
 
-    with contextlib.redirect_stderr(OutputLogger(__name__, "DEBUG")):
-        sm = SourceModule(
-            source,
-            options=options,
-            no_extern_c=False,
-        )
+    # with contextlib.redirect_stderr(OutputLogger(__name__, "DEBUG")):
+    #     sm = SourceModule(
+    #         source,
+    #         options=options,
+    #         no_extern_c=False,
+    #     )
+    sm = cp.RawModule(code=source, options=tuple(options), backend="nvcc")
     return sm
 
 
@@ -187,45 +332,50 @@ def _get_kernel_projector_module(
         f"ATTENUATE_OUTSIDE_VOLUME={int(attenuate_outside_volume)}",
         "-D",
         f"AIR_INDEX={air_index}",
+        "-I",
+        bicubic_path,
+        "-I",
+        str(d),
     ]
     log.debug(
         f"compiling {source_path} with NUM_VOLUMES={num_volumes}, NUM_MATERIALS={num_materials}"
     )
 
-    with contextlib.redirect_stderr(OutputLogger(__name__, "DEBUG")):
-        sm = SourceModule(
-            source,
-            include_dirs=[bicubic_path, str(d)],
-            options=options,
-            no_extern_c=True,
-        )
+    # with contextlib.redirect_stderr(OutputLogger(__name__, "DEBUG")):
+    #     sm = SourceModule(
+    #         source,
+    #         include_dirs=[bicubic_path, str(d)],
+    #         options=options,
+    #         no_extern_c=True,
+    #     )
+    sm = cp.RawModule(code=source, options=tuple(options), backend="nvcc")
     return sm
 
 
-def _get_kernel_scatter_module(num_materials) -> SourceModule:
-    """Compile the cuda code for the scatter simulation.
+# def _get_kernel_scatter_module(num_materials) -> SourceModule:
+#     """Compile the cuda code for the scatter simulation.
 
-    Assumes `scatter_kernel.cu` and `scatter_header.cu` are in the same directory as THIS file.
+#     Assumes `scatter_kernel.cu` and `scatter_header.cu` are in the same directory as THIS file.
 
-    Returns:
-        SourceModule: pycuda SourceModule object.
-    """
-    d = Path(__file__).resolve().parent
-    source_path = str(d / "scatter_kernel.cu")
+#     Returns:
+#         SourceModule: pycuda SourceModule object.
+#     """
+#     d = Path(__file__).resolve().parent
+#     source_path = str(d / "scatter_kernel.cu")
 
-    with open(source_path, "r") as file:
-        source = file.read()
-    options = ["-D", f"NUM_MATERIALS={num_materials}"]
-    log.debug(f"compiling {source_path} with NUM_MATERIALS={num_materials}")
+#     with open(source_path, "r") as file:
+#         source = file.read()
+#     options = ["-D", f"NUM_MATERIALS={num_materials}"]
+#     log.debug(f"compiling {source_path} with NUM_MATERIALS={num_materials}")
 
-    with contextlib.redirect_stderr(OutputLogger(__name__, "DEBUG")):
-        sm = SourceModule(
-            source,
-            include_dirs=[str(d)],
-            no_extern_c=True,
-            options=options,
-        )
-    return sm
+#     with contextlib.redirect_stderr(OutputLogger(__name__, "DEBUG")):
+#         sm = SourceModule(
+#             source,
+#             include_dirs=[str(d)],
+#             no_extern_c=True,
+#             options=options,
+#         )
+#     return sm
 
 
 class Projector(object):
@@ -246,7 +396,7 @@ class Projector(object):
         photon_count: int = 10000,
         threads: int = 8,
         max_block_index: int = 65535, # TODO (liam): why not 65535?
-        collected_energy: bool = False,
+        collected_energy: bool = False, # TODO: add unit test for this
         neglog: bool = True,
         intensity_upper_bound: Optional[float] = None,
         attenuate_outside_volume: bool = False,
@@ -503,146 +653,167 @@ class Projector(object):
             world_from_index = np.array(proj.world_from_index[:-1, :]).astype(
                 np.float32
             )
-            cuda.memcpy_htod(self.world_from_index_gpu, world_from_index)
+            # cuda.memcpy_htod(self.world_from_index_gpu, world_from_index)
+            self.world_from_index_gpu = cp.asarray(world_from_index)
+
+            sourceX = np.zeros(len(self.volumes), dtype=np.float32)
+            sourceY = np.zeros(len(self.volumes), dtype=np.float32)
+            sourceZ = np.zeros(len(self.volumes), dtype=np.float32)
+
+            ijk_from_world_cpu = np.zeros(len(self.volumes) * 3 * 4, dtype=np.float32)
 
             for vol_id, _vol in enumerate(self.volumes):
                 source_ijk = np.array(
                     _vol.IJK_from_world @ proj.center_in_world # TODO (liam): Remove unused center arguments
                 ).astype(np.float32)
-                cuda.memcpy_htod(
-                    int(self.sourceX_gpu) + int(NUMBYTES_INT32 * vol_id),
-                    np.array([source_ijk[0]]),
-                )
-                cuda.memcpy_htod(
-                    int(self.sourceY_gpu) + int(NUMBYTES_INT32 * vol_id),
-                    np.array([source_ijk[1]]),
-                )
-                cuda.memcpy_htod(
-                    int(self.sourceZ_gpu) + int(NUMBYTES_INT32 * vol_id),
-                    np.array([source_ijk[2]]),
-                )
+                # cuda.memcpy_htod(
+                #     int(self.sourceX_gpu) + int(NUMBYTES_INT32 * vol_id),
+                #     np.array([source_ijk[0]]),
+                # )
+                # cuda.memcpy_htod(
+                #     int(self.sourceY_gpu) + int(NUMBYTES_INT32 * vol_id),
+                #     np.array([source_ijk[1]]),
+                # )
+                # cuda.memcpy_htod(
+                #     int(self.sourceZ_gpu) + int(NUMBYTES_INT32 * vol_id),
+                #     np.array([source_ijk[2]]),
+                # )
+                sourceX[vol_id] = source_ijk[0]
+                sourceY[vol_id] = source_ijk[1]
+                sourceZ[vol_id] = source_ijk[2]
 
                 # TODO: prefer toarray() to get transform throughout
                 IJK_from_world = _vol.IJK_from_world.toarray()
-                cuda.memcpy_htod(
-                    int(self.ijk_from_world_gpu)
-                    + (IJK_from_world.size * NUMBYTES_FLOAT32) * vol_id,
-                    IJK_from_world,
-                )
+                # cuda.memcpy_htod(
+                #     int(self.ijk_from_world_gpu)
+                #     + (IJK_from_world.size * NUMBYTES_FLOAT32) * vol_id,
+                #     IJK_from_world,
+                # )
+                ijk_from_world_cpu[IJK_from_world.size * vol_id : IJK_from_world.size * (vol_id + 1)] = IJK_from_world.flatten()
+            self.ijk_from_world_gpu = cp.asarray(ijk_from_world_cpu)
+
+            self.sourceX_gpu = cp.asarray(sourceX)
+            self.sourceY_gpu = cp.asarray(sourceY)
+            self.sourceZ_gpu = cp.asarray(sourceZ)
 
 
-            if self.mesh_additive_enabled:
-                for mesh_id, mesh in enumerate(self.meshes):
-                    self.mesh_nodes[mesh_id].matrix = mesh.world_from_ijk
+            # if self.mesh_additive_enabled:
+            #     for mesh_id, mesh in enumerate(self.meshes):
+            #         self.mesh_nodes[mesh_id].matrix = mesh.world_from_ijk
                 
-                # mesh_perf_entire_start = time.perf_counter()
-                # mesh_perf_start = time.perf_counter()
+            #     # mesh_perf_entire_start = time.perf_counter()
+            #     # mesh_perf_start = time.perf_counter()
 
-                num_rays = proj.sensor_width * proj.sensor_height
+            #     num_rays = proj.sensor_width * proj.sensor_height
 
-                self.cam.fx = proj.intrinsic.fx
-                self.cam.fy = proj.intrinsic.fy
-                self.cam.cx = proj.intrinsic.cx
-                self.cam.cy = proj.intrinsic.cy
-                self.cam.znear = self.device.source_to_detector_distance/1000
-                self.cam.zfar = self.device.source_to_detector_distance
+            #     self.cam.fx = proj.intrinsic.fx
+            #     self.cam.fy = proj.intrinsic.fy
+            #     self.cam.cx = proj.intrinsic.cx
+            #     self.cam.cy = proj.intrinsic.cy
+            #     self.cam.znear = self.device.source_to_detector_distance/1000
+            #     self.cam.zfar = self.device.source_to_detector_distance
 
-                deepdrr_to_opengl_cam = np.array([
-                    [1, 0, 0, 0],
-                    [0, -1, 0, 0],
-                    [0, 0, -1, 0],
-                    [0, 0, 0, 1]
-                ])
+            #     deepdrr_to_opengl_cam = np.array([
+            #         [1, 0, 0, 0],
+            #         [0, -1, 0, 0],
+            #         [0, 0, -1, 0],
+            #         [0, 0, 0, 1]
+            #     ])
 
-                self.cam_node.matrix = np.array(proj.extrinsic.inv) @ deepdrr_to_opengl_cam
+            #     self.cam_node.matrix = np.array(proj.extrinsic.inv) @ deepdrr_to_opengl_cam
 
-                # mesh_perf_end = time.perf_counter()
-                # print(f"init arrays: {mesh_perf_end - mesh_perf_start}")
-                # mesh_perf_start = mesh_perf_end
+            #     # mesh_perf_end = time.perf_counter()
+            #     # print(f"init arrays: {mesh_perf_end - mesh_perf_start}")
+            #     # mesh_perf_start = mesh_perf_end
 
-                zfar = self.device.source_to_detector_distance*2 # TODO (liam)
+            #     zfar = self.device.source_to_detector_distance*2 # TODO (liam)
 
-                for mat_idx, mat in enumerate(self.prim_unique_materials):
-                    rendered_layers = self.gl_renderer.render(self.scene, drr_mode=DRRMode.DENSITY, flags=RenderFlags.RGBA, zfar=zfar, mat=mat)
+            #     for mat_idx, mat in enumerate(self.prim_unique_materials):
+            #         rendered_layers = self.gl_renderer.render(self.scene, drr_mode=DRRMode.DENSITY, flags=RenderFlags.RGBA, zfar=zfar, mat=mat)
                     
-                    reg_img = pycuda.gl.RegisteredImage(int(self.gl_renderer.g_densityTexId), GL_TEXTURE_RECTANGLE, pycuda.gl.graphics_map_flags.READ_ONLY)
-                    mapping = reg_img.map()
+            #         reg_img = pycuda.gl.RegisteredImage(int(self.gl_renderer.g_densityTexId), GL_TEXTURE_RECTANGLE, pycuda.gl.graphics_map_flags.READ_ONLY)
+            #         mapping = reg_img.map()
 
-                    src = mapping.array(0,0)
-                    cpy = cuda.Memcpy2D()
-                    cpy.set_src_array(src)
-                    pointer_into_additive_densities = int(self.additive_densities_gpu) + mat_idx * total_pixels * 2 * NUMBYTES_FLOAT32
-                    cpy.set_dst_device(int(pointer_into_additive_densities))
-                    cpy.width_in_bytes = cpy.src_pitch = cpy.dst_pitch = int(width * 2 * NUMBYTES_FLOAT32)
-                    cpy.height = int(height)
-                    cpy(aligned=False)
+            #         src = mapping.array(0,0)
+            #         cpy = cuda.Memcpy2D()
+            #         cpy.set_src_array(src)
+            #         pointer_into_additive_densities = int(self.additive_densities_gpu) + mat_idx * total_pixels * 2 * NUMBYTES_FLOAT32
+            #         cpy.set_dst_device(int(pointer_into_additive_densities))
+            #         cpy.width_in_bytes = cpy.src_pitch = cpy.dst_pitch = int(width * 2 * NUMBYTES_FLOAT32)
+            #         cpy.height = int(height)
+            #         cpy(aligned=False)
 
-                    mapping.unmap()
-                    reg_img.unregister()
+            #         mapping.unmap()
+            #         reg_img.unregister()
 
-                # mesh_perf_end = time.perf_counter()
-                # print(f"density: {mesh_perf_end - mesh_perf_start}")
-                # mesh_perf_start = mesh_perf_end
-
-
-                if self.mesh_additive_and_subtractive_enabled:
-
-                    rendered_layers = self.gl_renderer.render(self.scene, drr_mode=DRRMode.DIST, flags=RenderFlags.RGBA, zfar=zfar)
-
-                    # mesh_perf_end = time.perf_counter()
-                    # print(f"peel: {mesh_perf_end - mesh_perf_start}")
-                    # mesh_perf_start = mesh_perf_end
-
-                    for tex_idx in range(self.gl_renderer.num_peel_passes):
-                        reg_img = pycuda.gl.RegisteredImage(int(self.gl_renderer.g_peelTexId[tex_idx]), GL_TEXTURE_RECTANGLE, pycuda.gl.graphics_map_flags.READ_ONLY)
-                        mapping = reg_img.map()
-
-                        src = mapping.array(0,0)
-                        cpy = cuda.Memcpy2D()
-                        cpy.set_src_array(src)
-                        cpy.set_dst_device(int(int(self.mesh_hit_alphas_tex_gpu) + tex_idx * total_pixels * 4 * NUMBYTES_FLOAT32))
-                        cpy.width_in_bytes = cpy.src_pitch = cpy.dst_pitch = int(width * 4 * NUMBYTES_FLOAT32)
-                        cpy.height = int(height)
-                        cpy(aligned=False)
-
-                        mapping.unmap()
-                        reg_img.unregister()
+            #     # mesh_perf_end = time.perf_counter()
+            #     # print(f"density: {mesh_perf_end - mesh_perf_start}")
+            #     # mesh_perf_start = mesh_perf_end
 
 
-                    # mesh_perf_end = time.perf_counter()
-                    # print(f"peel copy: {mesh_perf_end - mesh_perf_start}")
-                    # mesh_perf_start = mesh_perf_end
+            #     if self.mesh_additive_and_subtractive_enabled:
+
+            #         rendered_layers = self.gl_renderer.render(self.scene, drr_mode=DRRMode.DIST, flags=RenderFlags.RGBA, zfar=zfar)
+
+            #         # mesh_perf_end = time.perf_counter()
+            #         # print(f"peel: {mesh_perf_end - mesh_perf_start}")
+            #         # mesh_perf_start = mesh_perf_end
+
+            #         for tex_idx in range(self.gl_renderer.num_peel_passes):
+            #             reg_img = pycuda.gl.RegisteredImage(int(self.gl_renderer.g_peelTexId[tex_idx]), GL_TEXTURE_RECTANGLE, pycuda.gl.graphics_map_flags.READ_ONLY)
+            #             mapping = reg_img.map()
+
+            #             src = mapping.array(0,0)
+            #             cpy = cuda.Memcpy2D()
+            #             cpy.set_src_array(src)
+            #             cpy.set_dst_device(int(int(self.mesh_hit_alphas_tex_gpu) + tex_idx * total_pixels * 4 * NUMBYTES_FLOAT32))
+            #             cpy.width_in_bytes = cpy.src_pitch = cpy.dst_pitch = int(width * 4 * NUMBYTES_FLOAT32)
+            #             cpy.height = int(height)
+            #             cpy(aligned=False)
+
+            #             mapping.unmap()
+            #             reg_img.unregister()
+
+
+            #         # mesh_perf_end = time.perf_counter()
+            #         # print(f"peel copy: {mesh_perf_end - mesh_perf_start}")
+            #         # mesh_perf_start = mesh_perf_end
                     
-                    self.kernel_reorder(
-                        np.uint64(self.mesh_hit_alphas_tex_gpu),
-                        np.uint64(self.mesh_hit_alphas_gpu),
-                        np.int32(total_pixels), 
-                        block=(256,1,1), # TODO (liam)
-                        grid=(16,1) # TODO (liam)
-                    )
+            #         self.kernel_reorder(
+            #             np.uint64(self.mesh_hit_alphas_tex_gpu),
+            #             np.uint64(self.mesh_hit_alphas_gpu),
+            #             np.int32(total_pixels), 
+            #             block=(256,1,1), # TODO (liam)
+            #             grid=(16,1) # TODO (liam)
+            #         )
 
-                    # mesh_perf_end = time.perf_counter()
-                    # print(f"peel reorder: {mesh_perf_end - mesh_perf_start}")
-                    # mesh_perf_start = mesh_perf_end
+            #         # mesh_perf_end = time.perf_counter()
+            #         # print(f"peel reorder: {mesh_perf_end - mesh_perf_start}")
+            #         # mesh_perf_start = mesh_perf_end
 
-                    self.kernel_tide(
-                        np.uint64(self.mesh_hit_alphas_gpu),
-                        np.uint64(self.mesh_hit_facing_gpu),
-                        np.int32(total_pixels), 
-                        np.float32(self.device.source_to_detector_distance*2),
-                        block=(256,1,1), # TODO (liam)
-                        grid=(16,1) # TODO (liam)
-                    )
+            #         self.kernel_tide(
+            #             np.uint64(self.mesh_hit_alphas_gpu),
+            #             np.uint64(self.mesh_hit_facing_gpu),
+            #             np.int32(total_pixels), 
+            #             np.float32(self.device.source_to_detector_distance*2),
+            #             block=(256,1,1), # TODO (liam)
+            #             grid=(16,1) # TODO (liam)
+            #         )
 
-                # mesh_perf_end = time.perf_counter()
-                # print(f"tide: {mesh_perf_end - mesh_perf_start}")
-                # mesh_perf_start = mesh_perf_end
+            #     # mesh_perf_end = time.perf_counter()
+            #     # print(f"tide: {mesh_perf_end - mesh_perf_start}")
+            #     # mesh_perf_start = mesh_perf_end
 
-                # context.synchronize()
-                # print(f"entire mesh: {time.perf_counter() - mesh_perf_entire_start}")
+            #     # context.synchronize()
+            #     # print(f"entire mesh: {time.perf_counter() - mesh_perf_entire_start}")
+
+            volumes_texobs_gpu = cp.array([x.ptr for x in self.volumes_texobs], dtype=np.uint64)
+            seg_texobs_gpu = cp.array([x.ptr for x in self.seg_texobs], dtype=np.uint64)
 
 
             args = [
+                volumes_texobs_gpu,
+                seg_texobs_gpu,
                 np.int32(proj.sensor_width),  # out_width
                 np.int32(proj.sensor_height),  # out_height
                 np.float32(self.step),  # step
@@ -672,10 +843,10 @@ class Projector(object):
                 self.intensity_gpu,  # intensity
                 self.photon_prob_gpu,  # photon_prob
                 self.solid_angle_gpu,  # solid_angle
-                np.uint64(self.mesh_hit_alphas_gpu),
-                np.uint64(self.mesh_hit_facing_gpu),
-                np.uint64(self.additive_densities_gpu),
-                np.uint64(self.prim_unique_materials_gpu),
+                self.mesh_hit_alphas_gpu,
+                self.mesh_hit_facing_gpu,
+                self.additive_densities_gpu,
+                self.prim_unique_materials_gpu,
                 np.int32(len(self.prim_unique_materials)),
                 np.int32(self.num_mesh_layers),
             ]
@@ -695,37 +866,42 @@ class Projector(object):
                 offset_w = np.int32(0)
                 offset_h = np.int32(0)
                 self.project_kernel(
-                    *args, offset_w, offset_h, block=block, grid=(blocks_w, blocks_h)
+                    block=block, grid=(blocks_w, blocks_h), args=(*args, offset_w, offset_h)
+                    # *args, offset_w, offset_h, block=block, grid=(blocks_w, blocks_h)
                 )
             else:
-                log.debug("Running kernel patchwise") # TODO (liam): are there really sensors larger than 65535*self.threads pixels in one dimension?
-                for w in range((blocks_w - 1) // (self.max_block_index + 1)):
-                    for h in range((blocks_h - 1) // (self.max_block_index + 1)):
-                        offset_w = np.int32(w * self.max_block_index)
-                        offset_h = np.int32(h * self.max_block_index)
-                        self.project_kernel(
-                            *args,
-                            offset_w,
-                            offset_h,
-                            block=block,
-                            grid=(self.max_block_index, self.max_block_index),
-                        )
-                        context.synchronize() # TODO (liam): why is this necessary?
+                raise ValueError("TODO: implement patchwise projection")
+                # log.debug("Running kernel patchwise") # TODO (liam): are there really sensors larger than 65535*self.threads pixels in one dimension?
+                # for w in range((blocks_w - 1) // (self.max_block_index + 1)):
+                #     for h in range((blocks_h - 1) // (self.max_block_index + 1)):
+                #         offset_w = np.int32(w * self.max_block_index)
+                #         offset_h = np.int32(h * self.max_block_index)
+                #         self.project_kernel(
+                #             *args,
+                #             offset_w,
+                #             offset_h,
+                #             block=block,
+                #             grid=(self.max_block_index, self.max_block_index),
+                #         )
+                #         context.synchronize() # TODO (liam): why is this necessary?
 
             project_tock = time.perf_counter()
             log.debug(
                 f"projection #{i}: time elapsed after call to project_kernel: {project_tock - project_tick}"
             )
 
-            intensity = np.zeros(self.output_shape, dtype=np.float32)
-            cuda.memcpy_dtoh(intensity, self.intensity_gpu)
+            # intensity = np.zeros(self.output_shape, dtype=np.float32)
+            # cuda.memcpy_dtoh(intensity, self.intensity_gpu)
+            intensity = cp.asnumpy(self.intensity_gpu).reshape(self.output_shape)
+
             # transpose the axes, which previously have width on the slow dimension
             log.debug("copied intensity from gpu")
             intensity = np.swapaxes(intensity, 0, 1).copy()
             log.debug("swapped intensity")
 
-            photon_prob = np.zeros(self.output_shape, dtype=np.float32)
-            cuda.memcpy_dtoh(photon_prob, self.photon_prob_gpu)
+            # photon_prob = np.zeros(self.output_shape, dtype=np.float32)
+            # cuda.memcpy_dtoh(photon_prob, self.photon_prob_gpu)
+            photon_prob = cp.asnumpy(self.photon_prob_gpu).reshape(self.output_shape)
             log.debug("copied photon_prob")
             photon_prob = np.swapaxes(photon_prob, 0, 1).copy()
             log.debug("swapped photon_prob")
@@ -948,8 +1124,9 @@ class Projector(object):
             # transform to collected energy in keV per cm^2 (or keV per mm^2)
             if self.collected_energy:
                 assert np.int32(0) != self.solid_angle_gpu
-                solid_angle = np.zeros(self.output_shape, dtype=np.float32)
-                cuda.memcpy_dtoh(solid_angle, self.solid_angle_gpu)
+                # solid_angle = np.zeros(self.output_shape, dtype=np.float32)
+                # cuda.memcpy_dtoh(solid_angle, self.solid_angle_gpu)
+                solid_angle = cp.asnumpy(self.solid_angle_gpu).reshape(self.output_shape)
                 solid_angle = np.swapaxes(solid_angle, 0, 1).copy()
 
                 # TODO (mjudish): is this calculation valid? SDD is in [mm], what does f{x,y} measure?
@@ -1056,20 +1233,23 @@ class Projector(object):
         self.output_shape = sensor_size
 
         # allocate intensity array on GPU (4 bytes to a float32)
-        self.intensity_gpu = cuda.mem_alloc(self.output_size * NUMBYTES_FLOAT32)
+        # self.intensity_gpu = cuda.mem_alloc(self.output_size * NUMBYTES_FLOAT32)
+        self.intensity_gpu = cp.zeros(self.output_size, dtype=np.float32)
         log.debug(
             f"bytes alloc'd for {self.output_shape} self.intensity_gpu: {self.output_size * NUMBYTES_FLOAT32}"
         )
 
         # allocate photon_prob array on GPU (4 bytes to a float32)
-        self.photon_prob_gpu = cuda.mem_alloc(self.output_size * NUMBYTES_FLOAT32)
+        # self.photon_prob_gpu = cuda.mem_alloc(self.output_size * NUMBYTES_FLOAT32)
+        self.photon_prob_gpu = cp.zeros(self.output_size, dtype=np.float32)
         log.debug(
             f"bytes alloc'd for {self.output_shape} self.photon_prob_gpu: {self.output_size * NUMBYTES_FLOAT32}"
         )
 
         # allocate solid_angle array on GPU as needed (4 bytes to a float32)
         if self.collected_energy:
-            self.solid_angle_gpu = cuda.mem_alloc(self.output_size * NUMBYTES_FLOAT32)
+            # self.solid_angle_gpu = cuda.mem_alloc(self.output_size * NUMBYTES_FLOAT32)
+            self.solid_angle_gpu = cp.zeros(self.output_size, dtype=np.float32)
             log.debug(
                 f"bytes alloc'd for {self.output_shape} self.solid_angle_gpu: {self.output_size * NUMBYTES_FLOAT32}"
             )
@@ -1099,11 +1279,16 @@ class Projector(object):
         self._egl_platform.init_context()
         self._egl_platform.make_current()
 
-        cuda.init() # must happen after egl context is created
-        assert cuda.Device.count() >= 1
+        # cuda.init() # must happen after egl context is created
+        # assert cuda.Device.count() >= 1
 
-        self.cuda_context = make_default_context(lambda dev: pycuda.gl.make_context(dev))
-        device = self.cuda_context.get_device()
+        # self.cuda_context = make_default_context(lambda dev: pycuda.gl.make_context(dev))
+        # device = self.cuda_context.get_device()
+
+        self.cupy_device = cupy.cuda.Device(0) # TODO: parameter
+        self.cupy_device.__enter__()
+
+        cp.cuda.memory._set_thread_local_allocator(None) # TODO: what does this do?
 
         # compile the module, moved to to initialize because it needs to happen after the context is created
         self.mod = _get_kernel_projector_module(
@@ -1148,68 +1333,83 @@ class Projector(object):
         #         self.resample_megavolume = self.mod.get_function("resample_megavolume")
 
         # allocate and transfer the volume texture to GPU
-        self.volumes_gpu = []
-        self.volumes_texref = []
+        # self.volumes_gpu = []
+
+        self.volumes_texobs = [] # TODO: dealloc
+        self.volumes_texarrs = [] # TODO: dealloc
         for vol_id, volume in enumerate(self.volumes):
             volume = np.array(volume)
             volume = np.moveaxis(volume, [0, 1, 2], [2, 1, 0]).copy()
-            vol_gpu = cuda.np_to_array(volume, order="C")
-            vol_texref = self.mod.get_texref(f"volume_{vol_id}")
-            cuda.bind_array_to_texref(vol_gpu, vol_texref)
-            self.volumes_gpu.append(vol_gpu)
-            self.volumes_texref.append(vol_texref)
+            # vol_gpu = cuda.np_to_array(volume, order="C")
+            # vol_texref = self.mod.get_texref(f"volume_{vol_id}")
+            # cuda.bind_array_to_texref(vol_gpu, vol_texref)
+            vol_texobj, vol_texarr = create_cuda_texture(volume)
+
+            # self.volumes_gpu.append(vol_gpu)
+            self.volumes_texarrs.append(vol_texarr)
+            # self.volumes_texref.append(vol_texref)
+            self.volumes_texobs.append(vol_texobj)
 
         init_tock = time.perf_counter()
         log.debug(f"time elapsed after intializing volumes: {init_tock - init_tick}")
 
-        # set the interpolation mode
-        if self.mode == "linear":
-            for texref in self.volumes_texref:
-                texref.set_filter_mode(cuda.filter_mode.LINEAR)
-        else:
-            raise RuntimeError
+        # # set the interpolation mode
+        # if self.mode == "linear":
+        #     for texref in self.volumes_texref:
+        #         texref.set_filter_mode(cuda.filter_mode.LINEAR)
+        # else:
+        #     raise RuntimeError
 
         # List[List[segmentations]], indexing by (vol_id, material_id)
-        self.segmentations_gpu = []
+        # self.segmentations_gpu = []
         # List[List[texrefs]], indexing by (vol_id, material_id)
-        self.segmentations_texref = []
+        # self.segmentations_texref = []
+        self.seg_texobs = [] # TODO: dealloc
+        self.seg_texarrs = [] # TODO: dealloc
         for vol_id, _vol in enumerate(self.volumes):
-            seg_for_vol = []
-            texref_for_vol = []
+            # seg_for_vol = []
+            # texref_for_vol = []
             for mat_id, mat in enumerate(self.all_materials):
                 seg = None
                 if mat in _vol.materials:
                     seg = _vol.materials[mat]
                 else:
                     seg = np.zeros(_vol.shape).astype(np.float32) # TODO (liam): Wasted VRAM
-                seg_for_vol.append(
-                    cuda.np_to_array(
-                        np.moveaxis(seg, [0, 1, 2], [2, 1, 0]).copy(), order="C"
-                    )
-                ) # TODO (liam): 8 bit textures to save VRAM?
-                texref = self.mod.get_texref(f"seg_{vol_id}_{mat_id}")
-                texref_for_vol.append(texref)
+                # seg_for_vol.append(
+                #     cuda.np_to_array(
+                #         np.moveaxis(seg, [0, 1, 2], [2, 1, 0]).copy(), order="C"
+                #     )
+                # ) # TODO (liam): 8 bit textures to save VRAM?
+                seg = np.moveaxis(seg, [0, 1, 2], [2, 1, 0]).copy()
+                # texref = self.mod.get_texref(f"seg_{vol_id}_{mat_id}")
+                # texref_for_vol.append(texref)
+                texobj, texarr = create_cuda_texture(seg)
+                # texref_for_vol.append(texobj)
+                self.seg_texobs.append(texobj)
+                self.seg_texarrs.append(texarr)
 
-            for seg, texref in zip(seg_for_vol, texref_for_vol):
-                cuda.bind_array_to_texref(seg, texref)
-                if self.mode == "linear":
-                    texref.set_filter_mode(cuda.filter_mode.LINEAR)
-                else:
-                    raise RuntimeError("Invalid texref filter mode")
 
-            self.segmentations_gpu.append(seg_for_vol)
-            self.segmentations_texref.append(texref)
+            # for seg, texref in zip(seg_for_vol, texref_for_vol):
+            #     cuda.bind_array_to_texref(seg, texref)
+            #     if self.mode == "linear":
+            #         texref.set_filter_mode(cuda.filter_mode.LINEAR)
+            #     else:
+            #         raise RuntimeError("Invalid texref filter mode")
 
-        def cuda_mem_alloc_or_null(size):
-            if size == 0:
-                return 0
-            else:
-                return cuda.mem_alloc(size)
+            # self.segmentations_gpu.append(seg_for_vol)
+            # self.segmentations_texref.append(texref_for_vol)
+
+        # def cuda_mem_alloc_or_null(size):
+        #     if size == 0:
+        #         return 0
+        #     else:
+        #         return cuda.mem_alloc(size)
 
         self.prim_unique_materials = list(set([mesh.material.drrMatName for mesh in self.primitives]))
         self.prim_unique_materials_indices = [self.all_materials.index(mat) for mat in self.prim_unique_materials]
-        self.prim_unique_materials_gpu = cuda_mem_alloc_or_null(len(self.prim_unique_materials) * NUMBYTES_INT32)
-        cuda.memcpy_htod(self.prim_unique_materials_gpu, np.array(self.prim_unique_materials_indices).astype(np.int32))
+        # self.prim_unique_materials_gpu = cuda_mem_alloc_or_null(len(self.prim_unique_materials) * NUMBYTES_INT32)
+        # cuda.memcpy_htod(self.prim_unique_materials_gpu, np.array(self.prim_unique_materials_indices).astype(np.int32))
+        self.prim_unique_materials_gpu = cp.array(self.prim_unique_materials_indices, dtype=np.int32)
 
         init_tock = time.perf_counter()
         log.debug(
@@ -1241,64 +1441,75 @@ class Projector(object):
         self._renderer = Renderer(viewport_width=width, viewport_height=height, num_peel_passes=self.num_mesh_layers//4)
         self.gl_renderer = self._renderer
 
-        self.additive_densities_gpu = cuda_mem_alloc_or_null(len(self.prim_unique_materials) * total_pixels * 2 * NUMBYTES_FLOAT32)
+        # self.additive_densities_gpu = cuda_mem_alloc_or_null(len(self.prim_unique_materials) * total_pixels * 2 * NUMBYTES_FLOAT32)
+        self.additive_densities_gpu = cp.zeros(len(self.prim_unique_materials) * total_pixels * 2, dtype=np.float32)
 
         # allocate volumes' priority level on the GPU
-        self.priorities_gpu = cuda_mem_alloc_or_null(len(self.volumes) * NUMBYTES_INT32)
+        self.priorities_gpu = cp.zeros(len(self.volumes), dtype=np.int32)
         for vol_id, prio in enumerate(self.priorities):
-            cuda.memcpy_htod(
-                int(self.priorities_gpu) + (NUMBYTES_INT32 * vol_id), np.int32(prio)
-            )
+            # cuda.memcpy_htod(
+            #     int(self.priorities_gpu) + (NUMBYTES_INT32 * vol_id), np.int32(prio)
+            # )
+            self.priorities_gpu[vol_id] = prio
 
         # allocate gVolumeEdge{Min,Max}Point{X,Y,Z} and gVoxelElementSize{X,Y,Z} on the GPU
-        self.minPointX_gpu = cuda.mem_alloc(len(self.volumes) * NUMBYTES_FLOAT32)
-        self.minPointY_gpu = cuda.mem_alloc(len(self.volumes) * NUMBYTES_FLOAT32)
-        self.minPointZ_gpu = cuda.mem_alloc(len(self.volumes) * NUMBYTES_FLOAT32)
+        self.minPointX_gpu = cp.zeros(len(self.volumes), dtype=np.float32)
+        self.minPointY_gpu = cp.zeros(len(self.volumes), dtype=np.float32)
+        self.minPointZ_gpu = cp.zeros(len(self.volumes), dtype=np.float32)
 
-        self.maxPointX_gpu = cuda.mem_alloc(len(self.volumes) * NUMBYTES_FLOAT32)
-        self.maxPointY_gpu = cuda.mem_alloc(len(self.volumes) * NUMBYTES_FLOAT32)
-        self.maxPointZ_gpu = cuda.mem_alloc(len(self.volumes) * NUMBYTES_FLOAT32)
+        self.maxPointX_gpu = cp.zeros(len(self.volumes), dtype=np.float32)
+        self.maxPointY_gpu = cp.zeros(len(self.volumes), dtype=np.float32)
+        self.maxPointZ_gpu = cp.zeros(len(self.volumes), dtype=np.float32)
 
-        self.voxelSizeX_gpu = cuda.mem_alloc(len(self.volumes) * NUMBYTES_FLOAT32)
-        self.voxelSizeY_gpu = cuda.mem_alloc(len(self.volumes) * NUMBYTES_FLOAT32)
-        self.voxelSizeZ_gpu = cuda.mem_alloc(len(self.volumes) * NUMBYTES_FLOAT32)
+        self.voxelSizeX_gpu = cp.zeros(len(self.volumes), dtype=np.float32)
+        self.voxelSizeY_gpu = cp.zeros(len(self.volumes), dtype=np.float32)
+        self.voxelSizeZ_gpu = cp.zeros(len(self.volumes), dtype=np.float32)
 
         for i, _vol in enumerate(self.volumes):
             gpu_ptr_offset = NUMBYTES_FLOAT32 * i
-            cuda.memcpy_htod(int(self.minPointX_gpu) + gpu_ptr_offset, np.float32(-0.5))
-            cuda.memcpy_htod(int(self.minPointY_gpu) + gpu_ptr_offset, np.float32(-0.5))
-            cuda.memcpy_htod(int(self.minPointZ_gpu) + gpu_ptr_offset, np.float32(-0.5))
+            # cuda.memcpy_htod(int(self.minPointX_gpu) + gpu_ptr_offset, np.float32(-0.5))
+            # cuda.memcpy_htod(int(self.minPointY_gpu) + gpu_ptr_offset, np.float32(-0.5))
+            # cuda.memcpy_htod(int(self.minPointZ_gpu) + gpu_ptr_offset, np.float32(-0.5))
+            self.minPointX_gpu[i] = np.float32(-0.5)
+            self.minPointY_gpu[i] = np.float32(-0.5)
+            self.minPointZ_gpu[i] = np.float32(-0.5)
 
-            cuda.memcpy_htod(
-                int(self.maxPointX_gpu) + gpu_ptr_offset,
-                np.float32(_vol.shape[0] - 0.5),
-            )
-            cuda.memcpy_htod(
-                int(self.maxPointY_gpu) + gpu_ptr_offset,
-                np.float32(_vol.shape[1] - 0.5),
-            )
-            cuda.memcpy_htod(
-                int(self.maxPointZ_gpu) + gpu_ptr_offset,
-                np.float32(_vol.shape[2] - 0.5),
-            )
-            cuda.memcpy_htod(
-                int(self.voxelSizeX_gpu) + gpu_ptr_offset,
-                np.float32(_vol.spacing[0]),
-            )
-            cuda.memcpy_htod(
-                int(self.voxelSizeY_gpu) + gpu_ptr_offset,
-                np.float32(_vol.spacing[1]),
-            )
-            cuda.memcpy_htod(
-                int(self.voxelSizeZ_gpu) + gpu_ptr_offset,
-                np.float32(_vol.spacing[2]),
-            )
+            # cuda.memcpy_htod(
+            #     int(self.maxPointX_gpu) + gpu_ptr_offset,
+            #     np.float32(_vol.shape[0] - 0.5),
+            # )
+            # cuda.memcpy_htod(
+            #     int(self.maxPointY_gpu) + gpu_ptr_offset,
+            #     np.float32(_vol.shape[1] - 0.5),
+            # )
+            # cuda.memcpy_htod(
+            #     int(self.maxPointZ_gpu) + gpu_ptr_offset,
+            #     np.float32(_vol.shape[2] - 0.5),
+            # )
+            # cuda.memcpy_htod(
+            #     int(self.voxelSizeX_gpu) + gpu_ptr_offset,
+            #     np.float32(_vol.spacing[0]),
+            # )
+            # cuda.memcpy_htod(
+            #     int(self.voxelSizeY_gpu) + gpu_ptr_offset,
+            #     np.float32(_vol.spacing[1]),
+            # )
+            # cuda.memcpy_htod(
+            #     int(self.voxelSizeZ_gpu) + gpu_ptr_offset,
+            #     np.float32(_vol.spacing[2]),
+            # )
+            self.maxPointX_gpu[i] = np.float32(_vol.shape[0] - 0.5)
+            self.maxPointY_gpu[i] = np.float32(_vol.shape[1] - 0.5)
+            self.maxPointZ_gpu[i] = np.float32(_vol.shape[2] - 0.5)
+            self.voxelSizeX_gpu[i] = np.float32(_vol.spacing[0])
+            self.voxelSizeY_gpu[i] = np.float32(_vol.spacing[1])
+            self.voxelSizeZ_gpu[i] = np.float32(_vol.spacing[2])
         log.debug(f"gVolume information allocated and copied to GPU")
 
         # allocate source coord.s on GPU (4 bytes for each of {x,y,z} for each volume)
-        self.sourceX_gpu = cuda.mem_alloc(len(self.volumes) * NUMBYTES_FLOAT32)
-        self.sourceY_gpu = cuda.mem_alloc(len(self.volumes) * NUMBYTES_FLOAT32)
-        self.sourceZ_gpu = cuda.mem_alloc(len(self.volumes) * NUMBYTES_FLOAT32)
+        self.sourceX_gpu = cp.zeros(len(self.volumes), dtype=np.float32)
+        self.sourceY_gpu = cp.zeros(len(self.volumes), dtype=np.float32)
+        self.sourceZ_gpu = cp.zeros(len(self.volumes), dtype=np.float32)
 
         init_tock = time.perf_counter()
         log.debug(
@@ -1306,11 +1517,11 @@ class Projector(object):
         )
 
         # allocate world_from_index matrix array on GPU (3x3 array x 4 bytes per float32)
-        self.world_from_index_gpu = cuda.mem_alloc(3 * 3 * NUMBYTES_FLOAT32)
+        self.world_from_index_gpu = cp.zeros(3 * 3, dtype=np.float32)
 
         # allocate ijk_from_world for each volume.
-        self.ijk_from_world_gpu = cuda.mem_alloc(
-            len(self.volumes) * 3 * 4 * NUMBYTES_FLOAT32
+        self.ijk_from_world_gpu = cp.zeros(
+            len(self.volumes) * 3 * 4, dtype=np.float32
         )
 
         # Initializes the output_shape as well.
@@ -1321,8 +1532,9 @@ class Projector(object):
         noncont_energies = self.spectrum[:, 0].copy() / 1000
         contiguous_energies = np.ascontiguousarray(noncont_energies, dtype=np.float32)
         n_bins = contiguous_energies.shape[0]
-        self.energies_gpu = cuda.mem_alloc(n_bins * NUMBYTES_FLOAT32)
-        cuda.memcpy_htod(self.energies_gpu, contiguous_energies)
+        # self.energies_gpu = cuda.mem_alloc(n_bins * NUMBYTES_FLOAT32)
+        # cuda.memcpy_htod(self.energies_gpu, contiguous_energies)
+        self.energies_gpu = cp.asarray(contiguous_energies)
         log.debug(f"bytes alloc'd for self.energies_gpu: {n_bins * NUMBYTES_FLOAT32}")
 
         # allocate and transfer spectrum pdf (4 bytes to a float32)
@@ -1330,8 +1542,9 @@ class Projector(object):
         contiguous_pdf = np.ascontiguousarray(noncont_pdf.copy(), dtype=np.float32)
         assert contiguous_pdf.shape == contiguous_energies.shape
         assert contiguous_pdf.shape[0] == n_bins
-        self.pdf_gpu = cuda.mem_alloc(n_bins * NUMBYTES_FLOAT32)
-        cuda.memcpy_htod(self.pdf_gpu, contiguous_pdf)
+        # self.pdf_gpu = cuda.mem_alloc(n_bins * NUMBYTES_FLOAT32)
+        # cuda.memcpy_htod(self.pdf_gpu, contiguous_pdf)
+        self.pdf_gpu = cp.asarray(contiguous_pdf)
         log.debug(f"bytes alloc'd for self.pdf_gpu {n_bins * NUMBYTES_FLOAT32}")
 
         # precompute, allocate, and transfer the get_absorption_coef(energy, material) table (4 bytes to a float32)
@@ -1345,10 +1558,11 @@ class Projector(object):
                 ] = mass_attenuation.get_absorption_coefs(
                     contiguous_energies[bin], mat_name
                 )
-        self.absorption_coef_table_gpu = cuda.mem_alloc(
-            n_bins * len(self.all_materials) * NUMBYTES_FLOAT32
-        )
-        cuda.memcpy_htod(self.absorption_coef_table_gpu, absorption_coef_table)
+        # self.absorption_coef_table_gpu = cuda.mem_alloc(
+        #     n_bins * len(self.all_materials) * NUMBYTES_FLOAT32
+        # )
+        # cuda.memcpy_htod(self.absorption_coef_table_gpu, absorption_coef_table)
+        self.absorption_coef_table_gpu = cp.asarray(absorption_coef_table)
         log.debug(
             f"size alloc'd for self.absorption_coef_table_gpu: {n_bins * len(self.all_materials) * NUMBYTES_FLOAT32}"
         )
@@ -1358,9 +1572,12 @@ class Projector(object):
             f"time elapsed after intializing rest of primary-signal stuff: {init_tock - init_tick}"
         )
 
-        self.mesh_hit_alphas_gpu = cuda.mem_alloc(total_pixels * self.num_mesh_layers * NUMBYTES_FLOAT32)
-        self.mesh_hit_alphas_tex_gpu = cuda.mem_alloc(total_pixels * self.num_mesh_layers * NUMBYTES_FLOAT32)
-        self.mesh_hit_facing_gpu = cuda.mem_alloc(total_pixels * self.num_mesh_layers * NUMBYTES_INT8)
+        # self.mesh_hit_alphas_gpu = cuda.mem_alloc(total_pixels * self.num_mesh_layers * NUMBYTES_FLOAT32)
+        # self.mesh_hit_alphas_tex_gpu = cuda.mem_alloc(total_pixels * self.num_mesh_layers * NUMBYTES_FLOAT32)
+        # self.mesh_hit_facing_gpu = cuda.mem_alloc(total_pixels * self.num_mesh_layers * NUMBYTES_INT8)
+        self.mesh_hit_alphas_gpu = cp.zeros((total_pixels, self.num_mesh_layers), dtype=np.float32)
+        self.mesh_hit_alphas_tex_gpu = cp.zeros((total_pixels, self.num_mesh_layers), dtype=np.float32)
+        self.mesh_hit_facing_gpu = cp.zeros((total_pixels, self.num_mesh_layers), dtype=np.int8)
 
         # Scatter-specific initializations
 
@@ -1768,71 +1985,72 @@ class Projector(object):
         """Free the allocated GPU memory."""
         if self.initialized:
 
-            self.gl_renderer.delete()
+            # self.gl_renderer.delete() # TODO: uncomment this
 
-            def free_if_not_null(gpu_ptr):
-                if gpu_ptr is None:
-                    return
-                if gpu_ptr == 0:
-                    return
-                gpu_ptr.free()
+            # def free_if_not_null(gpu_ptr):
+            #     if gpu_ptr is None:
+            #         return
+            #     if gpu_ptr == 0:
+            #         return
+            #     gpu_ptr.free()
 
-            for vol_id, vol_gpu in enumerate(self.volumes_gpu):
-                vol_gpu.free()
-                for seg in self.segmentations_gpu[vol_id]:
-                    seg.free()
+            # for vol_id, vol_gpu in enumerate(self.volumes_gpu):
+            #     vol_gpu.free()
+            #     for seg in self.segmentations_gpu[vol_id]:
+            #         seg.free()
 
-            free_if_not_null(self.mesh_hit_alphas_gpu)
-            free_if_not_null(self.mesh_hit_alphas_tex_gpu)
-            free_if_not_null(self.mesh_hit_facing_gpu)
-            free_if_not_null(self.additive_densities_gpu)
-            free_if_not_null(self.prim_unique_materials_gpu)
+            # free_if_not_null(self.mesh_hit_alphas_gpu)
+            # free_if_not_null(self.mesh_hit_alphas_tex_gpu)
+            # free_if_not_null(self.mesh_hit_facing_gpu)
+            # free_if_not_null(self.additive_densities_gpu)
+            # free_if_not_null(self.prim_unique_materials_gpu)
 
-            self.priorities_gpu.free()
+            # self.priorities_gpu.free()
 
-            self.minPointX_gpu.free()
-            self.minPointY_gpu.free()
-            self.minPointZ_gpu.free()
+            # self.minPointX_gpu.free()
+            # self.minPointY_gpu.free()
+            # self.minPointZ_gpu.free()
 
-            self.maxPointX_gpu.free()
-            self.maxPointY_gpu.free()
-            self.maxPointZ_gpu.free()
+            # self.maxPointX_gpu.free()
+            # self.maxPointY_gpu.free()
+            # self.maxPointZ_gpu.free()
 
-            self.voxelSizeX_gpu.free()
-            self.voxelSizeY_gpu.free()
-            self.voxelSizeZ_gpu.free()
+            # self.voxelSizeX_gpu.free()
+            # self.voxelSizeY_gpu.free()
+            # self.voxelSizeZ_gpu.free()
 
-            self.sourceX_gpu.free()
-            self.sourceY_gpu.free()
-            self.sourceZ_gpu.free()
+            # self.sourceX_gpu.free()
+            # self.sourceY_gpu.free()
+            # self.sourceZ_gpu.free()
 
-            self.world_from_index_gpu.free()
-            self.ijk_from_world_gpu.free()
-            self.intensity_gpu.free()
-            self.photon_prob_gpu.free()
+            # self.world_from_index_gpu.free()
+            # self.ijk_from_world_gpu.free()
+            # self.intensity_gpu.free()
+            # self.photon_prob_gpu.free()
 
-            if self.collected_energy:
-                self.solid_angle_gpu.free()
+            # if self.collected_energy:
+            #     self.solid_angle_gpu.free()
 
-            self.energies_gpu.free()
-            self.pdf_gpu.free()
-            self.absorption_coef_table_gpu.free()
+            # self.energies_gpu.free()
+            # self.pdf_gpu.free()
+            # self.absorption_coef_table_gpu.free()
 
-            # if self.scatter_num > 0:
-            #     self.megavol_density_gpu.free()
-            #     self.megavol_labeled_seg_gpu.free()
-            #     self.mat_mfp_structs_gpu.free()
-            #     self.woodcock_struct_gpu.free()
-            #     self.compton_structs_gpu.free()
-            #     self.rayleigh_structs_gpu.free()
-            #     self.detector_plane_gpu.free()
-            #     self.index_from_world_gpu.free()
-            #     self.cdf_gpu.free()
-            #     self.scatter_deposits_gpu.free()
-            #     self.num_scattered_hits_gpu.free()
-            #     self.num_unscattered_hits_gpu.free()
+            # # if self.scatter_num > 0:
+            # #     self.megavol_density_gpu.free()
+            # #     self.megavol_labeled_seg_gpu.free()
+            # #     self.mat_mfp_structs_gpu.free()
+            # #     self.woodcock_struct_gpu.free()
+            # #     self.compton_structs_gpu.free()
+            # #     self.rayleigh_structs_gpu.free()
+            # #     self.detector_plane_gpu.free()
+            # #     self.index_from_world_gpu.free()
+            # #     self.cdf_gpu.free()
+            # #     self.scatter_deposits_gpu.free()
+            # #     self.num_scattered_hits_gpu.free()
+            # #     self.num_unscattered_hits_gpu.free()
 
-            self.cuda_context.pop()
+            # self.cuda_context.pop()
+            self.cupy_device.__exit__()
 
         self.initialized = False
 

@@ -1,4 +1,4 @@
-#include <cubicTex3D.cu>
+// #include <cubicTex3D.cu>
 #include <stdio.h>
 
 // Supports at most 20 volumes.
@@ -25,8 +25,9 @@
 #define LOAG_SEGS_FOR_VOL_MAT(vol_id, mat_id)                                  \
   do {                                                                         \
     seg_at_alpha[vol_id][mat_id] = round(                                      \
-        cubicTex3D(SEG(vol_id, mat_id), px[vol_id], py[vol_id], pz[vol_id]));  \
+        tex3D(SEG(vol_id, mat_id), px[vol_id], py[vol_id], pz[vol_id]));  \
   } while (0)
+        // cubicTex3D(SEG(vol_id, mat_id), px[vol_id], py[vol_id], pz[vol_id]));  \
 
 // TODO: rather than having num vols lines for each macro, define the macro once
 // with #if statements for each vol_id.
@@ -2144,6 +2145,8 @@ __device__ static void calculate_solid_angle(
 }
     
 __global__ void projectKernel(
+    cudaTextureObject_t *volume_texs, // array of volume textures
+    cudaTextureObject_t *seg_texs,    // array of segmentation textures
     int out_width,  // width of the output image
     int out_height, // height of the output image
     float step,     // step size (TODO: in world)
@@ -2331,8 +2334,10 @@ __global__ void projectKernel(
   }
 
   // Means none of the volumes have do_trace = 1.
-  if (do_return)
+  if (do_return) {
     return;
+  }
+  
 
   // printf("global min, max alphas: %f, %f\n", minAlpha, maxAlpha);
 
@@ -2370,11 +2375,23 @@ __global__ void projectKernel(
 
   // trace (if doing the last segment separately, need to use num_steps - 1
   for (int t = 0; t < num_steps; t++) {
-    LOAD_SEGS_AT_ALPHA; // initializes p{x,y,z}[...] and
-                        // seg_at_alpha[...][...]
+    // LOAD_SEGS_AT_ALPHA; // initializes p{x,y,z}[...] and
+    //                     // seg_at_alpha[...][...]
     // if (debug) printf("  loaded segs\n"); // This is the one that seems to
     // take a half a second.
     //
+    for (int vol_id = 0; vol_id < NUM_VOLUMES; vol_id++) {
+        if (do_trace[vol_id]) {
+            px[vol_id] = sx_ijk[vol_id] + alpha * rx_ijk[vol_id] - 0.5;
+            py[vol_id] = sy_ijk[vol_id] + alpha * ry_ijk[vol_id] - 0.5;
+            pz[vol_id] = sz_ijk[vol_id] + alpha * rz_ijk[vol_id] - 0.5;
+
+            for (int mat_id = 0; mat_id < NUM_MATERIALS; mat_id++) {
+                seg_at_alpha[vol_id][mat_id] = round(tex3D<float>(seg_texs[vol_id*NUM_MATERIALS+mat_id], px[vol_id], py[vol_id], pz[vol_id]));
+            }
+        }
+    }
+
     curr_priority = NUM_VOLUMES;
     n_vols_at_curr_priority = 0;
     for (int i = 0; i < NUM_VOLUMES; i++) {
@@ -2449,7 +2466,15 @@ __global__ void projectKernel(
             weight *= (0 == t || num_steps - 1 == t) ? 0.5f : 1.0f;
       
             // Loop through volumes and add to the area_density.
-            INTERPOLATE(weight);
+            // INTERPOLATE(weight);
+            for (int vol_id = 0; vol_id < NUM_VOLUMES; vol_id++) {
+                if (do_trace[vol_id] && (priority[vol_id] == curr_priority)) {
+                    for (int mat_id = 0; mat_id < NUM_MATERIALS; mat_id++) {
+                        area_density[(mat_id)] += (weight)*tex3D<float>(volume_texs[vol_id], px[vol_id], py[vol_id], pz[vol_id]) *  seg_at_alpha[vol_id][mat_id]; 
+                    }
+                }
+            }
+
         }
     }
     alpha += step;

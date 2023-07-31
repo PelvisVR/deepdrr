@@ -1,6 +1,6 @@
 #include <stdint.h>
 
-
+extern "C" {
 // Function to fix odd ray intersections.
 
 // Method:
@@ -220,3 +220,4 @@ __global__ void kernelReorder(
 }
     
 
+}
