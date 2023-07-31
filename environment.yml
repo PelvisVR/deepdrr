@@ -15,4 +15,4 @@ dependencies:
   - pip
   - pip:
       - -r requirements.txt
-      # - -e .
+      # - -e . # disabled for docker
