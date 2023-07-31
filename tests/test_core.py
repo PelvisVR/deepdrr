@@ -64,7 +64,7 @@ class TestSingleVolume:
         #         # pytest.skip("Truth image not found")
         #         pytest.fail("Truth image not found")
 
-        with deepdrr.Projector(
+        projector = deepdrr.Projector(
             volume=volume,
             carm=carm,
             step=0.1,  # stepsize along projection ray, measured in voxels
@@ -76,7 +76,8 @@ class TestSingleVolume:
             threads=8,
             neglog=True,
             **kwargs
-        ) as projector:
+        )
+        with projector:
             image = projector.project()
             # from timer_util import FPS
             # fps = FPS()

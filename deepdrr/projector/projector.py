@@ -386,7 +386,8 @@ class Projector(object):
         attenuate_outside_volume: bool = False, # TODO: add unit tests for this, doesn't work with meshes?
         source_to_detector_distance: float = -1,
         carm: Optional[Device] = None,
-        num_mesh_layers = 32
+        num_mesh_layers = 32,
+        cuda_device_id = None,
     ) -> None:
         """Create the projector, which has info for simulating the DRR.
 
@@ -422,6 +423,8 @@ class Projector(object):
         """
 
         self._egl_platform = None
+
+        self.cuda_device_id = cuda_device_id
 
         # set variables
         volume = utils.listify(volume)
@@ -977,13 +980,13 @@ class Projector(object):
         if self.initialized and self.output_shape == sensor_size:
             return
 
-        # if self.initialized:
-        #     if len(self.primitives) > 0:
-        #         log.error("Changing sensor size while using meshes is not yet supported.")
-        #     self.intensity_gpu.free()
-        #     self.photon_prob_gpu.free()
-        #     if self.collected_energy:
-        #         self.solid_angle_gpu.free()
+        if self.initialized:
+            if len(self.primitives) > 0:
+                log.error("Changing sensor size while using meshes is not yet supported.")
+            self.intensity_gpu = None
+            self.photon_prob_gpu = None
+            if self.collected_energy:
+                self.solid_angle_gpu = None
 
         # Changes the output size as well
         self.output_shape = sensor_size
@@ -1032,7 +1035,7 @@ class Projector(object):
         self._egl_platform.init_context()
         self._egl_platform.make_current()
 
-        self.cupy_device = cupy.cuda.Device(0) # TODO: parameter
+        self.cupy_device = cupy.cuda.Device(self.cuda_device_id)
         self.cupy_device.__enter__()
 
         cp.cuda.memory._set_thread_local_allocator(None) # TODO: what does this do?
@@ -1054,8 +1057,8 @@ class Projector(object):
         self.kernel_tide = self.peel_postprocess_mod.get_function("kernelTide")
         self.kernel_reorder = self.peel_postprocess_mod.get_function("kernelReorder")
 
-        self.volumes_texobs = [] # TODO: dealloc
-        self.volumes_texarrs = [] # TODO: dealloc
+        self.volumes_texobs = []
+        self.volumes_texarrs = []
         for vol_id, volume in enumerate(self.volumes):
             volume = np.array(volume)
             volume = np.moveaxis(volume, [0, 1, 2], [2, 1, 0]).copy()
@@ -1067,8 +1070,8 @@ class Projector(object):
         init_tock = time.perf_counter()
         log.debug(f"time elapsed after intializing volumes: {init_tock - init_tick}")
 
-        self.seg_texobs = [] # TODO: dealloc
-        self.seg_texarrs = [] # TODO: dealloc
+        self.seg_texobs = []
+        self.seg_texarrs = []
         for vol_id, _vol in enumerate(self.volumes):
             for mat_id, mat in enumerate(self.all_materials):
                 seg = None
@@ -1224,71 +1227,44 @@ class Projector(object):
         """Free the allocated GPU memory."""
         if self.initialized:
 
-            # self.gl_renderer.delete() # TODO: uncomment this
+            self.gl_renderer.delete()
 
-            # def free_if_not_null(gpu_ptr):
-            #     if gpu_ptr is None:
-            #         return
-            #     if gpu_ptr == 0:
-            #         return
-            #     gpu_ptr.free()
+            self.volumes_texobs = None
+            self.volumes_texarrs = None
+            self.seg_texobs = None
+            self.seg_texarrs = None
 
-            # for vol_id, vol_gpu in enumerate(self.volumes_gpu):
-            #     vol_gpu.free()
-            #     for seg in self.segmentations_gpu[vol_id]:
-            #         seg.free()
+            self.mesh_hit_alphas_gpu = None
+            self.mesh_hit_alphas_tex_gpu = None
+            self.mesh_hit_facing_gpu = None
+            self.additive_densities_gpu = None
+            self.prim_unique_materials_gpu = None
 
-            # free_if_not_null(self.mesh_hit_alphas_gpu)
-            # free_if_not_null(self.mesh_hit_alphas_tex_gpu)
-            # free_if_not_null(self.mesh_hit_facing_gpu)
-            # free_if_not_null(self.additive_densities_gpu)
-            # free_if_not_null(self.prim_unique_materials_gpu)
+            self.priorities_gpu = None
+            self.minPointX_gpu = None
+            self.minPointY_gpu = None
+            self.minPointZ_gpu = None
+            self.maxPointX_gpu = None
+            self.maxPointY_gpu = None
+            self.maxPointZ_gpu = None
+            self.voxelSizeX_gpu = None
+            self.voxelSizeY_gpu = None
+            self.voxelSizeZ_gpu = None
+            self.sourceX_gpu = None
+            self.sourceY_gpu = None
+            self.sourceZ_gpu = None
+            self.world_from_index_gpu = None
+            self.ijk_from_world_gpu = None
+            self.intensity_gpu = None
+            self.photon_prob_gpu = None
 
-            # self.priorities_gpu.free()
+            if self.collected_energy:
+                self.solid_angle_gpu = None
 
-            # self.minPointX_gpu.free()
-            # self.minPointY_gpu.free()
-            # self.minPointZ_gpu.free()
+            self.energies_gpu = None
+            self.pdf_gpu = None
+            self.absorption_coef_table_gpu = None
 
-            # self.maxPointX_gpu.free()
-            # self.maxPointY_gpu.free()
-            # self.maxPointZ_gpu.free()
-
-            # self.voxelSizeX_gpu.free()
-            # self.voxelSizeY_gpu.free()
-            # self.voxelSizeZ_gpu.free()
-
-            # self.sourceX_gpu.free()
-            # self.sourceY_gpu.free()
-            # self.sourceZ_gpu.free()
-
-            # self.world_from_index_gpu.free()
-            # self.ijk_from_world_gpu.free()
-            # self.intensity_gpu.free()
-            # self.photon_prob_gpu.free()
-
-            # if self.collected_energy:
-            #     self.solid_angle_gpu.free()
-
-            # self.energies_gpu.free()
-            # self.pdf_gpu.free()
-            # self.absorption_coef_table_gpu.free()
-
-            # # if self.scatter_num > 0:
-            # #     self.megavol_density_gpu.free()
-            # #     self.megavol_labeled_seg_gpu.free()
-            # #     self.mat_mfp_structs_gpu.free()
-            # #     self.woodcock_struct_gpu.free()
-            # #     self.compton_structs_gpu.free()
-            # #     self.rayleigh_structs_gpu.free()
-            # #     self.detector_plane_gpu.free()
-            # #     self.index_from_world_gpu.free()
-            # #     self.cdf_gpu.free()
-            # #     self.scatter_deposits_gpu.free()
-            # #     self.num_scattered_hits_gpu.free()
-            # #     self.num_unscattered_hits_gpu.free()
-
-            # self.cuda_context.pop()
             self.cupy_device.__exit__()
 
         self.initialized = False
