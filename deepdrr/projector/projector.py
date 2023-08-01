@@ -681,6 +681,7 @@ class Projector(object):
         else:
             return images
         
+    @time_range()
     def _render_single(self, proj: geo.CameraProjection) -> np.ndarray:
         # Only re-allocate if the output shape has changed.
         self.initialize_output_arrays(proj.intrinsic.sensor_size)
@@ -690,75 +691,79 @@ class Projector(object):
         if self.mesh_additive_enabled:
             self._render_mesh(proj)
 
-        volumes_texobs_gpu = cp.array(
-            [x.ptr for x in self.volumes_texobs], dtype=np.uint64
-        )
-        seg_texobs_gpu = cp.array([x.ptr for x in self.seg_texobs], dtype=np.uint64)
+        with time_range("prep_args"):
+            args = [
+                self.volumes_texobs_gpu,
+                self.seg_texobs_gpu,
+                np.int32(proj.sensor_width),  # out_width
+                np.int32(proj.sensor_height),  # out_height
+                np.float32(self.step),  # step
+                self.priorities_gpu,  # priority
+                self.minPointX_gpu,  # gVolumeEdgeMinPointX
+                self.minPointY_gpu,  # gVolumeEdgeMinPointY
+                self.minPointZ_gpu,  # gVolumeEdgeMinPointZ
+                self.maxPointX_gpu,  # gVolumeEdgeMaxPointX
+                self.maxPointY_gpu,  # gVolumeEdgeMaxPointY
+                self.maxPointZ_gpu,  # gVolumeEdgeMaxPointZ
+                self.voxelSizeX_gpu,  # gVoxelElementSizeX
+                self.voxelSizeY_gpu,  # gVoxelElementSizeY
+                self.voxelSizeZ_gpu,  # gVoxelElementSizeZ
+                self.sourceX_gpu,  # sx_ijk
+                self.sourceY_gpu,  # sy_ijk
+                self.sourceZ_gpu,  # sz_ijk
+                np.float32(self.max_ray_length),  # max_ray_length
+                self.world_from_index_gpu,  # world_from_index
+                self.ijk_from_world_gpu,  # ijk_from_world
+                np.int32(self.spectrum_arr.shape[0]),  # n_bins
+                self.energies_gpu,  # energies
+                self.pdf_gpu,  # pdf
+                self.absorption_coef_table_gpu,  # absorb_coef_table
+                self.intensity_gpu,  # intensity
+                self.photon_prob_gpu,  # photon_prob
+                self.solid_angle_gpu,  # solid_angle
+                self.mesh_hit_alphas_gpu,
+                self.mesh_hit_facing_gpu,
+                self.additive_densities_gpu,
+                self.prim_unique_materials_gpu,
+                np.int32(len(self.prim_unique_materials)),
+                np.int32(self.num_mesh_layers),
+            ]
 
-        args = [
-            volumes_texobs_gpu,
-            seg_texobs_gpu,
-            np.int32(proj.sensor_width),  # out_width
-            np.int32(proj.sensor_height),  # out_height
-            np.float32(self.step),  # step
-            self.priorities_gpu,  # priority
-            self.minPointX_gpu,  # gVolumeEdgeMinPointX
-            self.minPointY_gpu,  # gVolumeEdgeMinPointY
-            self.minPointZ_gpu,  # gVolumeEdgeMinPointZ
-            self.maxPointX_gpu,  # gVolumeEdgeMaxPointX
-            self.maxPointY_gpu,  # gVolumeEdgeMaxPointY
-            self.maxPointZ_gpu,  # gVolumeEdgeMaxPointZ
-            self.voxelSizeX_gpu,  # gVoxelElementSizeX
-            self.voxelSizeY_gpu,  # gVoxelElementSizeY
-            self.voxelSizeZ_gpu,  # gVoxelElementSizeZ
-            self.sourceX_gpu,  # sx_ijk
-            self.sourceY_gpu,  # sy_ijk
-            self.sourceZ_gpu,  # sz_ijk
-            np.float32(self.max_ray_length),  # max_ray_length
-            self.world_from_index_gpu,  # world_from_index
-            self.ijk_from_world_gpu,  # ijk_from_world
-            np.int32(self.spectrum_arr.shape[0]),  # n_bins
-            self.energies_gpu,  # energies
-            self.pdf_gpu,  # pdf
-            self.absorption_coef_table_gpu,  # absorb_coef_table
-            self.intensity_gpu,  # intensity
-            self.photon_prob_gpu,  # photon_prob
-            self.solid_angle_gpu,  # solid_angle
-            self.mesh_hit_alphas_gpu,
-            self.mesh_hit_facing_gpu,
-            self.additive_densities_gpu,
-            self.prim_unique_materials_gpu,
-            np.int32(len(self.prim_unique_materials)),
-            np.int32(self.num_mesh_layers),
-        ]
-
-        # Calculate required blocks
-        blocks_w = int(np.ceil(self.output_shape[0] / self.threads))
-        blocks_h = int(np.ceil(self.output_shape[1] / self.threads))
-        block = (self.threads, self.threads, 1)
-        log.debug(
-            f"Running: {blocks_w}x{blocks_h} blocks with {self.threads}x{self.threads} threads each"
-        )
+            # Calculate required blocks
+            blocks_w = int(np.ceil(self.output_shape[0] / self.threads))
+            blocks_h = int(np.ceil(self.output_shape[1] / self.threads))
+            block = (self.threads, self.threads, 1)
+            log.debug(
+                f"Running: {blocks_w}x{blocks_h} blocks with {self.threads}x{self.threads} threads each"
+            )
 
         log.debug("args: {}".format("\n".join(map(str, args))))
-        if blocks_w <= self.max_block_index and blocks_h <= self.max_block_index:
-            offset_w = np.int32(0)
-            offset_h = np.int32(0)
-            self.project_kernel(
-                block=block,
-                grid=(blocks_w, blocks_h),
-                args=(*args, offset_w, offset_h),
-            )
-        else:
-            raise DeprecationWarning(
-                "Patchwise projection is deprecated, try increasing max_block_index and/or threads. Please raise an issue if you need this feature."
-            )
+        with time_range("project_kernel"):
+            if blocks_w <= self.max_block_index and blocks_h <= self.max_block_index:
+                offset_w = np.int32(0)
+                offset_h = np.int32(0)
+                self.project_kernel(
+                    block=block,
+                    grid=(blocks_w, blocks_h),
+                    args=(*args, offset_w, offset_h),
+                )
+            else:
+                raise DeprecationWarning(
+                    "Patchwise projection is deprecated, try increasing max_block_index and/or threads. Please raise an issue if you need this feature."
+                )
 
-        intensity = cp.asnumpy(self.intensity_gpu).reshape(self.output_shape)
-        intensity = np.swapaxes(intensity, 0, 1).copy()
+        with time_range("copy projection data to host"):
+            # def fast_host_to_device(d_a, a):
+            #     d_a.data.copy_from(a.ctypes.data, a.nbytes)
 
-        photon_prob = cp.asnumpy(self.photon_prob_gpu).reshape(self.output_shape)
-        photon_prob = np.swapaxes(photon_prob, 0, 1).copy()
+            # def fast_device_to_host(a, d_a):
+            #     a.ctypes.data.copy_from(d_a.data, a.nbytes)
+
+            intensity = cp.asnumpy(self.intensity_gpu).reshape(self.output_shape)
+            intensity = np.swapaxes(intensity, 0, 1).copy()
+
+            photon_prob = cp.asnumpy(self.photon_prob_gpu).reshape(self.output_shape)
+            photon_prob = np.swapaxes(photon_prob, 0, 1).copy()
 
         collected_energy_data = intensity
         if self.collected_energy:
@@ -766,6 +771,7 @@ class Projector(object):
 
         return collected_energy_data, photon_prob
     
+    @time_range()
     def _update_object_locations(self, proj: geo.CameraProjection) -> None:
         world_from_index = np.array(proj.world_from_index[:-1, :]).astype(
             np.float32
@@ -799,6 +805,7 @@ class Projector(object):
         self.sourceY_gpu = cp.asarray(sourceY)
         self.sourceZ_gpu = cp.asarray(sourceZ)
         
+    @time_range()
     def _calculate_collected_energy_per_pixel(self, proj: geo.CameraProjection, intensity: np.ndarray) -> np.ndarray:
         # transform to collected energy in keV per cm^2 (or keV per mm^2)
         assert np.array_equal(self.solid_angle_gpu, np.uint64(0)) == False
@@ -825,6 +832,7 @@ class Projector(object):
         deposited_energy /= pixel_size_x * pixel_size_y
         return deposited_energy
         
+    @time_range()
     def _render_mesh(self, proj: geo.CameraProjection) -> None:
         for mesh_id, mesh in enumerate(self.meshes):
             self.mesh_nodes[mesh_id].matrix = mesh.world_from_ijk
@@ -856,6 +864,7 @@ class Projector(object):
         if self.mesh_subtractive_enabled:
             self._render_mesh_subtractive(proj, zfar)
 
+    @time_range()
     def _render_mesh_additive(self, proj: geo.CameraProjection, zfar: float) -> None:
         width = proj.intrinsic.sensor_width
         height = proj.intrinsic.sensor_height
@@ -885,7 +894,7 @@ class Projector(object):
                 2,
             )
 
-
+    @time_range()
     def _render_mesh_subtractive(self, proj: geo.CameraProjection, zfar: float) -> None:
         width = proj.intrinsic.sensor_width
         height = proj.intrinsic.sensor_height
@@ -968,6 +977,7 @@ class Projector(object):
 
         return self.project(*camera_projections)
 
+    @time_range()
     def initialize_output_arrays(self, sensor_size: Tuple[int, int]) -> None:
         """Allocate arrays dependent on the output size. Frees previously allocated arrays.
 
@@ -1089,6 +1099,11 @@ class Projector(object):
                 texobj, texarr = create_cuda_texture(seg)
                 self.seg_texobs.append(texobj)
                 self.seg_texarrs.append(texarr)
+
+        self.volumes_texobs_gpu = cp.array(
+            [x.ptr for x in self.volumes_texobs], dtype=np.uint64
+        )
+        self.seg_texobs_gpu = cp.array([x.ptr for x in self.seg_texobs], dtype=np.uint64)
 
         self.prim_unique_materials = list(
             set([mesh.material.drrMatName for mesh in self.primitives])
