@@ -695,10 +695,6 @@ class Projector(object):
         # Only re-allocate if the output shape has changed.
         self.initialize_output_arrays(proj.intrinsic.sensor_size)
 
-        width = proj.intrinsic.sensor_width
-        height = proj.intrinsic.sensor_height
-        total_pixels = width * height
-
         # Get the volume min/max points in world coordinates.
         sx, sy, sz = proj.get_center_in_world()
         world_from_index = np.array(proj.world_from_index[:-1, :]).astype(
@@ -734,101 +730,10 @@ class Projector(object):
         self.sourceZ_gpu = cp.asarray(sourceZ)
 
         if self.mesh_additive_enabled:
-            for mesh_id, mesh in enumerate(self.meshes):
-                self.mesh_nodes[mesh_id].matrix = mesh.world_from_ijk
+            self._render_mesh_additive(proj)
 
-            num_rays = proj.sensor_width * proj.sensor_height
-
-            self.cam.fx = proj.intrinsic.fx
-            self.cam.fy = proj.intrinsic.fy
-            self.cam.cx = proj.intrinsic.cx
-            self.cam.cy = proj.intrinsic.cy
-            self.cam.znear = self.device.source_to_detector_distance / 1000
-            self.cam.zfar = self.device.source_to_detector_distance
-
-            deepdrr_to_opengl_cam = np.array(
-                [
-                    [1, 0, 0, 0],
-                    [0, -1, 0, 0],
-                    [0, 0, -1, 0],
-                    [0, 0, 0, 1],
-                ]
-            )
-
-            self.cam_node.matrix = (
-                np.array(proj.extrinsic.inv) @ deepdrr_to_opengl_cam
-            )
-
-            zfar = self.device.source_to_detector_distance * 2  # TODO (liam)
-
-            for mat_idx, mat in enumerate(self.prim_unique_materials):
-                self.gl_renderer.render(
-                    self.scene,
-                    drr_mode=DRRMode.DENSITY,
-                    flags=RenderFlags.RGBA,
-                    zfar=zfar,
-                    mat=mat,
-                )
-
-                # TODO: need gl synchronization here?
-
-                pointer_into_additive_densities = (
-                    int(self.additive_densities_gpu.data.ptr)
-                    + mat_idx * total_pixels * 2 * NUMBYTES_FLOAT32
-                )
-
-                gl_tex_to_gpu(
-                    self.gl_renderer.g_densityTexId,
-                    pointer_into_additive_densities,
-                    width,
-                    height,
-                    2,
-                )
-
-
-            if self.mesh_additive_and_subtractive_enabled:
-                self.gl_renderer.render(
-                    self.scene,
-                    drr_mode=DRRMode.DIST,
-                    flags=RenderFlags.RGBA,
-                    zfar=zfar,
-                )
-
-                for tex_idx in range(self.gl_renderer.num_peel_passes):
-                    # TODO: need gl synchronization here?
-
-                    pointer_into_hit_alphas = int(
-                        int(self.mesh_hit_alphas_tex_gpu.data.ptr)
-                        + tex_idx * total_pixels * 4 * NUMBYTES_FLOAT32
-                    )
-                    gl_tex_to_gpu(
-                        self.gl_renderer.g_peelTexId[tex_idx],
-                        pointer_into_hit_alphas,
-                        width,
-                        height,
-                        4,
-                    )
-
-                self.kernel_reorder(
-                    args=(
-                        self.mesh_hit_alphas_tex_gpu,
-                        self.mesh_hit_alphas_gpu,
-                        np.int32(total_pixels),
-                    ),
-                    block=(256, 1, 1),  # TODO (liam)
-                    grid=(16, 1),  # TODO (liam)
-                )
-
-                self.kernel_tide(
-                    args=(
-                        self.mesh_hit_alphas_gpu,
-                        self.mesh_hit_facing_gpu,
-                        np.int32(total_pixels),
-                        np.float32(self.device.source_to_detector_distance * 2),
-                    ),
-                    block=(256, 1, 1),  # TODO (liam)
-                    grid=(16, 1),  # TODO (liam)
-                )
+        if self.mesh_additive_and_subtractive_enabled:
+            self._render_mesh_subtractive(proj)
 
         volumes_texobs_gpu = cp.array(
             [x.ptr for x in self.volumes_texobs], dtype=np.uint64
@@ -936,6 +841,107 @@ class Projector(object):
             return intensity, deposited_energy
         else:
             return intensity, photon_prob
+        
+    def _render_mesh_additive(self, proj: geo.CameraProjection) -> None:
+        width = proj.intrinsic.sensor_width
+        height = proj.intrinsic.sensor_height
+        total_pixels = width * height
+    
+        for mesh_id, mesh in enumerate(self.meshes):
+            self.mesh_nodes[mesh_id].matrix = mesh.world_from_ijk
+
+        num_rays = proj.sensor_width * proj.sensor_height
+
+        self.cam.fx = proj.intrinsic.fx
+        self.cam.fy = proj.intrinsic.fy
+        self.cam.cx = proj.intrinsic.cx
+        self.cam.cy = proj.intrinsic.cy
+        self.cam.znear = self.device.source_to_detector_distance / 1000
+        self.cam.zfar = self.device.source_to_detector_distance
+
+        deepdrr_to_opengl_cam = np.array(
+            [
+                [1, 0, 0, 0],
+                [0, -1, 0, 0],
+                [0, 0, -1, 0],
+                [0, 0, 0, 1],
+            ]
+        )
+
+        self.cam_node.matrix = (
+            np.array(proj.extrinsic.inv) @ deepdrr_to_opengl_cam
+        )
+
+        zfar = self.device.source_to_detector_distance * 2  # TODO (liam)
+
+        for mat_idx, mat in enumerate(self.prim_unique_materials):
+            self.gl_renderer.render(
+                self.scene,
+                drr_mode=DRRMode.DENSITY,
+                flags=RenderFlags.RGBA,
+                zfar=zfar,
+                mat=mat,
+            )
+
+            # TODO: need gl synchronization here?
+
+            pointer_into_additive_densities = (
+                int(self.additive_densities_gpu.data.ptr)
+                + mat_idx * total_pixels * 2 * NUMBYTES_FLOAT32
+            )
+
+            gl_tex_to_gpu(
+                self.gl_renderer.g_densityTexId,
+                pointer_into_additive_densities,
+                width,
+                height,
+                2,
+            )
+
+
+    def _render_mesh_subtractive(self, proj: geo.CameraProjection) -> None:
+        self.gl_renderer.render(
+            self.scene,
+            drr_mode=DRRMode.DIST,
+            flags=RenderFlags.RGBA,
+            zfar=zfar,
+        )
+
+        for tex_idx in range(self.gl_renderer.num_peel_passes):
+            # TODO: need gl synchronization here?
+
+            pointer_into_hit_alphas = int(
+                int(self.mesh_hit_alphas_tex_gpu.data.ptr)
+                + tex_idx * total_pixels * 4 * NUMBYTES_FLOAT32
+            )
+            gl_tex_to_gpu(
+                self.gl_renderer.g_peelTexId[tex_idx],
+                pointer_into_hit_alphas,
+                width,
+                height,
+                4,
+            )
+
+        self.kernel_reorder(
+            args=(
+                self.mesh_hit_alphas_tex_gpu,
+                self.mesh_hit_alphas_gpu,
+                np.int32(total_pixels),
+            ),
+            block=(256, 1, 1),  # TODO (liam)
+            grid=(16, 1),  # TODO (liam)
+        )
+
+        self.kernel_tide(
+            args=(
+                self.mesh_hit_alphas_gpu,
+                self.mesh_hit_facing_gpu,
+                np.int32(total_pixels),
+                np.float32(self.device.source_to_detector_distance * 2),
+            ),
+            block=(256, 1, 1),  # TODO (liam)
+            grid=(16, 1),  # TODO (liam)
+        )
         
 
     def project_over_carm_range(
