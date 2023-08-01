@@ -495,9 +495,6 @@ class Projector(object):
             if prim.material.subtractive:
                 self.mesh_subtractive_enabled = True
 
-        if len(self.volumes) > 20:
-            raise ValueError("Only up to 20 volumes are supported")
-
         if priorities is None:
             self.priorities = [
                 len(self.volumes) - 1 - i for i in range(len(self.volumes))
