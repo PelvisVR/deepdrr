@@ -1,0 +1,176 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "deepdrr"
+version = "1.1.2"
+license = "GPL-3.0-or-later"
+readme = "README.md"
+description = "A Catalyst for Machine Learning in Fluoroscopy-guided Procedures."
+authors = [
+    "Benjamin D. Killeen <killeen@jhu.edu>"
+]
+# homepage = "https://qibo.science/"
+repository = "https://github.com/arcadelab/deepdrr"
+documentation = "https://deepdrr.readthedocs.io/"
+
+# classifiers = [
+#     "Development Status :: 3 - Alpha",
+#     "Intended Audience :: Developers",
+#     "Programming Language :: Python",
+#     "Programming Language :: Python :: 3",
+#     "Programming Language :: Python :: 3.8",
+#     "Programming Language :: Python :: 3.9",
+#     "Programming Language :: Python :: 3.10",
+#     "Programming Language :: Python :: 3.11",
+#     "Operating System :: OS Independent",
+# ]
+packages = [{ include = "deepdrr", from = "." }]
+
+
+[tool.poetry.dependencies]
+python = ">=3.7"
+numpy = "*"
+torch = "*"
+torchvision = "*"
+nibabel = "*"
+scipy = "*"
+scikit-image = "*"
+pyvista = "*"
+pydicom = "*"
+pynrrd = "*"
+rich = "*"
+opencv-python = "*"
+seaborn = "*"
+graphviz = "*"
+pyglet = ">=1.4.11"
+PyOpenGL = ">=3.1.7"
+PyOpenGL_accelerate = ">=3.1.7"
+trimesh = "*"
+pyrender = { git = "https://github.com/liamjwang/pyrender.git", branch = "master" }
+cuda-python = "*"
+cupy-cuda102 = { version = "*", optional = true }
+cupy-cuda110 = { version = "*", optional = true }
+cupy-cuda111 = { version = "*", optional = true }
+cupy-cuda11x = { version = "*", optional = true }
+cupy-cuda12x = { version = "*", optional = true }
+
+[tool.poetry.extras]
+cuda102 = ["cupy-cuda102"]
+cuda110 = ["cupy-cuda110"]
+cuda111 = ["cupy-cuda111"]
+cuda11x = ["cupy-cuda11x"]
+cuda12x = ["cupy-cuda12x"]
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+black = { version = "*", extras = ["jupyter"] }
+pytest = "*"
+trame = "*"
+ruff = "*"
+juptyerlab = "*"
+ipykernel = "*"
+ipywidgets = "*"
+
+
+[tool.poetry.scripts]
+fix = "black . && ruff --fix ."
+lint = "black --check . && ruff ."
+test = "pytest ."
+
+[tool.black]
+line-length = 120
+# target-version = ['py37']
+
+[tool.ruff]
+line-length = 120
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "temp",
+]
+format = "grouped"
+# format = "pylint"
+ignore = [
+    # "E731", # do not assign a lambda expression, use a def
+    # "W504", # line break after binary operator
+    # "F401", # imported but unused
+    # "F841", # local variable is assigned to but never used
+    # "W605" # invalid escape sequence
+]
+
+target-version = "py310"
+extend-select = [
+    "E",  # style errors
+    # "D",  # pydocstyle
+    "F",  # pyflakes
+    "I",  # isort
+    "RUF", # ruff-specific rules
+    "UP", # pyupgrade
+    "W",  # style warnings
+]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = [
+    "F403", # unused-star-used
+    "F401", # unused import
+]
+
+[tool.ruff.isort]
+known-first-party = ["deepdrr"]
+
+[tool.pytest.ini_options]
+norecursedirs = [
+    ".git",
+    "dist",
+    "build"
+]
+
+addopts = [
+    "--strict",
+    "--doctest-modules",
+    "--durations=0"
+]
+
+[tool.coverage.run]
+omit = [
+    "*/tests/*",
+    "*/venv/*"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no-cover",
+    "pass"
+]
+
+
+
+[tool.check-manifest]
+ignore = [
+    "*.yml",
+    ".github",
+    ".github/*",
+]
