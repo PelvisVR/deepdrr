@@ -30,8 +30,7 @@ setuptools.setup(
         "PyOpenGL>=3.1.7",
         "PyOpenGL_accelerate>=3.1.7",
         "trimesh",
-        # "git+https://github.com/liamjwang/pyrender.git@master", # pyrender without hard PyOpenGL version requirement, replace this when new version is released
-        "pyrender @ git+https://github.com/liamjwang/pyrender.git@master",
+        "pyrender @ git+https://github.com/liamjwang/pyrender.git@master", # pyrender without hard PyOpenGL version requirement, replace this when new version is released
         "cuda-python"
     ],
     extras_require={
