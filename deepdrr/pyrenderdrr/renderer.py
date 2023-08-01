@@ -4,6 +4,8 @@ from pathlib import Path
 from pyrender.constants import (RenderFlags, ProgramFlags, BufFlags)
 from pyrender.shader_program import ShaderProgramCache
 from .material import DRRMaterial
+from ..utils.cuda_utils import check_cudart_err, format_cudart_err
+from cuda import cudart
 
 class DRRMode:
     NONE = 0
@@ -59,6 +61,9 @@ class Renderer(object):
         self.g_peelFboIds = None
         self.g_densityTexId = None
         self.g_densityFboId = None
+
+        self.subtractive_reg_ims = None
+        self.additive_reg_im = None
 
         # Shader Program Cache
         d = Path(__file__).resolve().parent
@@ -516,7 +521,38 @@ class Renderer(object):
 
             self._main_fb_dims = (self.viewport_width, self.viewport_height)
 
+            self.subtractive_reg_ims = []
+            for tex_idx in range(self.num_peel_passes):
+                reg_img = check_cudart_err(
+                    cudart.cudaGraphicsGLRegisterImage(
+                        int(self.g_peelTexId[tex_idx]),
+                        GL_TEXTURE_RECTANGLE,
+                        cudart.cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsReadOnly,
+                    )
+                )
+                self.subtractive_reg_ims.append(reg_img)
+            
+            self.additive_reg_im = check_cudart_err(
+                cudart.cudaGraphicsGLRegisterImage(
+                    int(self.g_densityTexId),
+                    GL_TEXTURE_RECTANGLE,
+                    cudart.cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsReadOnly,
+                )
+            )
+
     def _delete_main_framebuffer(self):
+
+        if self.additive_reg_im is not None:
+            check_cudart_err(cudart.cudaGraphicsUnregisterResource(self.additive_reg_im))
+            self.additive_reg_im = None
+
+        if self.subtractive_reg_ims is not None:
+            for reg_img in self.subtractive_reg_ims:
+                check_cudart_err(cudart.cudaGraphicsUnregisterResource(reg_img))
+
+            self.subtractive_reg_ims = None
+        
+
         if self.g_peelTexId is not None:
             glDeleteTextures(self.num_peel_passes, self.g_peelTexId)
             self.g_peelTexId = None

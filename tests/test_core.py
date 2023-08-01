@@ -77,6 +77,14 @@ class TestSingleVolume:
             neglog=True,
             **kwargs
         )
+
+        with projector:
+            from timer_util import FPS
+            fps = FPS()
+            for i in range(100):
+                image = projector.project()
+                if fps_count := fps():
+                    print(f"FPS2 {fps_count}")
         with projector:
             image = projector.project()
 
@@ -93,13 +101,7 @@ class TestSingleVolume:
             assert np.allclose(image, truth_img, atol=1)
             print(f"Test {name} passed")
 
-        with projector:
-            from timer_util import FPS
-            fps = FPS()
-            for i in range(50):
-                image = projector.project()
-                if fps_count := fps():
-                    print(f"FPS2 {fps_count}")
+
         return image
 
     def test_simple(self):

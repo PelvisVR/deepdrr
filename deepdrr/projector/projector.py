@@ -49,6 +49,7 @@ import cupy
 import numpy
 from cuda import cudart
 from cupyx.profiler import time_range
+from ..utils.cuda_utils import check_cudart_err, format_cudart_err
 
 # try:
 #     from pycuda.tools import make_default_context
@@ -71,14 +72,8 @@ NUMBYTES_INT32 = 4
 NUMBYTES_FLOAT32 = 4
 
 
-def gl_tex_to_gpu(tex_id, dst_ptr, width, height, num_channels):
-    reg_img = check_cudart_err(
-        cudart.cudaGraphicsGLRegisterImage(
-            int(tex_id),
-            GL_TEXTURE_RECTANGLE,
-            cudart.cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsReadOnly,
-        )
-    )
+def gl_tex_to_gpu(reg_img, dst_ptr, width, height, num_channels):
+
     check_cudart_err(cudart.cudaGraphicsMapResources(1, reg_img, None))
 
     cuda_array = check_cudart_err(
@@ -97,39 +92,7 @@ def gl_tex_to_gpu(tex_id, dst_ptr, width, height, num_channels):
             kind=cudart.cudaMemcpyKind.cudaMemcpyDeviceToDevice,
         )
     )
-
     check_cudart_err(cudart.cudaGraphicsUnmapResources(1, reg_img, None))
-    check_cudart_err(cudart.cudaGraphicsUnregisterResource(reg_img))
-
-
-def format_cudart_err(err):
-    # https://gist.github.com/keckj/e37d312128eac8c5fca790ce1e7fc437
-    return (
-        f"{cudart.cudaGetErrorName(err)[1].decode('utf-8')}({int(err)}): "
-        f"{cudart.cudaGetErrorString(err)[1].decode('utf-8')}"
-    )
-
-
-def check_cudart_err(args):
-    # https://gist.github.com/keckj/e37d312128eac8c5fca790ce1e7fc437
-    if isinstance(args, tuple):
-        assert len(args) >= 1
-        err = args[0]
-        if len(args) == 1:
-            ret = None
-        elif len(args) == 2:
-            ret = args[1]
-        else:
-            ret = args[1:]
-    else:
-        err = args
-        ret = None
-
-    assert isinstance(err, cudart.cudaError_t), type(err)
-    if err != cudart.cudaError_t.cudaSuccess:
-        raise RuntimeError(format_cudart_err(err))
-
-    return ret
 
 
 def create_cuda_texture(
@@ -693,38 +656,38 @@ class Projector(object):
 
         with time_range("prep_args"):
             args = [
-                self.volumes_texobs_gpu,
-                self.seg_texobs_gpu,
+                np.uint64(self.volumes_texobs_gpu.data.ptr),
+                np.uint64(self.seg_texobs_gpu.data.ptr),
                 np.int32(proj.sensor_width),  # out_width
                 np.int32(proj.sensor_height),  # out_height
                 np.float32(self.step),  # step
-                self.priorities_gpu,  # priority
-                self.minPointX_gpu,  # gVolumeEdgeMinPointX
-                self.minPointY_gpu,  # gVolumeEdgeMinPointY
-                self.minPointZ_gpu,  # gVolumeEdgeMinPointZ
-                self.maxPointX_gpu,  # gVolumeEdgeMaxPointX
-                self.maxPointY_gpu,  # gVolumeEdgeMaxPointY
-                self.maxPointZ_gpu,  # gVolumeEdgeMaxPointZ
-                self.voxelSizeX_gpu,  # gVoxelElementSizeX
-                self.voxelSizeY_gpu,  # gVoxelElementSizeY
-                self.voxelSizeZ_gpu,  # gVoxelElementSizeZ
-                self.sourceX_gpu,  # sx_ijk
-                self.sourceY_gpu,  # sy_ijk
-                self.sourceZ_gpu,  # sz_ijk
+                np.uint64(self.priorities_gpu.data.ptr),  # priority
+                np.uint64(self.minPointX_gpu.data.ptr),  # gVolumeEdgeMinPointX
+                np.uint64(self.minPointY_gpu.data.ptr),  # gVolumeEdgeMinPointY
+                np.uint64(self.minPointZ_gpu.data.ptr),  # gVolumeEdgeMinPointZ
+                np.uint64(self.maxPointX_gpu.data.ptr),  # gVolumeEdgeMaxPointX
+                np.uint64(self.maxPointY_gpu.data.ptr),  # gVolumeEdgeMaxPointY
+                np.uint64(self.maxPointZ_gpu.data.ptr),  # gVolumeEdgeMaxPointZ
+                np.uint64(self.voxelSizeX_gpu.data.ptr),  # gVoxelElementSizeX
+                np.uint64(self.voxelSizeY_gpu.data.ptr),  # gVoxelElementSizeY
+                np.uint64(self.voxelSizeZ_gpu.data.ptr),  # gVoxelElementSizeZ
+                np.uint64(self.sourceX_gpu.data.ptr),  # sx_ijk
+                np.uint64(self.sourceY_gpu.data.ptr),  # sy_ijk
+                np.uint64(self.sourceZ_gpu.data.ptr),  # sz_ijk
                 np.float32(self.max_ray_length),  # max_ray_length
-                self.world_from_index_gpu,  # world_from_index
-                self.ijk_from_world_gpu,  # ijk_from_world
+                np.uint64(self.world_from_index_gpu.data.ptr),  # world_from_index
+                np.uint64(self.ijk_from_world_gpu.data.ptr),  # ijk_from_world
                 np.int32(self.spectrum_arr.shape[0]),  # n_bins
-                self.energies_gpu,  # energies
-                self.pdf_gpu,  # pdf
-                self.absorption_coef_table_gpu,  # absorb_coef_table
-                self.intensity_gpu,  # intensity
-                self.photon_prob_gpu,  # photon_prob
+                np.uint64(self.energies_gpu.data.ptr),  # energies
+                np.uint64(self.pdf_gpu.data.ptr),  # pdf
+                np.uint64(self.absorption_coef_table_gpu.data.ptr),  # absorb_coef_table
+                np.uint64(self.intensity_gpu.data.ptr),  # intensity
+                np.uint64(self.photon_prob_gpu.data.ptr),  # photon_prob
                 self.solid_angle_gpu,  # solid_angle
-                self.mesh_hit_alphas_gpu,
-                self.mesh_hit_facing_gpu,
-                self.additive_densities_gpu,
-                self.prim_unique_materials_gpu,
+                np.uint64(self.mesh_hit_alphas_gpu.data.ptr),
+                np.uint64(self.mesh_hit_facing_gpu.data.ptr),
+                np.uint64(self.additive_densities_gpu.data.ptr),
+                np.uint64(self.prim_unique_materials_gpu.data.ptr),
                 np.int32(len(self.prim_unique_materials)),
                 np.int32(self.num_mesh_layers),
             ]
@@ -751,18 +714,23 @@ class Projector(object):
                 raise DeprecationWarning(
                     "Patchwise projection is deprecated, try increasing max_block_index and/or threads. Please raise an issue if you need this feature."
                 )
+            
+            self.cupy_device.synchronize() # for debug only
 
-        with time_range("copy projection data to host"):
             # def fast_host_to_device(d_a, a):
             #     d_a.data.copy_from(a.ctypes.data, a.nbytes)
 
             # def fast_device_to_host(a, d_a):
             #     a.ctypes.data.copy_from(d_a.data, a.nbytes)
 
-            intensity = cp.asnumpy(self.intensity_gpu).reshape(self.output_shape)
+        with time_range("intensity copy to host"):
+            intensity = cp.asnumpy(self.intensity_gpu)
+            intensity = intensity.reshape(self.output_shape)
             intensity = np.swapaxes(intensity, 0, 1).copy()
 
-            photon_prob = cp.asnumpy(self.photon_prob_gpu).reshape(self.output_shape)
+        with time_range("photon_prob copy to host"):
+            photon_prob = cp.asnumpy(self.photon_prob_gpu)
+            photon_prob = photon_prob.reshape(self.output_shape)
             photon_prob = np.swapaxes(photon_prob, 0, 1).copy()
 
         collected_energy_data = intensity
@@ -887,7 +855,7 @@ class Projector(object):
             )
 
             gl_tex_to_gpu(
-                self.gl_renderer.g_densityTexId,
+                self.gl_renderer.additive_reg_im,
                 pointer_into_additive_densities,
                 width,
                 height,
@@ -915,7 +883,7 @@ class Projector(object):
                 + tex_idx * total_pixels * 4 * NUMBYTES_FLOAT32
             )
             gl_tex_to_gpu(
-                self.gl_renderer.g_peelTexId[tex_idx],
+                self.gl_renderer.subtractive_reg_ims[tex_idx],
                 pointer_into_hit_alphas,
                 width,
                 height,
@@ -1053,6 +1021,13 @@ class Projector(object):
         self.cupy_device.__enter__()
 
         cp.cuda.memory._set_thread_local_allocator(None)  # TODO: what does this do?
+
+        # self.enable_unified_memory = False
+        # self.mempool = cp.cuda.MemoryPool(cp.cuda.memory.malloc_managed if self.enable_unified_memory else None)
+        # self._previous_allocator = cp.cuda.memory._get_thread_local_allocator()
+        # cp.cuda.memory._set_thread_local_allocator(self.mempool.malloc)
+
+        # cupy.cuda.set_allocator(cupy.cuda.MemoryAsyncPool().malloc)
 
         # compile the module, moved to to initialize because it needs to happen after the context is created
         self.mod = _get_kernel_projector_module(
