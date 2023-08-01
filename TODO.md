@@ -14,7 +14,7 @@
 <!-- - No parent pointer -->
 - Hide/show objects
 
-
+nsight-compute # dev only, also sudo apt install nsight-compute
 pytest --cov=deepdrr --cov-report=xml .
 
 # Recurring
