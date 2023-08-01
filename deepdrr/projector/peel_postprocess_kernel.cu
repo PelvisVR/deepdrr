@@ -11,33 +11,27 @@ extern "C" {
 // To do this, set the intercept Ts to infinity, decrement the count, and set facing to 0
 // Then loop through to fill gaps
 // Keep a pointer at at the highest filled index, and another that sweeps forward palcing into the lowest index
-__device__ void tide(
-    float *interceptTs,
-    int8_t *interceptFacing,
-    int rayIdx,
-    float sourceToDetectorDistance
-)
-{
+__device__ void tide(float *interceptTs, int8_t *interceptFacing, int rayIdx, float sourceToDetectorDistance) {
     {
         // for (int i = 0; i < NUM_INTERSECTIONS; i++) { // TODO
         //     interceptFacing[i] = i < NUM_INTERSECTIONS / 2 ? 1 : -1;
         // }
-        for (int i = 0; i < NUM_INTERSECTIONS; i+=4) {
+        for (int i = 0; i < NUM_INTERSECTIONS; i += 4) {
             interceptFacing[i] = 1;
-            interceptFacing[i+1] = 1;
-            interceptFacing[i+2] = -1;
-            interceptFacing[i+3] = -1;
+            interceptFacing[i + 1] = 1;
+            interceptFacing[i + 2] = -1;
+            interceptFacing[i + 3] = -1;
             interceptTs[i] = -interceptTs[i];
-            interceptTs[i+1] = interceptTs[i+1];
-            interceptTs[i+2] = -interceptTs[i+2];
-            interceptTs[i+3] = interceptTs[i+3];
+            interceptTs[i + 1] = interceptTs[i + 1];
+            interceptTs[i + 2] = -interceptTs[i + 2];
+            interceptTs[i + 3] = interceptTs[i + 3];
         }
     }
 
     {
         float cutoffEpsilon = 0.00001;
         for (int i = 0; i < NUM_INTERSECTIONS; i++) {
-            if (interceptTs[i] < cutoffEpsilon || interceptTs[i] > sourceToDetectorDistance-0.001) {
+            if (interceptTs[i] < cutoffEpsilon || interceptTs[i] > sourceToDetectorDistance - 0.001) {
                 interceptTs[i] = INFINITY;
                 interceptFacing[i] = 0;
             }
@@ -109,17 +103,17 @@ __device__ void tide(
     }
 
     {
-        
+
         int altitudes[64]; // TODO
         int altitude = 0;
-        
+
         for (int i = 0; i < NUM_INTERSECTIONS; i++) {
             altitude += interceptFacing[i];
             altitudes[i] = altitude;
         }
-    
+
         int seaLevel = max(0, altitude);
-    
+
         int prevAltitide = 0;
         for (int i = 0; i < NUM_INTERSECTIONS; i++) {
             int currentAltitude = altitudes[i];
@@ -156,15 +150,10 @@ __device__ void tide(
     }
 }
 
-__global__ void kernelTide(
-    float* __restrict__ rayInterceptTs,
-    int8_t* __restrict__ rayInterceptFacing,
-    // int* __restrict__ detected,
-    // int numTriangles, 
-    int numRays,
-    float sourceToDetectorDistance
-)
-{
+__global__ void kernelTide(float *__restrict__ rayInterceptTs, int8_t *__restrict__ rayInterceptFacing,
+                           // int* __restrict__ detected,
+                           // int numTriangles,
+                           int numRays, float sourceToDetectorDistance) {
     __shared__ int stride;
     if (threadIdx.x == 0) {
         stride = gridDim.x * blockDim.x;
@@ -182,28 +171,20 @@ __global__ void kernelTide(
     }
 }
 
-__device__ void reorder(
-    float* __restrict__ rayInterceptTsIn,
-    float* __restrict__ rayInterceptTsOut,
-    int numRays,
-    int rayIdx
-)
-{
+__device__ void reorder(float *__restrict__ rayInterceptTsIn, float *__restrict__ rayInterceptTsOut, int numRays,
+                        int rayIdx) {
     int num_layers = 4;
     for (int i = 0; i < NUM_INTERSECTIONS / num_layers; i++) {
         for (int j = 0; j < num_layers; j++) {
             // rayInterceptTsOut[rayIdx * NUM_INTERSECTIONS + i] = rayInterceptTsIn[rayIdx * NUM_INTERSECTIONS + i];
-            rayInterceptTsOut[rayIdx * NUM_INTERSECTIONS + i * num_layers + j] = rayInterceptTsIn[i * numRays * num_layers + rayIdx * num_layers + j];
+            rayInterceptTsOut[rayIdx * NUM_INTERSECTIONS + i * num_layers + j] =
+                rayInterceptTsIn[i * numRays * num_layers + rayIdx * num_layers + j];
         }
     }
 }
 
-__global__ void kernelReorder(
-    float* __restrict__ rayInterceptTsIn,
-    float* __restrict__ rayInterceptTsOut,
-    int numRays
-)
-{
+__global__ void kernelReorder(float *__restrict__ rayInterceptTsIn, float *__restrict__ rayInterceptTsOut,
+                              int numRays) {
     __shared__ int stride;
     if (threadIdx.x == 0) {
         stride = gridDim.x * blockDim.x;
@@ -218,6 +199,4 @@ __global__ void kernelReorder(
         }
     }
 }
-    
-
 }
