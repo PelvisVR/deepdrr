@@ -719,9 +719,6 @@ class Projector(object):
                 for mesh_id, mesh in enumerate(self.meshes):
                     self.mesh_nodes[mesh_id].matrix = mesh.world_from_ijk
 
-                # mesh_perf_entire_start = time.perf_counter()
-                # mesh_perf_start = time.perf_counter()
-
                 num_rays = proj.sensor_width * proj.sensor_height
 
                 self.cam.fx = proj.intrinsic.fx
@@ -743,10 +740,6 @@ class Projector(object):
                 self.cam_node.matrix = (
                     np.array(proj.extrinsic.inv) @ deepdrr_to_opengl_cam
                 )
-
-                # mesh_perf_end = time.perf_counter()
-                # print(f"init arrays: {mesh_perf_end - mesh_perf_start}")
-                # mesh_perf_start = mesh_perf_end
 
                 zfar = self.device.source_to_detector_distance * 2  # TODO (liam)
 
@@ -774,9 +767,6 @@ class Projector(object):
                         2,
                     )
 
-                # mesh_perf_end = time.perf_counter()
-                # print(f"density: {mesh_perf_end - mesh_perf_start}")
-                # mesh_perf_start = mesh_perf_end
 
                 if self.mesh_additive_and_subtractive_enabled:
                     self.gl_renderer.render(
@@ -785,10 +775,6 @@ class Projector(object):
                         flags=RenderFlags.RGBA,
                         zfar=zfar,
                     )
-
-                    # mesh_perf_end = time.perf_counter()
-                    # print(f"peel: {mesh_perf_end - mesh_perf_start}")
-                    # mesh_perf_start = mesh_perf_end
 
                     for tex_idx in range(self.gl_renderer.num_peel_passes):
                         # TODO: need gl synchronization here?
@@ -805,10 +791,6 @@ class Projector(object):
                             4,
                         )
 
-                    # mesh_perf_end = time.perf_counter()
-                    # print(f"peel copy: {mesh_perf_end - mesh_perf_start}")
-                    # mesh_perf_start = mesh_perf_end
-
                     self.kernel_reorder(
                         args=(
                             self.mesh_hit_alphas_tex_gpu,
@@ -818,10 +800,6 @@ class Projector(object):
                         block=(256, 1, 1),  # TODO (liam)
                         grid=(16, 1),  # TODO (liam)
                     )
-
-                    # mesh_perf_end = time.perf_counter()
-                    # print(f"peel reorder: {mesh_perf_end - mesh_perf_start}")
-                    # mesh_perf_start = mesh_perf_end
 
                     self.kernel_tide(
                         args=(
@@ -833,13 +811,6 @@ class Projector(object):
                         block=(256, 1, 1),  # TODO (liam)
                         grid=(16, 1),  # TODO (liam)
                     )
-
-                # mesh_perf_end = time.perf_counter()
-                # print(f"tide: {mesh_perf_end - mesh_perf_start}")
-                # mesh_perf_start = mesh_perf_end
-
-                # context.synchronize()
-                # print(f"entire mesh: {time.perf_counter() - mesh_perf_entire_start}")
 
             volumes_texobs_gpu = cp.array(
                 [x.ptr for x in self.volumes_texobs], dtype=np.uint64
