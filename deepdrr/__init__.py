@@ -4,7 +4,11 @@ except ImportError:
     raise ImportError("""CuPy must be installed to use DeepDRR.
 Please install the version of CuPy for your CUDA Toolkit version by following the instructions here: https://cupy.dev/
 Or by installing deepdrr with the optional CuPy extra for your CUDA Toolkit version:
-e.g. pip install deepdrr[cupy11x] for CUDA v11.2 ~ 11.8
+pip install deepdrr[cuda102] # for CUDA 10.2
+pip install deepdrr[cuda110] # for CUDA 11.0
+pip install deepdrr[cuda111] # for CUDA 11.1
+pip install deepdrr[cuda11x] # for CUDA 11.2 - 11.8
+pip install deepdrr[cuda12x] # for CUDA 12.x
 """)
 
 from . import vis, geo, projector, device, annotations, utils

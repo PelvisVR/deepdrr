@@ -1,20 +1,16 @@
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
-[tool.poetry]
+[tool.hatch.metadata]
+allow-direct-references = true # TODO: remove this when pyrender is updated
+
+[project]
 name = "deepdrr"
-version = "1.1.2"
-license = "GPL-3.0-or-later"
-readme = "README.md"
 description = "A Catalyst for Machine Learning in Fluoroscopy-guided Procedures."
 authors = [
-    "Benjamin D. Killeen <killeen@jhu.edu>"
+    { name = "Benjamin D. Killeen", email = "killeen@jhu.edu" },
 ]
-# homepage = "https://qibo.science/"
-repository = "https://github.com/arcadelab/deepdrr"
-documentation = "https://deepdrr.readthedocs.io/"
-
 # classifiers = [
 #     "Development Status :: 3 - Alpha",
 #     "Intended Audience :: Developers",
@@ -26,64 +22,82 @@ documentation = "https://deepdrr.readthedocs.io/"
 #     "Programming Language :: Python :: 3.11",
 #     "Operating System :: OS Independent",
 # ]
-packages = [{ include = "deepdrr", from = "." }]
+license = "GPL-3.0-or-later"
+# dynamic = ["version"]
+version = "1.1.2"
+readme = "README.md"
 
+dependencies = [
+    "numpy",
+    "torch",
+    "torchvision",
+    "nibabel",
+    "scipy",
+    "scikit-image",
+    "pyvista",
+    "pydicom",
+    "pynrrd",
+    "rich",
+    "opencv-python",
+    "seaborn",
+    "graphviz",
+    "pyglet>=1.4.11",
+    "PyOpenGL>=3.1.7",
+    "PyOpenGL_accelerate>=3.1.7",
+    "trimesh",
+    "pyrender @ git+https://github.com/liamjwang/pyrender.git@master",
+    # "cupy",
+    # "cupy-cuda11x",
+    "cuda-python",
+]
+urls = { homepage = "https://github.com/arcadelab/deepdrr" }
 
-[tool.poetry.dependencies]
-python = ">=3.7"
-numpy = "*"
-torch = "*"
-torchvision = "*"
-nibabel = "*"
-scipy = "*"
-scikit-image = "*"
-pyvista = "*"
-pydicom = "*"
-pynrrd = "*"
-rich = "*"
-opencv-python = "*"
-seaborn = "*"
-graphviz = "*"
-pyglet = ">=1.4.11"
-PyOpenGL = ">=3.1.7"
-PyOpenGL_accelerate = ">=3.1.7"
-trimesh = "*"
-pyrender = { git = "https://github.com/liamjwang/pyrender.git", branch = "master" }
-cuda-python = "*"
-cupy-cuda102 = { version = "*", optional = true }
-cupy-cuda110 = { version = "*", optional = true }
-cupy-cuda111 = { version = "*", optional = true }
-cupy-cuda11x = { version = "*", optional = true }
-cupy-cuda12x = { version = "*", optional = true }
+[project.optional-dependencies]
+dev = [
+    "black[jupyter]",
+    "pytest",
+    "trame",
+    "ruff",
+    "jupyterlab",
+    "ipykernel",
+    "ipywidgets",
+]
+cuda102 = [ "cupy-cuda102" ]
+cuda110 = [ "cupy-cuda110" ]
+cuda111 = [ "cupy-cuda111" ]
+cuda11x = [ "cupy-cuda11x" ]
+cuda12x = [ "cupy-cuda12x" ]
 
-[tool.poetry.extras]
-cuda102 = ["cupy-cuda102"]
-cuda110 = ["cupy-cuda110"]
-cuda111 = ["cupy-cuda111"]
-cuda11x = ["cupy-cuda11x"]
-cuda12x = ["cupy-cuda12x"]
+# docs = [
+#     "Sphinx",
+#     "sphinx-autobuild",
+#     "sphinx-js",
+#     "markupsafe==2.0.1",
+# ]
 
-[tool.poetry.group.dev]
-optional = true
+[tool.hatch.build]
+sources = ["."]
 
-[tool.poetry.group.dev.dependencies]
-black = { version = "*", extras = ["jupyter"] }
-pytest = "*"
-trame = "*"
-ruff = "*"
-juptyerlab = "*"
-ipykernel = "*"
-ipywidgets = "*"
+# [tool.hatch.version]
+# source = "vcs"
 
+[tool.hatch.envs.default]
+features = ["dev"]
 
-[tool.poetry.scripts]
+[tool.hatch.envs.default.scripts]
 fix = "black . && ruff --fix ."
 lint = "black --check . && ruff ."
 test = "pytest ."
 
-[tool.black]
-line-length = 120
-# target-version = ['py37']
+# [tool.hatch.envs.docs]
+# features = ["docs"]
+
+# [tool.hatch.envs.docs.scripts]
+# build = "sphinx-build -b html ./docs ./docs/_build/html"
+# serve = "cd docs && ./serve.sh"
+
+# [[tool.hatch.envs.test.matrix]]
+# python = ["38", "39", "310", "311"]
 
 [tool.ruff]
 line-length = 120
@@ -131,6 +145,10 @@ extend-select = [
     "UP", # pyupgrade
     "W",  # style warnings
 ]
+
+[tool.black]
+line-length = 120
+# target-version = ['py37']
 
 [tool.ruff.per-file-ignores]
 "__init__.py" = [
