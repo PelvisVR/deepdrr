@@ -71,10 +71,10 @@ NUMBYTES_INT32 = 4
 NUMBYTES_FLOAT32 = 4
 
 
-def gl_tex_to_gpu():
+def gl_tex_to_gpu(tex_id, dst_ptr, width, height, num_channels):
     reg_img = check_cudart_err(
         cudart.cudaGraphicsGLRegisterImage(
-            int(self.gl_renderer.g_densityTexId),
+            int(tex_id),
             GL_TEXTURE_RECTANGLE,
             cudart.cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsReadOnly,
         )
@@ -87,12 +87,12 @@ def gl_tex_to_gpu():
 
     check_cudart_err(
         cudart.cudaMemcpy2DFromArray(
-            dst=pointer_into_additive_densities,
-            dpitch=int(width * 2 * NUMBYTES_FLOAT32),
+            dst=dst_ptr,
+            dpitch=int(width * num_channels * NUMBYTES_FLOAT32),
             src=cuda_array,
             wOffset=0,
             hOffset=0,
-            width=int(width * 2 * NUMBYTES_FLOAT32),
+            width=int(width * num_channels * NUMBYTES_FLOAT32),
             height=int(height),
             kind=cudart.cudaMemcpyKind.cudaMemcpyDeviceToDevice,
         )
@@ -766,130 +766,73 @@ class Projector(object):
                         + mat_idx * total_pixels * 2 * NUMBYTES_FLOAT32
                     )
 
-                    reg_img = check_cudart_err(
-                        cudart.cudaGraphicsGLRegisterImage(
-                            int(self.gl_renderer.g_densityTexId),
-                            GL_TEXTURE_RECTANGLE,
-                            cudart.cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsReadOnly,
-                        )
+                    gl_tex_to_gpu(
+                        self.gl_renderer.g_densityTexId,
+                        pointer_into_additive_densities,
+                        width,
+                        height,
+                        2,
                     )
-                    check_cudart_err(cudart.cudaGraphicsMapResources(1, reg_img, None))
-
-                    cuda_array = check_cudart_err(
-                        cudart.cudaGraphicsSubResourceGetMappedArray(reg_img, 0, 0)
-                    )
-
-                    check_cudart_err(
-                        cudart.cudaMemcpy2DFromArray(
-                            dst=pointer_into_additive_densities,
-                            dpitch=int(width * 2 * NUMBYTES_FLOAT32),
-                            src=cuda_array,
-                            wOffset=0,
-                            hOffset=0,
-                            width=int(width * 2 * NUMBYTES_FLOAT32),
-                            height=int(height),
-                            kind=cudart.cudaMemcpyKind.cudaMemcpyDeviceToDevice,
-                        )
-                    )
-
-                    check_cudart_err(
-                        cudart.cudaGraphicsUnmapResources(1, reg_img, None)
-                    )
-                    check_cudart_err(cudart.cudaGraphicsUnregisterResource(reg_img))
 
                 # mesh_perf_end = time.perf_counter()
                 # print(f"density: {mesh_perf_end - mesh_perf_start}")
                 # mesh_perf_start = mesh_perf_end
 
-                with time_range("mesh kernel"):
-                    if self.mesh_additive_and_subtractive_enabled:
-                        self.gl_renderer.render(
-                            self.scene,
-                            drr_mode=DRRMode.DIST,
-                            flags=RenderFlags.RGBA,
-                            zfar=zfar,
+                if self.mesh_additive_and_subtractive_enabled:
+                    self.gl_renderer.render(
+                        self.scene,
+                        drr_mode=DRRMode.DIST,
+                        flags=RenderFlags.RGBA,
+                        zfar=zfar,
+                    )
+
+                    # mesh_perf_end = time.perf_counter()
+                    # print(f"peel: {mesh_perf_end - mesh_perf_start}")
+                    # mesh_perf_start = mesh_perf_end
+
+                    for tex_idx in range(self.gl_renderer.num_peel_passes):
+                        # TODO: need gl synchronization here?
+
+                        pointer_into_hit_alphas = int(
+                            int(self.mesh_hit_alphas_tex_gpu.data.ptr)
+                            + tex_idx * total_pixels * 4 * NUMBYTES_FLOAT32
+                        )
+                        gl_tex_to_gpu(
+                            self.gl_renderer.g_peelTexId[tex_idx],
+                            pointer_into_hit_alphas,
+                            width,
+                            height,
+                            4,
                         )
 
-                        # mesh_perf_end = time.perf_counter()
-                        # print(f"peel: {mesh_perf_end - mesh_perf_start}")
-                        # mesh_perf_start = mesh_perf_end
+                    # mesh_perf_end = time.perf_counter()
+                    # print(f"peel copy: {mesh_perf_end - mesh_perf_start}")
+                    # mesh_perf_start = mesh_perf_end
 
-                        for tex_idx in range(self.gl_renderer.num_peel_passes):
-                            # TODO: need gl synchronization here?
+                    self.kernel_reorder(
+                        args=(
+                            self.mesh_hit_alphas_tex_gpu,
+                            self.mesh_hit_alphas_gpu,
+                            np.int32(total_pixels),
+                        ),
+                        block=(256, 1, 1),  # TODO (liam)
+                        grid=(16, 1),  # TODO (liam)
+                    )
 
-                            pointer_into_additive_densities = int(
-                                int(self.mesh_hit_alphas_tex_gpu.data.ptr)
-                                + tex_idx * total_pixels * 4 * NUMBYTES_FLOAT32
-                            )
-                            flags = (
-                                cudart.cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsReadOnly
-                            )
+                    # mesh_perf_end = time.perf_counter()
+                    # print(f"peel reorder: {mesh_perf_end - mesh_perf_start}")
+                    # mesh_perf_start = mesh_perf_end
 
-                            reg_img = check_cudart_err(
-                                cudart.cudaGraphicsGLRegisterImage(
-                                    int(self.gl_renderer.g_peelTexId[tex_idx]),
-                                    GL_TEXTURE_RECTANGLE,
-                                    flags,
-                                )
-                            )
-                            check_cudart_err(
-                                cudart.cudaGraphicsMapResources(1, reg_img, None)
-                            )
-
-                            cuda_array = check_cudart_err(
-                                cudart.cudaGraphicsSubResourceGetMappedArray(
-                                    reg_img, 0, 0
-                                )
-                            )
-
-                            check_cudart_err(
-                                cudart.cudaMemcpy2DFromArray(
-                                    dst=pointer_into_additive_densities,
-                                    dpitch=int(width * 4 * NUMBYTES_FLOAT32),
-                                    src=cuda_array,
-                                    wOffset=0,
-                                    hOffset=0,
-                                    width=int(width * 4 * NUMBYTES_FLOAT32),
-                                    height=int(height),
-                                    kind=cudart.cudaMemcpyKind.cudaMemcpyDeviceToDevice,
-                                )
-                            )
-
-                            check_cudart_err(
-                                cudart.cudaGraphicsUnmapResources(1, reg_img, None)
-                            )
-                            check_cudart_err(
-                                cudart.cudaGraphicsUnregisterResource(reg_img)
-                            )
-
-                        # mesh_perf_end = time.perf_counter()
-                        # print(f"peel copy: {mesh_perf_end - mesh_perf_start}")
-                        # mesh_perf_start = mesh_perf_end
-
-                        self.kernel_reorder(
-                            args=(
-                                self.mesh_hit_alphas_tex_gpu,
-                                self.mesh_hit_alphas_gpu,
-                                np.int32(total_pixels),
-                            ),
-                            block=(256, 1, 1),  # TODO (liam)
-                            grid=(16, 1),  # TODO (liam)
-                        )
-
-                        # mesh_perf_end = time.perf_counter()
-                        # print(f"peel reorder: {mesh_perf_end - mesh_perf_start}")
-                        # mesh_perf_start = mesh_perf_end
-
-                        self.kernel_tide(
-                            args=(
-                                self.mesh_hit_alphas_gpu,
-                                self.mesh_hit_facing_gpu,
-                                np.int32(total_pixels),
-                                np.float32(self.device.source_to_detector_distance * 2),
-                            ),
-                            block=(256, 1, 1),  # TODO (liam)
-                            grid=(16, 1),  # TODO (liam)
-                        )
+                    self.kernel_tide(
+                        args=(
+                            self.mesh_hit_alphas_gpu,
+                            self.mesh_hit_facing_gpu,
+                            np.int32(total_pixels),
+                            np.float32(self.device.source_to_detector_distance * 2),
+                        ),
+                        block=(256, 1, 1),  # TODO (liam)
+                        grid=(16, 1),  # TODO (liam)
+                    )
 
                 # mesh_perf_end = time.perf_counter()
                 # print(f"tide: {mesh_perf_end - mesh_perf_start}")
