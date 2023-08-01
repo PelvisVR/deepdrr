@@ -2,11 +2,13 @@
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
-[tool.hatch.metadata]
-allow-direct-references = true # TODO: remove this when pyrender is updated
-
 [project]
 name = "deepdrr"
+version = "1.1.2"
+license = "GPL-3.0-or-later"
+# dynamic = ["version"]
+readme = "README.md"
+urls = { homepage = "https://github.com/arcadelab/deepdrr" }
 description = "A Catalyst for Machine Learning in Fluoroscopy-guided Procedures."
 authors = [
     { name = "Benjamin D. Killeen", email = "killeen@jhu.edu" },
@@ -22,10 +24,6 @@ authors = [
 #     "Programming Language :: Python :: 3.11",
 #     "Operating System :: OS Independent",
 # ]
-license = "GPL-3.0-or-later"
-# dynamic = ["version"]
-version = "1.1.2"
-readme = "README.md"
 
 dependencies = [
     "numpy",
@@ -46,11 +44,8 @@ dependencies = [
     "PyOpenGL_accelerate>=3.1.7",
     "trimesh",
     "pyrender @ git+https://github.com/liamjwang/pyrender.git@master",
-    # "cupy",
-    # "cupy-cuda11x",
     "cuda-python",
 ]
-urls = { homepage = "https://github.com/arcadelab/deepdrr" }
 
 [project.optional-dependencies]
 dev = [
@@ -74,6 +69,9 @@ cuda12x = [ "cupy-cuda12x" ]
 #     "sphinx-js",
 #     "markupsafe==2.0.1",
 # ]
+
+[tool.hatch.metadata]
+allow-direct-references = true # TODO: remove this when pyrender is updated
 
 [tool.hatch.build]
 sources = ["."]

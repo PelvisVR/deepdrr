@@ -1,6 +1,12 @@
 # syntax=docker/dockerfile:1
 
-FROM pytorch/pytorch:1.13.1-cuda11.6-cudnn8-runtime as base
+# FROM pytorch/pytorch:1.13.1-cuda11.6-cudnn8-runtime as base
+FROM mambaorg/micromamba:1.4.9
+COPY --chown=$MAMBA_USER:$MAMBA_USER environment.yml /tmp/env.yaml
+RUN micromamba install -y -n base -f /tmp/env.yaml && \
+    micromamba clean --all --yes
+
+USER root
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -30,17 +36,13 @@ RUN mkdir -p /usr/share/glvnd/egl_vendor.d/ && \
     }\n\
     }" > /usr/share/glvnd/egl_vendor.d/10_nvidia.json
 
-# dummy empty requirements.txt so that requirements can be updated without invalidating the conda step 
-RUN touch requirements.txt
-COPY environment.yml .
-RUN conda env update -n base -f environment.yml
-RUN rm requirements.txt
-
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
+# COPY environment.yml .
+# RUN conda env update -n base -f environment.yml
+USER $MAMBA_USER
+RUN eval "$(micromamba shell hook --shell )"
+RUN micromamba activate base
 COPY . .
-RUN pip install .
+RUN python -m pip install .[cuda11x]
 
 # CMD python tests/test_core.py
 CMD python -m pytest -v
