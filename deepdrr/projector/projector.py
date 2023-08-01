@@ -797,13 +797,14 @@ class Projector(object):
         photon_prob = np.swapaxes(photon_prob, 0, 1).copy()
         log.debug("swapped photon_prob")
 
-        # transform to collected energy in keV per cm^2 (or keV per mm^2)
+        collected_energy_data = intensity
         if self.collected_energy:
-            return intensity, self._calculate_deposited_energy(proj, intensity)
-        else:
-            return intensity, photon_prob
+            collected_energy_data = self._calculate_collected_energy_per_pixel(proj, intensity)
+
+        return collected_energy_data, photon_prob
         
-    def _calculate_deposited_energy(self, proj: geo.CameraProjection, intensity: np.ndarray) -> np.ndarray:
+    def _calculate_collected_energy_per_pixel(self, proj: geo.CameraProjection, intensity: np.ndarray) -> np.ndarray:
+        # transform to collected energy in keV per cm^2 (or keV per mm^2)
         assert np.array_equal(self.solid_angle_gpu, np.uint64(0)) == False
         solid_angle = cp.asnumpy(self.solid_angle_gpu).reshape(
             self.output_shape
