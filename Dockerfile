@@ -30,17 +30,11 @@ RUN mkdir -p /usr/share/glvnd/egl_vendor.d/ && \
     }\n\
     }" > /usr/share/glvnd/egl_vendor.d/10_nvidia.json
 
-# dummy empty requirements.txt so that requirements can be updated without invalidating the conda step 
-RUN touch requirements.txt
 COPY environment.yml .
 RUN conda env update -n base -f environment.yml
-RUN rm requirements.txt
-
-COPY requirements.txt .
-RUN pip install -r requirements.txt
 
 COPY . .
-RUN pip install .
+RUN pip install .[dev, cuda11x]
 
 # CMD python tests/test_core.py
 CMD python -m pytest -v

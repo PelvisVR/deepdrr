@@ -13,6 +13,6 @@ dependencies:
   - cuda-gdb
   - cuda-profiler-api
   - pip
-  - pip:
-      - -r requirements.txt
+  # - pip:
+      # - -r requirements.txt
       # - -e . # disabled for docker
