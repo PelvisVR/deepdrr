@@ -60,6 +60,7 @@ The `dev` branch contains the most up-to-date code and can be easily installed u
 git clone https://github.com/arcadelab/deepdrr.git
 cd deepdrr
 git checkout dev
+sudo scripts/ubuntu_setup.sh
 conda env create -f environment.yml
 conda activate deepdrr
 pip install -e .[dev,cuda11x] # this should match your CUDA version
