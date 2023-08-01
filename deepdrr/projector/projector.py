@@ -663,14 +663,6 @@ class Projector(object):
 
         log.debug("Initiating projection and attenuation...")
 
-        width = (
-            self.device.sensor_width
-        )  # TODO (liam): was deepdrr not locked to fixed resolution before?
-        height = self.device.sensor_height
-        total_pixels = width * height
-
-        project_tick = time.perf_counter()
-
         intensities = []
         photon_probs = []
         for i, proj in enumerate(camera_projections):
@@ -680,6 +672,10 @@ class Projector(object):
 
             # Only re-allocate if the output shape has changed.
             self.initialize_output_arrays(proj.intrinsic.sensor_size)
+
+            width = proj.intrinsic.sensor_width
+            height = proj.intrinsic.sensor_height
+            total_pixels = width * height
 
             # Get the volume min/max points in world coordinates.
             sx, sy, sz = proj.get_center_in_world()
@@ -879,11 +875,6 @@ class Projector(object):
                     "Patchwise projection is deprecated, try increasing max_block_index and/or threads. Please raise an issue if you need this feature."
                 )
 
-            project_tock = time.perf_counter()
-            log.debug(
-                f"projection #{i}: time elapsed after call to project_kernel: {project_tock - project_tick}"
-            )
-
             intensity = cp.asnumpy(self.intensity_gpu).reshape(self.output_shape)
 
             # transpose the axes, which previously have width on the slow dimension
@@ -895,11 +886,6 @@ class Projector(object):
             log.debug("copied photon_prob")
             photon_prob = np.swapaxes(photon_prob, 0, 1).copy()
             log.debug("swapped photon_prob")
-
-            project_tock = time.perf_counter()
-            log.debug(
-                f"projection #{i}: time elapased after copy from kernel: {project_tock - project_tick}"
-            )
 
             # transform to collected energy in keV per cm^2 (or keV per mm^2)
             if self.collected_energy:
