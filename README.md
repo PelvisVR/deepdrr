@@ -32,7 +32,7 @@ DeepDRR provides state-of-the-art tools to generate realistic radiographs and fl
 
 DeepDRR requires an NVIDIA GPU.
 
-1. Install the required apt packages from `scripts/ubuntu_setup.sh`
+1. Install the required apt packages from `scripts/ubuntu_setup.sh` in this repository.
 2. Install the CUDA Toolkit and PyTorch. We recommend using [Anaconda](https://www.anaconda.com/). See the `environment.yml` file in this repository for the packages you should add to your environment. DeepDRR is tested with CUDA 11.8.0 and Python 3.10 but other versions may work as well.
 <!-- 3. Make sure your C compiler is on the path. DeepDRR has been used with `gcc 9.3.0` (is this needed?)-->
 3. Install from `PyPI`, and specifiy the CUDA version you are using.
