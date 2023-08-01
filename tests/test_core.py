@@ -257,9 +257,9 @@ class TestSingleVolume:
 
 
 if __name__ == "__main__":
-    logging.getLogger("deepdrr").setLevel(logging.DEBUG)
+    logging.getLogger("deepdrr").setLevel(logging.WARNING)
     # set projector log level to debug
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.WARNING)
     test = TestSingleVolume()
     # test.test_layer_depth()
     test.test_mesh()

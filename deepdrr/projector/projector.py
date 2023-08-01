@@ -685,38 +685,7 @@ class Projector(object):
         # Only re-allocate if the output shape has changed.
         self.initialize_output_arrays(proj.intrinsic.sensor_size)
 
-        # Get the volume min/max points in world coordinates.
-        world_from_index = np.array(proj.world_from_index[:-1, :]).astype(
-            np.float32
-        )
-        self.world_from_index_gpu = cp.asarray(world_from_index)
-
-        sourceX = np.zeros(len(self.volumes), dtype=np.float32)
-        sourceY = np.zeros(len(self.volumes), dtype=np.float32)
-        sourceZ = np.zeros(len(self.volumes), dtype=np.float32)
-
-        ijk_from_world_cpu = np.zeros(len(self.volumes) * 3 * 4, dtype=np.float32)
-
-        for vol_id, _vol in enumerate(self.volumes):
-            source_ijk = np.array(
-                _vol.IJK_from_world
-                @ proj.center_in_world  # TODO (liam): Remove unused center arguments
-            ).astype(np.float32)
-
-            sourceX[vol_id] = source_ijk[0]
-            sourceY[vol_id] = source_ijk[1]
-            sourceZ[vol_id] = source_ijk[2]
-
-            # TODO: prefer toarray() to get transform throughout
-            IJK_from_world = _vol.IJK_from_world.toarray()
-            ijk_from_world_cpu[
-                IJK_from_world.size * vol_id : IJK_from_world.size * (vol_id + 1)
-            ] = IJK_from_world.flatten()
-        self.ijk_from_world_gpu = cp.asarray(ijk_from_world_cpu)
-
-        self.sourceX_gpu = cp.asarray(sourceX)
-        self.sourceY_gpu = cp.asarray(sourceY)
-        self.sourceZ_gpu = cp.asarray(sourceZ)
+        self._update_object_locations(proj)
 
         if self.mesh_additive_enabled:
             self._render_mesh(proj)
@@ -786,22 +755,49 @@ class Projector(object):
             )
 
         intensity = cp.asnumpy(self.intensity_gpu).reshape(self.output_shape)
-
-        # transpose the axes, which previously have width on the slow dimension
-        log.debug("copied intensity from gpu")
         intensity = np.swapaxes(intensity, 0, 1).copy()
-        log.debug("swapped intensity")
 
         photon_prob = cp.asnumpy(self.photon_prob_gpu).reshape(self.output_shape)
-        log.debug("copied photon_prob")
         photon_prob = np.swapaxes(photon_prob, 0, 1).copy()
-        log.debug("swapped photon_prob")
 
         collected_energy_data = intensity
         if self.collected_energy:
             collected_energy_data = self._calculate_collected_energy_per_pixel(proj, intensity)
 
         return collected_energy_data, photon_prob
+    
+    def _update_object_locations(self, proj: geo.CameraProjection) -> None:
+        world_from_index = np.array(proj.world_from_index[:-1, :]).astype(
+            np.float32
+        )
+        self.world_from_index_gpu = cp.asarray(world_from_index)
+
+        sourceX = np.zeros(len(self.volumes), dtype=np.float32)
+        sourceY = np.zeros(len(self.volumes), dtype=np.float32)
+        sourceZ = np.zeros(len(self.volumes), dtype=np.float32)
+
+        ijk_from_world_cpu = np.zeros(len(self.volumes) * 3 * 4, dtype=np.float32)
+
+        for vol_id, _vol in enumerate(self.volumes):
+            source_ijk = np.array(
+                _vol.IJK_from_world
+                @ proj.center_in_world  # TODO (liam): Remove unused center arguments
+            ).astype(np.float32)
+
+            sourceX[vol_id] = source_ijk[0]
+            sourceY[vol_id] = source_ijk[1]
+            sourceZ[vol_id] = source_ijk[2]
+
+            # TODO: prefer toarray() to get transform throughout
+            IJK_from_world = _vol.IJK_from_world.toarray()
+            ijk_from_world_cpu[
+                IJK_from_world.size * vol_id : IJK_from_world.size * (vol_id + 1)
+            ] = IJK_from_world.flatten()
+        self.ijk_from_world_gpu = cp.asarray(ijk_from_world_cpu)
+
+        self.sourceX_gpu = cp.asarray(sourceX)
+        self.sourceY_gpu = cp.asarray(sourceY)
+        self.sourceZ_gpu = cp.asarray(sourceZ)
         
     def _calculate_collected_energy_per_pixel(self, proj: geo.CameraProjection, intensity: np.ndarray) -> np.ndarray:
         # transform to collected energy in keV per cm^2 (or keV per mm^2)
