@@ -3,24 +3,8 @@
 FROM pytorch/pytorch:1.13.1-cuda11.6-cudnn8-runtime as base
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    libsm6 \
-    libxext6 \
-    build-essential \
-    git \
-    pkg-config \
-    libglvnd-dev \
-    libgl1-mesa-dev \
-    libegl1-mesa-dev \
-    libgles2-mesa-dev \
-    libglvnd0 \
-    libgl1 \
-    libglx0 \
-    libegl1 \
-    libgles2 \
-    freeglut3-dev \
-    && rm -rf /var/lib/apt/lists/*
+COPY scripts/ubuntu_setup.sh .
+RUN bash ubuntu_setup.sh
 
 RUN mkdir -p /usr/share/glvnd/egl_vendor.d/ && \
     echo "{\n\
@@ -34,7 +18,7 @@ COPY environment.yml .
 RUN conda env update -n base -f environment.yml
 
 COPY . .
-RUN pip install .[dev, cuda11x]
+RUN pip install .[dev,cuda11x]
 
 # CMD python tests/test_core.py
 CMD python -m pytest -v
