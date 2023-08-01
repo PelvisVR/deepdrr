@@ -530,7 +530,7 @@ class Projector(object):
 
         self.step = float(step)
         self.mode = mode
-        self.spectrum = _get_spectrum(spectrum)
+        self.spectrum_arr = _get_spectrum(spectrum)
         self._source_to_detector_distance = source_to_detector_distance
 
         if add_scatter is not None:
@@ -651,17 +651,13 @@ class Projector(object):
             log.debug(
                 f"projecting with source at {camera_projections[0].center_in_world}, pointing in {self.device.principle_ray_in_world}..."
             )
-            max_ray_length = math.sqrt(
+            self.max_ray_length = math.sqrt( # TODO: can these really change after construction?
                 self.device.source_to_detector_distance**2
                 + self.device.detector_height**2
                 + self.device.detector_width**2
             )
         else:
-            max_ray_length = -1
-
-        assert isinstance(self.spectrum, np.ndarray)
-
-        log.debug("Initiating projection and attenuation...")
+            self.max_ray_length = -1
 
         intensities = []
         photon_probs = []
@@ -669,254 +665,9 @@ class Projector(object):
             log.debug(
                 f"Projecting and attenuating camera position {i+1} / {len(camera_projections)}"
             )
-
-            # Only re-allocate if the output shape has changed.
-            self.initialize_output_arrays(proj.intrinsic.sensor_size)
-
-            width = proj.intrinsic.sensor_width
-            height = proj.intrinsic.sensor_height
-            total_pixels = width * height
-
-            # Get the volume min/max points in world coordinates.
-            sx, sy, sz = proj.get_center_in_world()
-            world_from_index = np.array(proj.world_from_index[:-1, :]).astype(
-                np.float32
-            )
-            self.world_from_index_gpu = cp.asarray(world_from_index)
-
-            sourceX = np.zeros(len(self.volumes), dtype=np.float32)
-            sourceY = np.zeros(len(self.volumes), dtype=np.float32)
-            sourceZ = np.zeros(len(self.volumes), dtype=np.float32)
-
-            ijk_from_world_cpu = np.zeros(len(self.volumes) * 3 * 4, dtype=np.float32)
-
-            for vol_id, _vol in enumerate(self.volumes):
-                source_ijk = np.array(
-                    _vol.IJK_from_world
-                    @ proj.center_in_world  # TODO (liam): Remove unused center arguments
-                ).astype(np.float32)
-
-                sourceX[vol_id] = source_ijk[0]
-                sourceY[vol_id] = source_ijk[1]
-                sourceZ[vol_id] = source_ijk[2]
-
-                # TODO: prefer toarray() to get transform throughout
-                IJK_from_world = _vol.IJK_from_world.toarray()
-                ijk_from_world_cpu[
-                    IJK_from_world.size * vol_id : IJK_from_world.size * (vol_id + 1)
-                ] = IJK_from_world.flatten()
-            self.ijk_from_world_gpu = cp.asarray(ijk_from_world_cpu)
-
-            self.sourceX_gpu = cp.asarray(sourceX)
-            self.sourceY_gpu = cp.asarray(sourceY)
-            self.sourceZ_gpu = cp.asarray(sourceZ)
-
-            if self.mesh_additive_enabled:
-                for mesh_id, mesh in enumerate(self.meshes):
-                    self.mesh_nodes[mesh_id].matrix = mesh.world_from_ijk
-
-                num_rays = proj.sensor_width * proj.sensor_height
-
-                self.cam.fx = proj.intrinsic.fx
-                self.cam.fy = proj.intrinsic.fy
-                self.cam.cx = proj.intrinsic.cx
-                self.cam.cy = proj.intrinsic.cy
-                self.cam.znear = self.device.source_to_detector_distance / 1000
-                self.cam.zfar = self.device.source_to_detector_distance
-
-                deepdrr_to_opengl_cam = np.array(
-                    [
-                        [1, 0, 0, 0],
-                        [0, -1, 0, 0],
-                        [0, 0, -1, 0],
-                        [0, 0, 0, 1],
-                    ]
-                )
-
-                self.cam_node.matrix = (
-                    np.array(proj.extrinsic.inv) @ deepdrr_to_opengl_cam
-                )
-
-                zfar = self.device.source_to_detector_distance * 2  # TODO (liam)
-
-                for mat_idx, mat in enumerate(self.prim_unique_materials):
-                    self.gl_renderer.render(
-                        self.scene,
-                        drr_mode=DRRMode.DENSITY,
-                        flags=RenderFlags.RGBA,
-                        zfar=zfar,
-                        mat=mat,
-                    )
-
-                    # TODO: need gl synchronization here?
-
-                    pointer_into_additive_densities = (
-                        int(self.additive_densities_gpu.data.ptr)
-                        + mat_idx * total_pixels * 2 * NUMBYTES_FLOAT32
-                    )
-
-                    gl_tex_to_gpu(
-                        self.gl_renderer.g_densityTexId,
-                        pointer_into_additive_densities,
-                        width,
-                        height,
-                        2,
-                    )
-
-
-                if self.mesh_additive_and_subtractive_enabled:
-                    self.gl_renderer.render(
-                        self.scene,
-                        drr_mode=DRRMode.DIST,
-                        flags=RenderFlags.RGBA,
-                        zfar=zfar,
-                    )
-
-                    for tex_idx in range(self.gl_renderer.num_peel_passes):
-                        # TODO: need gl synchronization here?
-
-                        pointer_into_hit_alphas = int(
-                            int(self.mesh_hit_alphas_tex_gpu.data.ptr)
-                            + tex_idx * total_pixels * 4 * NUMBYTES_FLOAT32
-                        )
-                        gl_tex_to_gpu(
-                            self.gl_renderer.g_peelTexId[tex_idx],
-                            pointer_into_hit_alphas,
-                            width,
-                            height,
-                            4,
-                        )
-
-                    self.kernel_reorder(
-                        args=(
-                            self.mesh_hit_alphas_tex_gpu,
-                            self.mesh_hit_alphas_gpu,
-                            np.int32(total_pixels),
-                        ),
-                        block=(256, 1, 1),  # TODO (liam)
-                        grid=(16, 1),  # TODO (liam)
-                    )
-
-                    self.kernel_tide(
-                        args=(
-                            self.mesh_hit_alphas_gpu,
-                            self.mesh_hit_facing_gpu,
-                            np.int32(total_pixels),
-                            np.float32(self.device.source_to_detector_distance * 2),
-                        ),
-                        block=(256, 1, 1),  # TODO (liam)
-                        grid=(16, 1),  # TODO (liam)
-                    )
-
-            volumes_texobs_gpu = cp.array(
-                [x.ptr for x in self.volumes_texobs], dtype=np.uint64
-            )
-            seg_texobs_gpu = cp.array([x.ptr for x in self.seg_texobs], dtype=np.uint64)
-
-            args = [
-                volumes_texobs_gpu,
-                seg_texobs_gpu,
-                np.int32(proj.sensor_width),  # out_width
-                np.int32(proj.sensor_height),  # out_height
-                np.float32(self.step),  # step
-                self.priorities_gpu,  # priority
-                self.minPointX_gpu,  # gVolumeEdgeMinPointX
-                self.minPointY_gpu,  # gVolumeEdgeMinPointY
-                self.minPointZ_gpu,  # gVolumeEdgeMinPointZ
-                self.maxPointX_gpu,  # gVolumeEdgeMaxPointX
-                self.maxPointY_gpu,  # gVolumeEdgeMaxPointY
-                self.maxPointZ_gpu,  # gVolumeEdgeMaxPointZ
-                self.voxelSizeX_gpu,  # gVoxelElementSizeX
-                self.voxelSizeY_gpu,  # gVoxelElementSizeY
-                self.voxelSizeZ_gpu,  # gVoxelElementSizeZ
-                np.float32(sx),  # sx TODO (liam): Unused
-                np.float32(sy),  # sy TODO (liam): Unused
-                np.float32(sz),  # sz TODO (liam): Unused
-                self.sourceX_gpu,  # sx_ijk
-                self.sourceY_gpu,  # sy_ijk
-                self.sourceZ_gpu,  # sz_ijk
-                np.float32(max_ray_length),  # max_ray_length
-                self.world_from_index_gpu,  # world_from_index
-                self.ijk_from_world_gpu,  # ijk_from_world
-                np.int32(self.spectrum.shape[0]),  # n_bins
-                self.energies_gpu,  # energies
-                self.pdf_gpu,  # pdf
-                self.absorption_coef_table_gpu,  # absorb_coef_table
-                self.intensity_gpu,  # intensity
-                self.photon_prob_gpu,  # photon_prob
-                self.solid_angle_gpu,  # solid_angle
-                self.mesh_hit_alphas_gpu,
-                self.mesh_hit_facing_gpu,
-                self.additive_densities_gpu,
-                self.prim_unique_materials_gpu,
-                np.int32(len(self.prim_unique_materials)),
-                np.int32(self.num_mesh_layers),
-            ]
-
-            # Calculate required blocks
-            blocks_w = int(np.ceil(self.output_shape[0] / self.threads))
-            blocks_h = int(np.ceil(self.output_shape[1] / self.threads))
-            block = (self.threads, self.threads, 1)
-            log.debug(
-                f"Running: {blocks_w}x{blocks_h} blocks with {self.threads}x{self.threads} threads each"
-            )
-
-            log.debug("args: {}".format("\n".join(map(str, args))))
-            if blocks_w <= self.max_block_index and blocks_h <= self.max_block_index:
-                offset_w = np.int32(0)
-                offset_h = np.int32(0)
-                self.project_kernel(
-                    block=block,
-                    grid=(blocks_w, blocks_h),
-                    args=(*args, offset_w, offset_h),
-                )
-            else:
-                raise DeprecationWarning(
-                    "Patchwise projection is deprecated, try increasing max_block_index and/or threads. Please raise an issue if you need this feature."
-                )
-
-            intensity = cp.asnumpy(self.intensity_gpu).reshape(self.output_shape)
-
-            # transpose the axes, which previously have width on the slow dimension
-            log.debug("copied intensity from gpu")
-            intensity = np.swapaxes(intensity, 0, 1).copy()
-            log.debug("swapped intensity")
-
-            photon_prob = cp.asnumpy(self.photon_prob_gpu).reshape(self.output_shape)
-            log.debug("copied photon_prob")
-            photon_prob = np.swapaxes(photon_prob, 0, 1).copy()
-            log.debug("swapped photon_prob")
-
-            # transform to collected energy in keV per cm^2 (or keV per mm^2)
-            if self.collected_energy:
-                assert np.array_equal(self.solid_angle_gpu, np.uint64(0)) == False
-                solid_angle = cp.asnumpy(self.solid_angle_gpu).reshape(
-                    self.output_shape
-                )
-                solid_angle = np.swapaxes(solid_angle, 0, 1).copy()
-
-                # TODO (mjudish): is this calculation valid? SDD is in [mm], what does f{x,y} measure?
-                pixel_size_x = (
-                    self.source_to_detector_distance / proj.index_from_camera2d.fx
-                )
-                pixel_size_y = (
-                    self.source_to_detector_distance / proj.index_from_camera2d.fy
-                )
-
-                # get energy deposited by multiplying [intensity] with [number of photons to hit each pixel]
-                deposited_energy = (
-                    np.multiply(intensity, solid_angle)
-                    * self.photon_count
-                    / np.average(solid_angle)
-                )
-                # convert to keV / mm^2
-                deposited_energy /= pixel_size_x * pixel_size_y
-                intensities.append(deposited_energy)
-            else:
-                intensities.append(intensity)
-
+            intensity, photon_prob = self._render_single(proj)
+            intensities.append(intensity)
             photon_probs.append(photon_prob)
-        # end for-loop over the projections
 
         images = np.stack(intensities)
         photon_prob = np.stack(photon_probs)
@@ -935,13 +686,257 @@ class Projector(object):
             log.debug("applying negative log transform")
             images = utils.neglog(images)
 
-        # Don't think this does anything.
-        # torch.cuda.synchronize()
-
         if images.shape[0] == 1:
             return images[0]
         else:
             return images
+        
+    def _render_single(self, proj: geo.CameraProjection) -> np.ndarray:
+        # Only re-allocate if the output shape has changed.
+        self.initialize_output_arrays(proj.intrinsic.sensor_size)
+
+        width = proj.intrinsic.sensor_width
+        height = proj.intrinsic.sensor_height
+        total_pixels = width * height
+
+        # Get the volume min/max points in world coordinates.
+        sx, sy, sz = proj.get_center_in_world()
+        world_from_index = np.array(proj.world_from_index[:-1, :]).astype(
+            np.float32
+        )
+        self.world_from_index_gpu = cp.asarray(world_from_index)
+
+        sourceX = np.zeros(len(self.volumes), dtype=np.float32)
+        sourceY = np.zeros(len(self.volumes), dtype=np.float32)
+        sourceZ = np.zeros(len(self.volumes), dtype=np.float32)
+
+        ijk_from_world_cpu = np.zeros(len(self.volumes) * 3 * 4, dtype=np.float32)
+
+        for vol_id, _vol in enumerate(self.volumes):
+            source_ijk = np.array(
+                _vol.IJK_from_world
+                @ proj.center_in_world  # TODO (liam): Remove unused center arguments
+            ).astype(np.float32)
+
+            sourceX[vol_id] = source_ijk[0]
+            sourceY[vol_id] = source_ijk[1]
+            sourceZ[vol_id] = source_ijk[2]
+
+            # TODO: prefer toarray() to get transform throughout
+            IJK_from_world = _vol.IJK_from_world.toarray()
+            ijk_from_world_cpu[
+                IJK_from_world.size * vol_id : IJK_from_world.size * (vol_id + 1)
+            ] = IJK_from_world.flatten()
+        self.ijk_from_world_gpu = cp.asarray(ijk_from_world_cpu)
+
+        self.sourceX_gpu = cp.asarray(sourceX)
+        self.sourceY_gpu = cp.asarray(sourceY)
+        self.sourceZ_gpu = cp.asarray(sourceZ)
+
+        if self.mesh_additive_enabled:
+            for mesh_id, mesh in enumerate(self.meshes):
+                self.mesh_nodes[mesh_id].matrix = mesh.world_from_ijk
+
+            num_rays = proj.sensor_width * proj.sensor_height
+
+            self.cam.fx = proj.intrinsic.fx
+            self.cam.fy = proj.intrinsic.fy
+            self.cam.cx = proj.intrinsic.cx
+            self.cam.cy = proj.intrinsic.cy
+            self.cam.znear = self.device.source_to_detector_distance / 1000
+            self.cam.zfar = self.device.source_to_detector_distance
+
+            deepdrr_to_opengl_cam = np.array(
+                [
+                    [1, 0, 0, 0],
+                    [0, -1, 0, 0],
+                    [0, 0, -1, 0],
+                    [0, 0, 0, 1],
+                ]
+            )
+
+            self.cam_node.matrix = (
+                np.array(proj.extrinsic.inv) @ deepdrr_to_opengl_cam
+            )
+
+            zfar = self.device.source_to_detector_distance * 2  # TODO (liam)
+
+            for mat_idx, mat in enumerate(self.prim_unique_materials):
+                self.gl_renderer.render(
+                    self.scene,
+                    drr_mode=DRRMode.DENSITY,
+                    flags=RenderFlags.RGBA,
+                    zfar=zfar,
+                    mat=mat,
+                )
+
+                # TODO: need gl synchronization here?
+
+                pointer_into_additive_densities = (
+                    int(self.additive_densities_gpu.data.ptr)
+                    + mat_idx * total_pixels * 2 * NUMBYTES_FLOAT32
+                )
+
+                gl_tex_to_gpu(
+                    self.gl_renderer.g_densityTexId,
+                    pointer_into_additive_densities,
+                    width,
+                    height,
+                    2,
+                )
+
+
+            if self.mesh_additive_and_subtractive_enabled:
+                self.gl_renderer.render(
+                    self.scene,
+                    drr_mode=DRRMode.DIST,
+                    flags=RenderFlags.RGBA,
+                    zfar=zfar,
+                )
+
+                for tex_idx in range(self.gl_renderer.num_peel_passes):
+                    # TODO: need gl synchronization here?
+
+                    pointer_into_hit_alphas = int(
+                        int(self.mesh_hit_alphas_tex_gpu.data.ptr)
+                        + tex_idx * total_pixels * 4 * NUMBYTES_FLOAT32
+                    )
+                    gl_tex_to_gpu(
+                        self.gl_renderer.g_peelTexId[tex_idx],
+                        pointer_into_hit_alphas,
+                        width,
+                        height,
+                        4,
+                    )
+
+                self.kernel_reorder(
+                    args=(
+                        self.mesh_hit_alphas_tex_gpu,
+                        self.mesh_hit_alphas_gpu,
+                        np.int32(total_pixels),
+                    ),
+                    block=(256, 1, 1),  # TODO (liam)
+                    grid=(16, 1),  # TODO (liam)
+                )
+
+                self.kernel_tide(
+                    args=(
+                        self.mesh_hit_alphas_gpu,
+                        self.mesh_hit_facing_gpu,
+                        np.int32(total_pixels),
+                        np.float32(self.device.source_to_detector_distance * 2),
+                    ),
+                    block=(256, 1, 1),  # TODO (liam)
+                    grid=(16, 1),  # TODO (liam)
+                )
+
+        volumes_texobs_gpu = cp.array(
+            [x.ptr for x in self.volumes_texobs], dtype=np.uint64
+        )
+        seg_texobs_gpu = cp.array([x.ptr for x in self.seg_texobs], dtype=np.uint64)
+
+        args = [
+            volumes_texobs_gpu,
+            seg_texobs_gpu,
+            np.int32(proj.sensor_width),  # out_width
+            np.int32(proj.sensor_height),  # out_height
+            np.float32(self.step),  # step
+            self.priorities_gpu,  # priority
+            self.minPointX_gpu,  # gVolumeEdgeMinPointX
+            self.minPointY_gpu,  # gVolumeEdgeMinPointY
+            self.minPointZ_gpu,  # gVolumeEdgeMinPointZ
+            self.maxPointX_gpu,  # gVolumeEdgeMaxPointX
+            self.maxPointY_gpu,  # gVolumeEdgeMaxPointY
+            self.maxPointZ_gpu,  # gVolumeEdgeMaxPointZ
+            self.voxelSizeX_gpu,  # gVoxelElementSizeX
+            self.voxelSizeY_gpu,  # gVoxelElementSizeY
+            self.voxelSizeZ_gpu,  # gVoxelElementSizeZ
+            np.float32(sx),  # sx TODO (liam): Unused
+            np.float32(sy),  # sy TODO (liam): Unused
+            np.float32(sz),  # sz TODO (liam): Unused
+            self.sourceX_gpu,  # sx_ijk
+            self.sourceY_gpu,  # sy_ijk
+            self.sourceZ_gpu,  # sz_ijk
+            np.float32(self.max_ray_length),  # max_ray_length
+            self.world_from_index_gpu,  # world_from_index
+            self.ijk_from_world_gpu,  # ijk_from_world
+            np.int32(self.spectrum_arr.shape[0]),  # n_bins
+            self.energies_gpu,  # energies
+            self.pdf_gpu,  # pdf
+            self.absorption_coef_table_gpu,  # absorb_coef_table
+            self.intensity_gpu,  # intensity
+            self.photon_prob_gpu,  # photon_prob
+            self.solid_angle_gpu,  # solid_angle
+            self.mesh_hit_alphas_gpu,
+            self.mesh_hit_facing_gpu,
+            self.additive_densities_gpu,
+            self.prim_unique_materials_gpu,
+            np.int32(len(self.prim_unique_materials)),
+            np.int32(self.num_mesh_layers),
+        ]
+
+        # Calculate required blocks
+        blocks_w = int(np.ceil(self.output_shape[0] / self.threads))
+        blocks_h = int(np.ceil(self.output_shape[1] / self.threads))
+        block = (self.threads, self.threads, 1)
+        log.debug(
+            f"Running: {blocks_w}x{blocks_h} blocks with {self.threads}x{self.threads} threads each"
+        )
+
+        log.debug("args: {}".format("\n".join(map(str, args))))
+        if blocks_w <= self.max_block_index and blocks_h <= self.max_block_index:
+            offset_w = np.int32(0)
+            offset_h = np.int32(0)
+            self.project_kernel(
+                block=block,
+                grid=(blocks_w, blocks_h),
+                args=(*args, offset_w, offset_h),
+            )
+        else:
+            raise DeprecationWarning(
+                "Patchwise projection is deprecated, try increasing max_block_index and/or threads. Please raise an issue if you need this feature."
+            )
+
+        intensity = cp.asnumpy(self.intensity_gpu).reshape(self.output_shape)
+
+        # transpose the axes, which previously have width on the slow dimension
+        log.debug("copied intensity from gpu")
+        intensity = np.swapaxes(intensity, 0, 1).copy()
+        log.debug("swapped intensity")
+
+        photon_prob = cp.asnumpy(self.photon_prob_gpu).reshape(self.output_shape)
+        log.debug("copied photon_prob")
+        photon_prob = np.swapaxes(photon_prob, 0, 1).copy()
+        log.debug("swapped photon_prob")
+
+        # transform to collected energy in keV per cm^2 (or keV per mm^2)
+        if self.collected_energy:
+            assert np.array_equal(self.solid_angle_gpu, np.uint64(0)) == False
+            solid_angle = cp.asnumpy(self.solid_angle_gpu).reshape(
+                self.output_shape
+            )
+            solid_angle = np.swapaxes(solid_angle, 0, 1).copy()
+
+            # TODO (mjudish): is this calculation valid? SDD is in [mm], what does f{x,y} measure?
+            pixel_size_x = (
+                self.source_to_detector_distance / proj.index_from_camera2d.fx
+            )
+            pixel_size_y = (
+                self.source_to_detector_distance / proj.index_from_camera2d.fy
+            )
+
+            # get energy deposited by multiplying [intensity] with [number of photons to hit each pixel]
+            deposited_energy = (
+                np.multiply(intensity, solid_angle)
+                * self.photon_count
+                / np.average(solid_angle)
+            )
+            # convert to keV / mm^2
+            deposited_energy /= pixel_size_x * pixel_size_y
+            return intensity, deposited_energy
+        else:
+            return intensity, photon_prob
+        
 
     def project_over_carm_range(
         self,
@@ -1199,15 +1194,15 @@ class Projector(object):
         self.initialize_output_arrays(self.camera_intrinsics.sensor_size)
 
         # allocate and transfer spectrum energies (4 bytes to a float32)
-        assert isinstance(self.spectrum, np.ndarray)
-        noncont_energies = self.spectrum[:, 0].copy() / 1000
+        assert isinstance(self.spectrum_arr, np.ndarray)
+        noncont_energies = self.spectrum_arr[:, 0].copy() / 1000
         contiguous_energies = np.ascontiguousarray(noncont_energies, dtype=np.float32)
         n_bins = contiguous_energies.shape[0]
         self.energies_gpu = cp.asarray(contiguous_energies)
         log.debug(f"bytes alloc'd for self.energies_gpu: {n_bins * NUMBYTES_FLOAT32}")
 
         # allocate and transfer spectrum pdf (4 bytes to a float32)
-        noncont_pdf = self.spectrum[:, 1] / np.sum(self.spectrum[:, 1])
+        noncont_pdf = self.spectrum_arr[:, 1] / np.sum(self.spectrum_arr[:, 1])
         contiguous_pdf = np.ascontiguousarray(noncont_pdf.copy(), dtype=np.float32)
         assert contiguous_pdf.shape == contiguous_energies.shape
         assert contiguous_pdf.shape[0] == n_bins
