@@ -48,7 +48,7 @@ import cupy
 
 import numpy
 from cuda import cudart
-
+from cupyx.profiler import time_range
 
 # try:
 #     from pycuda.tools import make_default_context
@@ -69,6 +69,37 @@ log = logging.getLogger(__name__)
 NUMBYTES_INT8 = 1
 NUMBYTES_INT32 = 4
 NUMBYTES_FLOAT32 = 4
+
+
+def gl_tex_to_gpu():
+    reg_img = check_cudart_err(
+        cudart.cudaGraphicsGLRegisterImage(
+            int(self.gl_renderer.g_densityTexId),
+            GL_TEXTURE_RECTANGLE,
+            cudart.cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsReadOnly,
+        )
+    )
+    check_cudart_err(cudart.cudaGraphicsMapResources(1, reg_img, None))
+
+    cuda_array = check_cudart_err(
+        cudart.cudaGraphicsSubResourceGetMappedArray(reg_img, 0, 0)
+    )
+
+    check_cudart_err(
+        cudart.cudaMemcpy2DFromArray(
+            dst=pointer_into_additive_densities,
+            dpitch=int(width * 2 * NUMBYTES_FLOAT32),
+            src=cuda_array,
+            wOffset=0,
+            hOffset=0,
+            width=int(width * 2 * NUMBYTES_FLOAT32),
+            height=int(height),
+            kind=cudart.cudaMemcpyKind.cudaMemcpyDeviceToDevice,
+        )
+    )
+
+    check_cudart_err(cudart.cudaGraphicsUnmapResources(1, reg_img, None))
+    check_cudart_err(cudart.cudaGraphicsUnregisterResource(reg_img))
 
 
 def format_cudart_err(err):
@@ -701,7 +732,12 @@ class Projector(object):
                 self.cam.zfar = self.device.source_to_detector_distance
 
                 deepdrr_to_opengl_cam = np.array(
-                    [[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]]
+                    [
+                        [1, 0, 0, 0],
+                        [0, -1, 0, 0],
+                        [0, 0, -1, 0],
+                        [0, 0, 0, 1],
+                    ]
                 )
 
                 self.cam_node.matrix = (
@@ -765,90 +801,95 @@ class Projector(object):
                 # print(f"density: {mesh_perf_end - mesh_perf_start}")
                 # mesh_perf_start = mesh_perf_end
 
-                if self.mesh_additive_and_subtractive_enabled:
-                    self.gl_renderer.render(
-                        self.scene,
-                        drr_mode=DRRMode.DIST,
-                        flags=RenderFlags.RGBA,
-                        zfar=zfar,
-                    )
-
-                    # mesh_perf_end = time.perf_counter()
-                    # print(f"peel: {mesh_perf_end - mesh_perf_start}")
-                    # mesh_perf_start = mesh_perf_end
-
-                    for tex_idx in range(self.gl_renderer.num_peel_passes):
-                        # TODO: need gl synchronization here?
-
-                        pointer_into_additive_densities = int(
-                            int(self.mesh_hit_alphas_tex_gpu.data.ptr)
-                            + tex_idx * total_pixels * 4 * NUMBYTES_FLOAT32
-                        )
-                        flags = (
-                            cudart.cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsReadOnly
+                with time_range("mesh kernel"):
+                    if self.mesh_additive_and_subtractive_enabled:
+                        self.gl_renderer.render(
+                            self.scene,
+                            drr_mode=DRRMode.DIST,
+                            flags=RenderFlags.RGBA,
+                            zfar=zfar,
                         )
 
-                        reg_img = check_cudart_err(
-                            cudart.cudaGraphicsGLRegisterImage(
-                                int(self.gl_renderer.g_peelTexId[tex_idx]),
-                                GL_TEXTURE_RECTANGLE,
-                                flags,
+                        # mesh_perf_end = time.perf_counter()
+                        # print(f"peel: {mesh_perf_end - mesh_perf_start}")
+                        # mesh_perf_start = mesh_perf_end
+
+                        for tex_idx in range(self.gl_renderer.num_peel_passes):
+                            # TODO: need gl synchronization here?
+
+                            pointer_into_additive_densities = int(
+                                int(self.mesh_hit_alphas_tex_gpu.data.ptr)
+                                + tex_idx * total_pixels * 4 * NUMBYTES_FLOAT32
                             )
-                        )
-                        check_cudart_err(
-                            cudart.cudaGraphicsMapResources(1, reg_img, None)
-                        )
-
-                        cuda_array = check_cudart_err(
-                            cudart.cudaGraphicsSubResourceGetMappedArray(reg_img, 0, 0)
-                        )
-
-                        check_cudart_err(
-                            cudart.cudaMemcpy2DFromArray(
-                                dst=pointer_into_additive_densities,
-                                dpitch=int(width * 4 * NUMBYTES_FLOAT32),
-                                src=cuda_array,
-                                wOffset=0,
-                                hOffset=0,
-                                width=int(width * 4 * NUMBYTES_FLOAT32),
-                                height=int(height),
-                                kind=cudart.cudaMemcpyKind.cudaMemcpyDeviceToDevice,
+                            flags = (
+                                cudart.cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsReadOnly
                             )
+
+                            reg_img = check_cudart_err(
+                                cudart.cudaGraphicsGLRegisterImage(
+                                    int(self.gl_renderer.g_peelTexId[tex_idx]),
+                                    GL_TEXTURE_RECTANGLE,
+                                    flags,
+                                )
+                            )
+                            check_cudart_err(
+                                cudart.cudaGraphicsMapResources(1, reg_img, None)
+                            )
+
+                            cuda_array = check_cudart_err(
+                                cudart.cudaGraphicsSubResourceGetMappedArray(
+                                    reg_img, 0, 0
+                                )
+                            )
+
+                            check_cudart_err(
+                                cudart.cudaMemcpy2DFromArray(
+                                    dst=pointer_into_additive_densities,
+                                    dpitch=int(width * 4 * NUMBYTES_FLOAT32),
+                                    src=cuda_array,
+                                    wOffset=0,
+                                    hOffset=0,
+                                    width=int(width * 4 * NUMBYTES_FLOAT32),
+                                    height=int(height),
+                                    kind=cudart.cudaMemcpyKind.cudaMemcpyDeviceToDevice,
+                                )
+                            )
+
+                            check_cudart_err(
+                                cudart.cudaGraphicsUnmapResources(1, reg_img, None)
+                            )
+                            check_cudart_err(
+                                cudart.cudaGraphicsUnregisterResource(reg_img)
+                            )
+
+                        # mesh_perf_end = time.perf_counter()
+                        # print(f"peel copy: {mesh_perf_end - mesh_perf_start}")
+                        # mesh_perf_start = mesh_perf_end
+
+                        self.kernel_reorder(
+                            args=(
+                                self.mesh_hit_alphas_tex_gpu,
+                                self.mesh_hit_alphas_gpu,
+                                np.int32(total_pixels),
+                            ),
+                            block=(256, 1, 1),  # TODO (liam)
+                            grid=(16, 1),  # TODO (liam)
                         )
 
-                        check_cudart_err(
-                            cudart.cudaGraphicsUnmapResources(1, reg_img, None)
+                        # mesh_perf_end = time.perf_counter()
+                        # print(f"peel reorder: {mesh_perf_end - mesh_perf_start}")
+                        # mesh_perf_start = mesh_perf_end
+
+                        self.kernel_tide(
+                            args=(
+                                self.mesh_hit_alphas_gpu,
+                                self.mesh_hit_facing_gpu,
+                                np.int32(total_pixels),
+                                np.float32(self.device.source_to_detector_distance * 2),
+                            ),
+                            block=(256, 1, 1),  # TODO (liam)
+                            grid=(16, 1),  # TODO (liam)
                         )
-                        check_cudart_err(cudart.cudaGraphicsUnregisterResource(reg_img))
-
-                    # mesh_perf_end = time.perf_counter()
-                    # print(f"peel copy: {mesh_perf_end - mesh_perf_start}")
-                    # mesh_perf_start = mesh_perf_end
-
-                    self.kernel_reorder(
-                        args=(
-                            self.mesh_hit_alphas_tex_gpu,
-                            self.mesh_hit_alphas_gpu,
-                            np.int32(total_pixels),
-                        ),
-                        block=(256, 1, 1),  # TODO (liam)
-                        grid=(16, 1),  # TODO (liam)
-                    )
-
-                    # mesh_perf_end = time.perf_counter()
-                    # print(f"peel reorder: {mesh_perf_end - mesh_perf_start}")
-                    # mesh_perf_start = mesh_perf_end
-
-                    self.kernel_tide(
-                        args=(
-                            self.mesh_hit_alphas_gpu,
-                            self.mesh_hit_facing_gpu,
-                            np.int32(total_pixels),
-                            np.float32(self.device.source_to_detector_distance * 2),
-                        ),
-                        block=(256, 1, 1),  # TODO (liam)
-                        grid=(16, 1),  # TODO (liam)
-                    )
 
                 # mesh_perf_end = time.perf_counter()
                 # print(f"tide: {mesh_perf_end - mesh_perf_start}")

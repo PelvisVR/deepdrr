@@ -79,12 +79,6 @@ class TestSingleVolume:
         )
         with projector:
             image = projector.project()
-            # from timer_util import FPS
-            # fps = FPS()
-            # for i in range(50):
-            #     image = projector.project()
-            #     if fps_count := fps():
-            #         print(f"FPS2 {fps_count}")
 
         image = (image * 255).astype(np.uint8)
         Image.fromarray(image).save(self.output_dir / name)
@@ -98,6 +92,14 @@ class TestSingleVolume:
             Image.fromarray(np.abs(image - truth_img)).save(self.output_dir / f"diff_{name}")
             assert np.allclose(image, truth_img, atol=1)
             print(f"Test {name} passed")
+
+        with projector:
+            from timer_util import FPS
+            fps = FPS()
+            for i in range(50):
+                image = projector.project()
+                if fps_count := fps():
+                    print(f"FPS2 {fps_count}")
         return image
 
     def test_simple(self):
