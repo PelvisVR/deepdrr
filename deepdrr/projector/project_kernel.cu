@@ -136,15 +136,15 @@ projectKernel(cudaTextureObject_t *volume_texs, // array of volume textures
               float step, // step size (TODO: in world)
               int *priority, // volumes with smaller priority-ID have higher priority
                              // when determining which volume we are in
-              float *gVolumeEdgeMinPointX, // These give a bounding box in world-space
-                                           // around each volume.
-              float *gVolumeEdgeMinPointY, float *gVolumeEdgeMinPointZ, float *gVolumeEdgeMaxPointX,
-              float *gVolumeEdgeMaxPointY, float *gVolumeEdgeMaxPointZ,
+              float *gVolumeEdgeMinPointX, // These give a bounding box in world-space around each volume.
+              float *gVolumeEdgeMinPointY, // These give a bounding box in world-space around each volume.
+              float *gVolumeEdgeMinPointZ, // These give a bounding box in world-space around each volume.
+              float *gVolumeEdgeMaxPointX, // These give a bounding box in world-space around each volume.
+              float *gVolumeEdgeMaxPointY, // These give a bounding box in world-space around each volume.
+              float *gVolumeEdgeMaxPointZ, // These give a bounding box in world-space around each volume.
               float *gVoxelElementSizeX, // one value for each of the NUM_VOLUMES volumes
-              float *gVoxelElementSizeY, float *gVoxelElementSizeZ,
-              float sx, // TODO: NOT USED!! x-coordinate of source point for rays in world-space
-              float sy, // TODO: NOT USED!! y-coordinate of source point for rays in world-space
-              float sz, // TODO: NOT USED!! z-coordinate of source point for rays in world-space
+              float *gVoxelElementSizeY, // one value for each of the NUM_VOLUMES volumes
+              float *gVoxelElementSizeZ, // one value for each of the NUM_VOLUMES volumes
               float *sx_ijk, // x-coordinate of source point in IJK space for each volume (NUM_VOLUMES,)
               float *sy_ijk, // y-coordinate of source point in IJK space for each volume (NUM_VOLUMES,)
               float *sz_ijk, // z-coordinate of source point in IJK space for each
@@ -164,10 +164,12 @@ projectKernel(cudaTextureObject_t *volume_texs, // array of volume textures
               float *intensity, // flat array, with shape (out_height, out_width).
               float *photon_prob, // flat array, with shape (out_height, out_width).
               float *solid_angle, // flat array, with shape (out_height, out_width). Could be NULL pointer
-              float *mesh_hit_alphas, int8_t *mesh_hit_facing, float *additive_densities, int *mesh_unique_materials,
-              int mesh_unique_material_count, int max_mesh_depth,
-              // int *mesh_materials,
-              // float *mesh_densities,
+              float *mesh_hit_alphas, // mesh hit distances for subtracting
+              int8_t *mesh_hit_facing, // mesh hit facing direction for subtracting
+              float *additive_densities, // additive densities
+              int *mesh_unique_materials, // unique materials for additive mesh
+              int mesh_unique_material_count, // number of unique materials for additive mesh
+              int max_mesh_depth, // maximum number of mesh hits per pixel
               int offsetW, int offsetH) {
     // The output image has the following coordinate system, with cell-centered
     // sampling. y is along the fast axis (columns), x along the slow (rows).

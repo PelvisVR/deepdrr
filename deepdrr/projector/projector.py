@@ -686,7 +686,6 @@ class Projector(object):
         self.initialize_output_arrays(proj.intrinsic.sensor_size)
 
         # Get the volume min/max points in world coordinates.
-        sx, sy, sz = proj.get_center_in_world()
         world_from_index = np.array(proj.world_from_index[:-1, :]).astype(
             np.float32
         )
@@ -743,9 +742,6 @@ class Projector(object):
             self.voxelSizeX_gpu,  # gVoxelElementSizeX
             self.voxelSizeY_gpu,  # gVoxelElementSizeY
             self.voxelSizeZ_gpu,  # gVoxelElementSizeZ
-            np.float32(sx),  # sx TODO (liam): Unused
-            np.float32(sy),  # sy TODO (liam): Unused
-            np.float32(sz),  # sz TODO (liam): Unused
             self.sourceX_gpu,  # sx_ijk
             self.sourceY_gpu,  # sy_ijk
             self.sourceZ_gpu,  # sz_ijk
@@ -803,31 +799,34 @@ class Projector(object):
 
         # transform to collected energy in keV per cm^2 (or keV per mm^2)
         if self.collected_energy:
-            assert np.array_equal(self.solid_angle_gpu, np.uint64(0)) == False
-            solid_angle = cp.asnumpy(self.solid_angle_gpu).reshape(
-                self.output_shape
-            )
-            solid_angle = np.swapaxes(solid_angle, 0, 1).copy()
-
-            # TODO (mjudish): is this calculation valid? SDD is in [mm], what does f{x,y} measure?
-            pixel_size_x = (
-                self.source_to_detector_distance / proj.index_from_camera2d.fx
-            )
-            pixel_size_y = (
-                self.source_to_detector_distance / proj.index_from_camera2d.fy
-            )
-
-            # get energy deposited by multiplying [intensity] with [number of photons to hit each pixel]
-            deposited_energy = (
-                np.multiply(intensity, solid_angle)
-                * self.photon_count
-                / np.average(solid_angle)
-            )
-            # convert to keV / mm^2
-            deposited_energy /= pixel_size_x * pixel_size_y
-            return intensity, deposited_energy
+            return intensity, self._calculate_deposited_energy(proj, intensity)
         else:
             return intensity, photon_prob
+        
+    def _calculate_deposited_energy(self, proj: geo.CameraProjection, intensity: np.ndarray) -> np.ndarray:
+        assert np.array_equal(self.solid_angle_gpu, np.uint64(0)) == False
+        solid_angle = cp.asnumpy(self.solid_angle_gpu).reshape(
+            self.output_shape
+        )
+        solid_angle = np.swapaxes(solid_angle, 0, 1).copy()
+
+        # TODO (mjudish): is this calculation valid? SDD is in [mm], what does f{x,y} measure?
+        pixel_size_x = (
+            self.source_to_detector_distance / proj.index_from_camera2d.fx
+        )
+        pixel_size_y = (
+            self.source_to_detector_distance / proj.index_from_camera2d.fy
+        )
+
+        # get energy deposited by multiplying [intensity] with [number of photons to hit each pixel]
+        deposited_energy = (
+            np.multiply(intensity, solid_angle)
+            * self.photon_count
+            / np.average(solid_angle)
+        )
+        # convert to keV / mm^2
+        deposited_energy /= pixel_size_x * pixel_size_y
+        return deposited_energy
         
     def _render_mesh(self, proj: geo.CameraProjection) -> None:
         for mesh_id, mesh in enumerate(self.meshes):
