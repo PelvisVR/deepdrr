@@ -489,18 +489,11 @@ class Projector(object):
                 raise ValueError(f"unrecognized Renderable type: {type(_vol)}.")
 
         self.mesh_additive_enabled = len(self.meshes) > 0
-        self.mesh_additive_and_subtractive_enabled = False
+        self.mesh_subtractive_enabled = False
 
         for prim in self.primitives:
             if prim.material.subtractive:
-                self.mesh_additive_and_subtractive_enabled = True
-
-        def implies(a, b):
-            return not a or b
-
-        assert implies(
-            self.mesh_additive_and_subtractive_enabled, self.mesh_additive_enabled
-        )
+                self.mesh_subtractive_enabled = True
 
         if len(self.volumes) > 20:
             raise ValueError("Only up to 20 volumes are supported")
@@ -730,10 +723,7 @@ class Projector(object):
         self.sourceZ_gpu = cp.asarray(sourceZ)
 
         if self.mesh_additive_enabled:
-            self._render_mesh_additive(proj)
-
-        if self.mesh_additive_and_subtractive_enabled:
-            self._render_mesh_subtractive(proj)
+            self._render_mesh(proj)
 
         volumes_texobs_gpu = cp.array(
             [x.ptr for x in self.volumes_texobs], dtype=np.uint64
@@ -842,15 +832,9 @@ class Projector(object):
         else:
             return intensity, photon_prob
         
-    def _render_mesh_additive(self, proj: geo.CameraProjection) -> None:
-        width = proj.intrinsic.sensor_width
-        height = proj.intrinsic.sensor_height
-        total_pixels = width * height
-    
+    def _render_mesh(self, proj: geo.CameraProjection) -> None:
         for mesh_id, mesh in enumerate(self.meshes):
             self.mesh_nodes[mesh_id].matrix = mesh.world_from_ijk
-
-        num_rays = proj.sensor_width * proj.sensor_height
 
         self.cam.fx = proj.intrinsic.fx
         self.cam.fy = proj.intrinsic.fy
@@ -874,6 +858,16 @@ class Projector(object):
 
         zfar = self.device.source_to_detector_distance * 2  # TODO (liam)
 
+        self._render_mesh_additive(proj, zfar)
+
+        if self.mesh_subtractive_enabled:
+            self._render_mesh_subtractive(proj, zfar)
+
+    def _render_mesh_additive(self, proj: geo.CameraProjection, zfar: float) -> None:
+        width = proj.intrinsic.sensor_width
+        height = proj.intrinsic.sensor_height
+        total_pixels = width * height
+    
         for mat_idx, mat in enumerate(self.prim_unique_materials):
             self.gl_renderer.render(
                 self.scene,
@@ -899,7 +893,11 @@ class Projector(object):
             )
 
 
-    def _render_mesh_subtractive(self, proj: geo.CameraProjection) -> None:
+    def _render_mesh_subtractive(self, proj: geo.CameraProjection, zfar: float) -> None:
+        width = proj.intrinsic.sensor_width
+        height = proj.intrinsic.sensor_height
+        total_pixels = width * height
+    
         self.gl_renderer.render(
             self.scene,
             drr_mode=DRRMode.DIST,
@@ -1058,7 +1056,7 @@ class Projector(object):
             len(self.volumes),
             len(self.all_materials),
             self.mesh_additive_enabled,
-            self.mesh_additive_and_subtractive_enabled,
+            self.mesh_subtractive_enabled,
             air_index=self.air_index,
             attenuate_outside_volume=self.attenuate_outside_volume,
         )
