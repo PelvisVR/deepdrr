@@ -339,16 +339,14 @@ projectKernel(cudaTextureObject_t *volume_texs, // array of volume textures
     // trace (if doing the last segment separately, need to use num_steps - 1
     for (int t = 0; t < num_steps; t++) {
         for (int vol_id = 0; vol_id < NUM_VOLUMES; vol_id++) {
-            if (do_trace[vol_id]) {
-                px[vol_id] = sx_ijk[vol_id] + alpha * rx_ijk[vol_id] - 0.5f;
-                py[vol_id] = sy_ijk[vol_id] + alpha * ry_ijk[vol_id] - 0.5f;
-                pz[vol_id] = sz_ijk[vol_id] + alpha * rz_ijk[vol_id] - 0.5f;
+            px[vol_id] = sx_ijk[vol_id] + alpha * rx_ijk[vol_id] - 0.5f;
+            py[vol_id] = sy_ijk[vol_id] + alpha * ry_ijk[vol_id] - 0.5f;
+            pz[vol_id] = sz_ijk[vol_id] + alpha * rz_ijk[vol_id] - 0.5f;
 
-                for (int mat_id = 0; mat_id < NUM_MATERIALS; mat_id++) {
-                    // TODO (liam): discuss: why use fancy cubicTex3D and then round it?
-                    seg_at_alpha[vol_id][mat_id] = tex3D<float>(seg_texs[vol_id * NUM_MATERIALS + mat_id], px[vol_id], py[vol_id], pz[vol_id]);
-                    // seg_at_alpha[vol_id][mat_id] = roundf(cubicTex3D<float>(seg_texs[vol_id * NUM_MATERIALS + mat_id], px[vol_id], py[vol_id], pz[vol_id]));
-                }
+            for (int mat_id = 0; mat_id < NUM_MATERIALS; mat_id++) {
+                // TODO (liam): discuss: why use fancy cubicTex3D and then round it?
+                seg_at_alpha[vol_id][mat_id] = tex3D<float>(seg_texs[vol_id * NUM_MATERIALS + mat_id], px[vol_id], py[vol_id], pz[vol_id]);
+                // seg_at_alpha[vol_id][mat_id] = roundf(cubicTex3D<float>(seg_texs[vol_id * NUM_MATERIALS + mat_id], px[vol_id], py[vol_id], pz[vol_id]));
             }
         }
 

@@ -50,6 +50,7 @@ import numpy
 from cuda import cudart
 from cupyx.profiler import time_range
 from ..utils.cuda_utils import check_cudart_err, format_cudart_err
+import cupyx.profiler
 
 # try:
 #     from pycuda.tools import make_default_context
@@ -359,7 +360,7 @@ def _get_kernel_projector_module(
         "-I",
         str(d),
     ]
-    log.debug(
+    log.warn(
         f"compiling {source_path} with NUM_VOLUMES={num_volumes}, NUM_MATERIALS={num_materials}"
     )
 
@@ -706,11 +707,12 @@ class Projector(object):
             if blocks_w <= self.max_block_index and blocks_h <= self.max_block_index:
                 offset_w = np.int32(0)
                 offset_h = np.int32(0)
-                self.project_kernel(
-                    block=block,
-                    grid=(blocks_w, blocks_h),
-                    args=(*args, offset_w, offset_h),
-                )
+                with cupyx.profiler.profile():
+                    self.project_kernel(
+                        block=block,
+                        grid=(blocks_w, blocks_h),
+                        args=(*args, offset_w, offset_h),
+                    )
             else:
                 raise DeprecationWarning(
                     "Patchwise projection is deprecated, try increasing max_block_index and/or threads. Please raise an issue if you need this feature."

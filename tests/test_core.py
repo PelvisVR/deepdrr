@@ -9,6 +9,7 @@ from deepdrr.utils import test_utils
 from PIL import Image
 import pytest
 import copy
+import time
 
 import pyvista as pv
 import logging
@@ -79,17 +80,11 @@ class TestSingleVolume:
         )
 
         with projector:
-            from timer_util import FPS
-            fps = FPS()
-            for i in range(100):
-                image = projector.project()
-                if fps_count := fps():
-                    print(f"FPS2 {fps_count}")
-        with projector:
             image = projector.project()
 
-        image = (image * 255).astype(np.uint8)
-        Image.fromarray(image).save(self.output_dir / name)
+        image_256 = (image * 255).astype(np.uint8)
+        Image.fromarray(image_256).save(self.output_dir / name)
+
         if verify:
             try: 
                 truth_img = np.array(Image.open(self.truth / name))
@@ -97,8 +92,29 @@ class TestSingleVolume:
                 print(f"Truth image not found: {self.truth / name}")
                 pytest.skip("Truth image not found")
                 # pytest.fail("Truth image not found")
-            Image.fromarray(np.abs(image - truth_img)).save(self.output_dir / f"diff_{name}")
-            assert np.allclose(image, truth_img, atol=1)
+            diff_im = image_256.astype(np.float32) - truth_img.astype(np.float32)
+            from matplotlib import pyplot as plt
+            plt.imshow(diff_im, cmap="viridis")
+            plt.colorbar()
+            plt.savefig(self.output_dir / f"diff_{name}")
+
+            # Image.fromarray(np.abs(image_256.astype(np.float32) - truth_img.astype(np.float32))).save(self.output_dir / f"diff_{name}")
+
+
+        with projector:
+            from timer_util import FPS
+            start_time = time.time()
+            fps = FPS()
+            while True:
+                for i in range(100):
+                    image = projector.project()
+                    if fps_count := fps():
+                        print(f"FPS2 {fps_count}")
+                if time.time() - start_time > 4:
+                    break
+
+        if verify:
+            assert np.allclose(image_256, truth_img, atol=1)
             print(f"Test {name} passed")
 
 
