@@ -49,6 +49,7 @@ import cupy
 import numpy
 from cuda import cudart
 from cupyx.profiler import time_range
+import cupyx
 from ..utils.cuda_utils import check_cudart_err, format_cudart_err
 
 # try:
@@ -294,6 +295,9 @@ def _get_kernel_peel_postprocess_module(
     options += [
         "-D",
         f"NUM_INTERSECTIONS={num_intersections}",
+        "--generate-line-info",
+        "--source-in-ptx",
+        "-lineinfo",
     ]
     assert num_intersections % 4 == 0, "num_intersections must be a multiple of 4"
 
@@ -358,12 +362,24 @@ def _get_kernel_projector_module(
         bicubic_path,
         "-I",
         str(d),
+        "--generate-line-info",
+        "--source-in-ptx",
+        "-lineinfo",
+        "--keep",
+        "--keep-dir",
+        "/home/pelvisvr/asdf",
     ]
     log.debug(
         f"compiling {source_path} with NUM_VOLUMES={num_volumes}, NUM_MATERIALS={num_materials}"
     )
 
-    sm = cp.RawModule(code=source, options=tuple(options), backend="nvcc")
+    # run nvcc -c project_kernel.cu -o project_kernel.cubin {args}
+    os.system(
+        f"nvcc -c {source_path} -o {source_path}.cubin {' '.join(options)}"
+    )
+
+    sm = cp.RawModule(path="/home/pelvisvr/asdf/project_kernel.ptx", options=tuple(options), backend="nvcc")
+    # sm = cp.RawModule(code=source, options=tuple(options), backend="nvcc")
     return sm
 
 
@@ -892,7 +908,7 @@ class Projector(object):
                 np.int32(total_pixels),
             ),
             block=(256, 1, 1),  # TODO (liam)
-            grid=(16, 1),  # TODO (liam)
+            grid=(128, 1),  # TODO (liam)
         )
 
         self.kernel_tide(
@@ -903,7 +919,7 @@ class Projector(object):
                 np.float32(self.device.source_to_detector_distance * 2),
             ),
             block=(256, 1, 1),  # TODO (liam)
-            grid=(16, 1),  # TODO (liam)
+            grid=(128, 1),  # TODO (liam)
         )
 
     def project_over_carm_range(
