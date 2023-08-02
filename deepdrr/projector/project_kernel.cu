@@ -169,7 +169,7 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
               const float * __restrict__ additive_densities, // additive densities
               const int * __restrict__ mesh_unique_materials, // unique materials for additive mesh
               const int mesh_unique_material_count, // number of unique materials for additive mesh
-              const int max_mesh_depth, // maximum number of mesh hits per pixel
+            //   const int max_mesh_depth, // maximum number of mesh hits per pixel
               const int offsetW, 
               const int offsetH) {
     // The output image has the following coordinate system, with cell-centered
@@ -339,6 +339,16 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
         area_density[AIR_INDEX] += (minAlpha / step) * AIR_DENSITY;
     }
 
+    int asdf = (vdx * out_width + udx) * MAX_MESH_DEPTH;
+
+    int facing_local[MAX_MESH_DEPTH];
+    float alpha_local[MAX_MESH_DEPTH];
+
+    for (int i = 0; i < MAX_MESH_DEPTH; i++) {
+        facing_local[i] = mesh_hit_facing[asdf + i];
+        alpha_local[i] = mesh_hit_alphas[asdf + i];
+    }
+
     // trace (if doing the last segment separately, need to use num_steps - 1
     for (int t = 0; t < num_steps; t++) {
         for (int vol_id = 0; vol_id < NUM_VOLUMES; vol_id++) {
@@ -391,13 +401,13 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
         // bool mesh_hit_this_step = false;
         
 #if MESH_ADDITIVE_AND_SUBTRACTIVE_ENABLED > 0
-        while (true) {
-            hit_arr_index = (vdx * out_width + udx) * max_mesh_depth + mesh_hit_index;
-            if (!(mesh_hit_index < max_mesh_depth && mesh_hit_facing[hit_arr_index] != 0 &&
-                  mesh_hit_alphas[hit_arr_index] < alpha))
+        for (int i = 0; i < 2; i++) {
+            if ((mesh_hit_index < MAX_MESH_DEPTH && facing_local[mesh_hit_index] != 0 && alpha_local[mesh_hit_index] < alpha)){
+                mesh_hit_depth += facing_local[mesh_hit_index];
+                mesh_hit_index += 1;
+            } else {
                 break;
-            mesh_hit_depth += mesh_hit_facing[hit_arr_index];
-            mesh_hit_index += 1;
+            }
         }
 
         // if (mesh_hit_depth) {
@@ -428,9 +438,10 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
                 // Loop through volumes and add to the area_density.
                 for (int vol_id = 0; vol_id < NUM_VOLUMES; vol_id++) {
                     if (do_trace[vol_id] && (priority[vol_id] == curr_priority)) {
+                        float vol_density = tex3D<float>(volume_texs[vol_id], px[vol_id], py[vol_id], pz[vol_id]);
                         for (int mat_id = 0; mat_id < NUM_MATERIALS; mat_id++) {
                             area_density[(mat_id)] +=
-                                (weight)*tex3D<float>(volume_texs[vol_id], px[vol_id], py[vol_id], pz[vol_id]) *
+                                (weight)*vol_density *
                                 seg_at_alpha[vol_id][mat_id];
                         }
                     }

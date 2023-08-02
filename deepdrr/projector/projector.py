@@ -307,6 +307,7 @@ def _get_kernel_projector_module(
     num_materials: int,
     mesh_additive_enabled: bool,
     mesh_additive_and_subtractive_enabled: bool,
+    num_mesh_layers: int,
     air_index: int,
     attenuate_outside_volume: bool = False,
 ) -> cp.RawModule:
@@ -351,6 +352,8 @@ def _get_kernel_projector_module(
         f"MESH_ADDITIVE_AND_SUBTRACTIVE_ENABLED={int(mesh_additive_and_subtractive_enabled)}",
         "-D",
         f"NUM_MATERIALS={num_materials}",
+        "-D",
+        f"MAX_MESH_DEPTH={num_mesh_layers}",
         "-D",
         f"ATTENUATE_OUTSIDE_VOLUME={int(attenuate_outside_volume)}",
         "-D",
@@ -691,7 +694,7 @@ class Projector(object):
                 np.uint64(self.additive_densities_gpu.data.ptr),
                 np.uint64(self.prim_unique_materials_gpu.data.ptr),
                 np.int32(len(self.prim_unique_materials)),
-                np.int32(self.num_mesh_layers),
+                # np.int32(self.num_mesh_layers),
             ]
 
             # Calculate required blocks
@@ -1031,6 +1034,7 @@ class Projector(object):
             len(self.all_materials),
             self.mesh_additive_enabled,
             self.mesh_subtractive_enabled,
+            self.num_mesh_layers,
             air_index=self.air_index,
             attenuate_outside_volume=self.attenuate_outside_volume,
         )
