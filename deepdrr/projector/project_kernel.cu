@@ -340,9 +340,9 @@ projectKernel(cudaTextureObject_t *volume_texs, // array of volume textures
     for (int t = 0; t < num_steps; t++) {
         for (int vol_id = 0; vol_id < NUM_VOLUMES; vol_id++) {
             if (do_trace[vol_id]) {
-                px[vol_id] = sx_ijk[vol_id] + alpha * rx_ijk[vol_id] - 0.5;
-                py[vol_id] = sy_ijk[vol_id] + alpha * ry_ijk[vol_id] - 0.5;
-                pz[vol_id] = sz_ijk[vol_id] + alpha * rz_ijk[vol_id] - 0.5;
+                px[vol_id] = sx_ijk[vol_id] + alpha * rx_ijk[vol_id] - 0.5f;
+                py[vol_id] = sy_ijk[vol_id] + alpha * ry_ijk[vol_id] - 0.5f;
+                pz[vol_id] = sz_ijk[vol_id] + alpha * rz_ijk[vol_id] - 0.5f;
 
                 for (int mat_id = 0; mat_id < NUM_MATERIALS; mat_id++) {
                     // TODO (liam): discuss: why use fancy cubicTex3D and then round it?
@@ -518,7 +518,7 @@ projectKernel(cudaTextureObject_t *volume_texs, // array of volume textures
      */
     // if (debug)  printf("attenuation\n");
 
-    for (int bin = 0; bin < n_bins; bin++) {
+    for (int bin = 0; bin < n_bins; bin++) { // 151
         float beer_lambert_exp = 0.0f;
         for (int m = 0; m < NUM_MATERIALS; m++) {
             beer_lambert_exp += area_density[m] * absorb_coef_table[bin * NUM_MATERIALS + m];
