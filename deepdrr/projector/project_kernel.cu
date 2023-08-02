@@ -330,7 +330,7 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
 // #if MESH_ADDITIVE_AND_SUBTRACTIVE_ENABLED > 0
     int mesh_hit_depth = 0;
     int mesh_hit_index = 0;
-    int hit_arr_index = 0;
+    // int hit_arr_index = 0;
 
 // #endif
 
@@ -355,12 +355,22 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
         priority_local[i] = priority[i];
     }
 
+    float sx_ijk_local[NUM_VOLUMES];
+    float sy_ijk_local[NUM_VOLUMES];
+    float sz_ijk_local[NUM_VOLUMES];
+
+    for (int i = 0; i < NUM_VOLUMES; i++) {
+        sx_ijk_local[i] = sx_ijk[i];
+        sy_ijk_local[i] = sy_ijk[i];
+        sz_ijk_local[i] = sz_ijk[i];
+    }
+
     // trace (if doing the last segment separately, need to use num_steps - 1
     for (int t = 0; t < num_steps; t++) {
         for (int vol_id = 0; vol_id < NUM_VOLUMES; vol_id++) {
-            px[vol_id] = sx_ijk[vol_id] + alpha * rx_ijk[vol_id] - 0.5f;
-            py[vol_id] = sy_ijk[vol_id] + alpha * ry_ijk[vol_id] - 0.5f;
-            pz[vol_id] = sz_ijk[vol_id] + alpha * rz_ijk[vol_id] - 0.5f;
+            px[vol_id] = sx_ijk_local[vol_id] + alpha * rx_ijk[vol_id] - 0.5f;
+            py[vol_id] = sy_ijk_local[vol_id] + alpha * ry_ijk[vol_id] - 0.5f;
+            pz[vol_id] = sz_ijk_local[vol_id] + alpha * rz_ijk[vol_id] - 0.5f;
 
             for (int mat_id = 0; mat_id < NUM_MATERIALS; mat_id++) {
                 // TODO (liam): discuss: why use fancy cubicTex3D and then round it?
@@ -407,7 +417,8 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
         // bool mesh_hit_this_step = false;
         
 #if MESH_ADDITIVE_AND_SUBTRACTIVE_ENABLED > 0
-        for (int i = 0; i < 2; i++) {
+        while (true) {
+        // for (int i = 0; i < 2; i++) {
             if ((mesh_hit_index < MAX_MESH_DEPTH && facing_local[mesh_hit_index] != 0 && alpha_local[mesh_hit_index] < alpha)){
                 mesh_hit_depth += facing_local[mesh_hit_index];
                 mesh_hit_index += 1;
