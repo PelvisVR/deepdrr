@@ -350,8 +350,9 @@ projectKernel(cudaTextureObject_t *volume_texs, // array of volume textures
                 pz[vol_id] = sz_ijk[vol_id] + alpha * rz_ijk[vol_id] - 0.5;
 
                 for (int mat_id = 0; mat_id < NUM_MATERIALS; mat_id++) {
-                    seg_at_alpha[vol_id][mat_id] = round(cubicTex3D<float>(seg_texs[vol_id * NUM_MATERIALS + mat_id],
-                                                                           px[vol_id], py[vol_id], pz[vol_id]));
+                    // TODO (liam): discuss: why use fancy cubicTex3D and then round it?
+                    seg_at_alpha[vol_id][mat_id] = tex3D<float>(seg_texs[vol_id * NUM_MATERIALS + mat_id], px[vol_id], py[vol_id], pz[vol_id]);
+                    // seg_at_alpha[vol_id][mat_id] = roundf(cubicTex3D<float>(seg_texs[vol_id * NUM_MATERIALS + mat_id], px[vol_id], py[vol_id], pz[vol_id]));
                 }
             }
         }
