@@ -51,7 +51,7 @@ Installing from the `dev` branch is risky, as it is unstable. However, this inst
 
 Dependencies:
 
-1. CUDA 11.1
+1. CUDA 11.8.0
 2. Anaconda
 
 The `dev` branch contains the most up-to-date code and can be easily installed using Anaconda. To create an environment with DeepDRR, run
