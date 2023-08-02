@@ -7,12 +7,12 @@
 #endif
 
 extern "C" {
-__device__ static void calculate_solid_angle(float *world_from_index, // (3, 3) array giving the world_from_index ray
+__device__ static void calculate_solid_angle(const float *world_from_index, // (3, 3) array giving the world_from_index ray
                                                                       // transform for the camera
-                                             float *solid_angle, // flat array, with shape (out_height, out_width).
-                                             int udx, // index into image width
-                                             int vdx, // index into image height
-                                             int img_dx // index into solid_angle
+                                             float * __restrict__ solid_angle, // flat array, with shape (out_height, out_width).
+                                             const int udx, // index into image width
+                                             const int vdx, // index into image height
+                                             const int img_dx // index into solid_angle
 ) {
     /**
      * SOLID ANGLE CALCULATION
@@ -129,48 +129,49 @@ __device__ static void calculate_solid_angle(float *world_from_index, // (3, 3) 
 }
 
 __global__ void
-projectKernel(cudaTextureObject_t *volume_texs, // array of volume textures
-              cudaTextureObject_t *seg_texs, // array of segmentation textures
-              int out_width, // width of the output image
-              int out_height, // height of the output image
-              float step, // step size (TODO: in world)
-              int *priority, // volumes with smaller priority-ID have higher priority
+projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of volume textures
+              const cudaTextureObject_t * __restrict__ seg_texs, // array of segmentation textures
+              const int out_width, // width of the output image
+              const int out_height, // height of the output image
+              const float step, // step size (TODO: in world)
+              const int * __restrict__ priority, // volumes with smaller priority-ID have higher priority
                              // when determining which volume we are in
-              float *gVolumeEdgeMinPointX, // These give a bounding box in world-space around each volume.
-              float *gVolumeEdgeMinPointY, // These give a bounding box in world-space around each volume.
-              float *gVolumeEdgeMinPointZ, // These give a bounding box in world-space around each volume.
-              float *gVolumeEdgeMaxPointX, // These give a bounding box in world-space around each volume.
-              float *gVolumeEdgeMaxPointY, // These give a bounding box in world-space around each volume.
-              float *gVolumeEdgeMaxPointZ, // These give a bounding box in world-space around each volume.
-              float *gVoxelElementSizeX, // one value for each of the NUM_VOLUMES volumes
-              float *gVoxelElementSizeY, // one value for each of the NUM_VOLUMES volumes
-              float *gVoxelElementSizeZ, // one value for each of the NUM_VOLUMES volumes
-              float *sx_ijk, // x-coordinate of source point in IJK space for each volume (NUM_VOLUMES,)
-              float *sy_ijk, // y-coordinate of source point in IJK space for each volume (NUM_VOLUMES,)
-              float *sz_ijk, // z-coordinate of source point in IJK space for each
+              const float * __restrict__ gVolumeEdgeMinPointX, // These give a bounding box in world-space around each volume.
+              const float * __restrict__ gVolumeEdgeMinPointY, // These give a bounding box in world-space around each volume.
+              const float * __restrict__ gVolumeEdgeMinPointZ, // These give a bounding box in world-space around each volume.
+              const float * __restrict__ gVolumeEdgeMaxPointX, // These give a bounding box in world-space around each volume.
+              const float * __restrict__ gVolumeEdgeMaxPointY, // These give a bounding box in world-space around each volume.
+              const float * __restrict__ gVolumeEdgeMaxPointZ, // These give a bounding box in world-space around each volume.
+              const float * __restrict__ gVoxelElementSizeX, // one value for each of the NUM_VOLUMES volumes
+              const float * __restrict__ gVoxelElementSizeY, // one value for each of the NUM_VOLUMES volumes
+              const float * __restrict__ gVoxelElementSizeZ, // one value for each of the NUM_VOLUMES volumes
+              const float * __restrict__ sx_ijk, // x-coordinate of source point in IJK space for each volume (NUM_VOLUMES,)
+              const float * __restrict__ sy_ijk, // y-coordinate of source point in IJK space for each volume (NUM_VOLUMES,)
+              const float * __restrict__ sz_ijk, // z-coordinate of source point in IJK space for each
                              // volume (NUM_VOLUMES,) (passed in to avoid re-computing
                              // on every thread)
-              float max_ray_length, // max distance a ray can travel
-              float *world_from_index, // (3, 3) array giving the world_from_index ray transform for the camera
-              float *ijk_from_world, // (NUM_VOLUMES, 3, 4) transform giving the transform
+              const float max_ray_length, // max distance a ray can travel
+              const float * __restrict__ world_from_index, // (3, 3) array giving the world_from_index ray transform for the camera
+              const float * __restrict__ ijk_from_world, // (NUM_VOLUMES, 3, 4) transform giving the transform
                                      // from world to IJK coordinates for each volume.
-              int n_bins, // the number of spectral bins
-              float *energies, // 1-D array -- size is the n_bins. Units: [keV]
-              float *pdf, // 1-D array -- probability density function over the energies
-              float *absorb_coef_table, // flat [n_bins x NUM_MATERIALS] table that
+              const int n_bins, // the number of spectral bins
+              const float * __restrict__ energies, // 1-D array -- size is the n_bins. Units: [keV]
+              const float * __restrict__ pdf, // 1-D array -- probability density function over the energies
+              const float * __restrict__ absorb_coef_table, // flat [n_bins x NUM_MATERIALS] table that
                                         // represents the precomputed
                                         // get_absorption_coef values. index into the
                                         // table as: table[bin * NUM_MATERIALS + mat]
-              float *intensity, // flat array, with shape (out_height, out_width).
-              float *photon_prob, // flat array, with shape (out_height, out_width).
-              float *solid_angle, // flat array, with shape (out_height, out_width). Could be NULL pointer
-              float *mesh_hit_alphas, // mesh hit distances for subtracting
-              int8_t *mesh_hit_facing, // mesh hit facing direction for subtracting
-              float *additive_densities, // additive densities
-              int *mesh_unique_materials, // unique materials for additive mesh
-              int mesh_unique_material_count, // number of unique materials for additive mesh
-              int max_mesh_depth, // maximum number of mesh hits per pixel
-              int offsetW, int offsetH) {
+              float * __restrict__ intensity, // flat array, with shape (out_height, out_width).
+              float * __restrict__ photon_prob, // flat array, with shape (out_height, out_width).
+              float * __restrict__ solid_angle, // flat array, with shape (out_height, out_width). Could be NULL pointer
+              const float * __restrict__ mesh_hit_alphas, // mesh hit distances for subtracting
+              const int8_t * __restrict__ mesh_hit_facing, // mesh hit facing direction for subtracting
+              const float * __restrict__ additive_densities, // additive densities
+              const int * __restrict__ mesh_unique_materials, // unique materials for additive mesh
+              const int mesh_unique_material_count, // number of unique materials for additive mesh
+              const int max_mesh_depth, // maximum number of mesh hits per pixel
+              const int offsetW, 
+              const int offsetH) {
     // The output image has the following coordinate system, with cell-centered
     // sampling. y is along the fast axis (columns), x along the slow (rows).
     //
@@ -326,10 +327,12 @@ projectKernel(cudaTextureObject_t *volume_texs, // array of volume textures
     float seg_at_alpha[NUM_VOLUMES][NUM_MATERIALS];
     // if (debug) printf("start trace\n");
 
-#if MESH_ADDITIVE_AND_SUBTRACTIVE_ENABLED > 0
+// #if MESH_ADDITIVE_AND_SUBTRACTIVE_ENABLED > 0
     int mesh_hit_depth = 0;
     int mesh_hit_index = 0;
-#endif
+    int hit_arr_index = 0;
+
+// #endif
 
     // Attenuate up to minAlpha, assuming it is filled with air.
     if (ATTENUATE_OUTSIDE_VOLUME) {
@@ -385,10 +388,9 @@ projectKernel(cudaTextureObject_t *volume_texs, // array of volume textures
             }
         }
 
-        bool mesh_hit_this_step = false;
-
+        // bool mesh_hit_this_step = false;
+        
 #if MESH_ADDITIVE_AND_SUBTRACTIVE_ENABLED > 0
-        int hit_arr_index = 0;
         while (true) {
             hit_arr_index = (vdx * out_width + udx) * max_mesh_depth + mesh_hit_index;
             if (!(mesh_hit_index < max_mesh_depth && mesh_hit_facing[hit_arr_index] != 0 &&
@@ -398,14 +400,14 @@ projectKernel(cudaTextureObject_t *volume_texs, // array of volume textures
             mesh_hit_index += 1;
         }
 
-        if (mesh_hit_depth) {
-            mesh_hit_this_step = true; // TODO mesh priorities?
-        }
+        // if (mesh_hit_depth) {
+        //     mesh_hit_this_step = true; // TODO mesh priorities?
+        // }
 #endif
 
         // if (debug) printf("  got priority at alpha, num vols\n"); // This is
         // the one that seems to take a half a second.
-        if (!mesh_hit_this_step) {
+        if (!mesh_hit_depth) {
             if (0 == n_vols_at_curr_priority) {
                 // Outside the bounds of all volumes to trace. Use the default
                 // AIR_DENSITY.
