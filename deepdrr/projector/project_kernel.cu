@@ -338,11 +338,6 @@ projectKernel(cudaTextureObject_t *volume_texs, // array of volume textures
 
     // trace (if doing the last segment separately, need to use num_steps - 1
     for (int t = 0; t < num_steps; t++) {
-        // LOAD_SEGS_AT_ALPHA; // initializes p{x,y,z}[...] and
-        //                     // seg_at_alpha[...][...]
-        // if (debug) printf("  loaded segs\n"); // This is the one that seems
-        // to take a half a second.
-        //
         for (int vol_id = 0; vol_id < NUM_VOLUMES; vol_id++) {
             if (do_trace[vol_id]) {
                 px[vol_id] = sx_ijk[vol_id] + alpha * rx_ijk[vol_id] - 0.5;
@@ -431,7 +426,6 @@ projectKernel(cudaTextureObject_t *volume_texs, // array of volume textures
                 weight *= (0 == t || num_steps - 1 == t) ? 0.5f : 1.0f;
 
                 // Loop through volumes and add to the area_density.
-                // INTERPOLATE(weight);
                 for (int vol_id = 0; vol_id < NUM_VOLUMES; vol_id++) {
                     if (do_trace[vol_id] && (priority[vol_id] == curr_priority)) {
                         for (int mat_id = 0; mat_id < NUM_MATERIALS; mat_id++) {
