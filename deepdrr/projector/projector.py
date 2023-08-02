@@ -73,7 +73,6 @@ NUMBYTES_FLOAT32 = 4
 
 
 def gl_tex_to_gpu(reg_img, dst_ptr, width, height, num_channels):
-
     check_cudart_err(cudart.cudaGraphicsMapResources(1, reg_img, None))
 
     cuda_array = check_cudart_err(
@@ -604,10 +603,12 @@ class Projector(object):
             log.debug(
                 f"projecting with source at {camera_projections[0].center_in_world}, pointing in {self.device.principle_ray_in_world}..."
             )
-            self.max_ray_length = math.sqrt( # TODO: can these really change after construction?
-                self.device.source_to_detector_distance**2
-                + self.device.detector_height**2
-                + self.device.detector_width**2
+            self.max_ray_length = (
+                math.sqrt(  # TODO: can these really change after construction?
+                    self.device.source_to_detector_distance**2
+                    + self.device.detector_height**2
+                    + self.device.detector_width**2
+                )
             )
         else:
             self.max_ray_length = -1
@@ -643,7 +644,7 @@ class Projector(object):
             return images[0]
         else:
             return images
-        
+
     @time_range()
     def _render_single(self, proj: geo.CameraProjection) -> np.ndarray:
         # Only re-allocate if the output shape has changed.
@@ -714,8 +715,8 @@ class Projector(object):
                 raise DeprecationWarning(
                     "Patchwise projection is deprecated, try increasing max_block_index and/or threads. Please raise an issue if you need this feature."
                 )
-            
-            self.cupy_device.synchronize() # for debug only
+
+            self.cupy_device.synchronize()  # for debug only
 
             # def fast_host_to_device(d_a, a):
             #     d_a.data.copy_from(a.ctypes.data, a.nbytes)
@@ -735,15 +736,15 @@ class Projector(object):
 
         collected_energy_data = intensity
         if self.collected_energy:
-            collected_energy_data = self._calculate_collected_energy_per_pixel(proj, intensity)
+            collected_energy_data = self._calculate_collected_energy_per_pixel(
+                proj, intensity
+            )
 
         return collected_energy_data, photon_prob
-    
+
     @time_range()
     def _update_object_locations(self, proj: geo.CameraProjection) -> None:
-        world_from_index = np.array(proj.world_from_index[:-1, :]).astype(
-            np.float32
-        )
+        world_from_index = np.array(proj.world_from_index[:-1, :]).astype(np.float32)
         self.world_from_index_gpu = cp.asarray(world_from_index)
 
         sourceX = np.zeros(len(self.volumes), dtype=np.float32)
@@ -772,23 +773,19 @@ class Projector(object):
         self.sourceX_gpu = cp.asarray(sourceX)
         self.sourceY_gpu = cp.asarray(sourceY)
         self.sourceZ_gpu = cp.asarray(sourceZ)
-        
+
     @time_range()
-    def _calculate_collected_energy_per_pixel(self, proj: geo.CameraProjection, intensity: np.ndarray) -> np.ndarray:
+    def _calculate_collected_energy_per_pixel(
+        self, proj: geo.CameraProjection, intensity: np.ndarray
+    ) -> np.ndarray:
         # transform to collected energy in keV per cm^2 (or keV per mm^2)
         assert np.array_equal(self.solid_angle_gpu, np.uint64(0)) == False
-        solid_angle = cp.asnumpy(self.solid_angle_gpu).reshape(
-            self.output_shape
-        )
+        solid_angle = cp.asnumpy(self.solid_angle_gpu).reshape(self.output_shape)
         solid_angle = np.swapaxes(solid_angle, 0, 1).copy()
 
         # TODO (mjudish): is this calculation valid? SDD is in [mm], what does f{x,y} measure?
-        pixel_size_x = (
-            self.source_to_detector_distance / proj.index_from_camera2d.fx
-        )
-        pixel_size_y = (
-            self.source_to_detector_distance / proj.index_from_camera2d.fy
-        )
+        pixel_size_x = self.source_to_detector_distance / proj.index_from_camera2d.fx
+        pixel_size_y = self.source_to_detector_distance / proj.index_from_camera2d.fy
 
         # get energy deposited by multiplying [intensity] with [number of photons to hit each pixel]
         deposited_energy = (
@@ -799,7 +796,7 @@ class Projector(object):
         # convert to keV / mm^2
         deposited_energy /= pixel_size_x * pixel_size_y
         return deposited_energy
-        
+
     @time_range()
     def _render_mesh(self, proj: geo.CameraProjection) -> None:
         for mesh_id, mesh in enumerate(self.meshes):
@@ -821,9 +818,7 @@ class Projector(object):
             ]
         )
 
-        self.cam_node.matrix = (
-            np.array(proj.extrinsic.inv) @ deepdrr_to_opengl_cam
-        )
+        self.cam_node.matrix = np.array(proj.extrinsic.inv) @ deepdrr_to_opengl_cam
 
         zfar = self.device.source_to_detector_distance * 2  # TODO (liam)
 
@@ -837,7 +832,7 @@ class Projector(object):
         width = proj.intrinsic.sensor_width
         height = proj.intrinsic.sensor_height
         total_pixels = width * height
-    
+
         for mat_idx, mat in enumerate(self.prim_unique_materials):
             self.gl_renderer.render(
                 self.scene,
@@ -867,7 +862,7 @@ class Projector(object):
         width = proj.intrinsic.sensor_width
         height = proj.intrinsic.sensor_height
         total_pixels = width * height
-    
+
         self.gl_renderer.render(
             self.scene,
             drr_mode=DRRMode.DIST,
@@ -910,7 +905,6 @@ class Projector(object):
             block=(256, 1, 1),  # TODO (liam)
             grid=(16, 1),  # TODO (liam)
         )
-        
 
     def project_over_carm_range(
         self,
@@ -1078,7 +1072,9 @@ class Projector(object):
         self.volumes_texobs_gpu = cp.array(
             [x.ptr for x in self.volumes_texobs], dtype=np.uint64
         )
-        self.seg_texobs_gpu = cp.array([x.ptr for x in self.seg_texobs], dtype=np.uint64)
+        self.seg_texobs_gpu = cp.array(
+            [x.ptr for x in self.seg_texobs], dtype=np.uint64
+        )
 
         self.prim_unique_materials = list(
             set([mesh.material.drrMatName for mesh in self.primitives])
