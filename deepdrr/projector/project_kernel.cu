@@ -341,12 +341,18 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
 
     int asdf = (vdx * out_width + udx) * MAX_MESH_DEPTH;
 
-    int facing_local[MAX_MESH_DEPTH];
+    int facing_local[MAX_MESH_DEPTH]; // faster
     float alpha_local[MAX_MESH_DEPTH];
 
     for (int i = 0; i < MAX_MESH_DEPTH; i++) {
         facing_local[i] = mesh_hit_facing[asdf + i];
         alpha_local[i] = mesh_hit_alphas[asdf + i];
+    }
+
+    int priority_local[NUM_VOLUMES]; // faster maybe?
+
+    for (int i = 0; i < NUM_VOLUMES; i++) {
+        priority_local[i] = priority[i];
     }
 
     // trace (if doing the last segment separately, need to use num_steps - 1
@@ -390,10 +396,10 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
 
             // Calculate highest priority (lowest priority num) at this
             // location.
-            if (priority[i] < curr_priority) {
-                curr_priority = priority[i];
+            if (priority_local[i] < curr_priority) {
+                curr_priority = priority_local[i];
                 n_vols_at_curr_priority = 1;
-            } else if (priority[i] == curr_priority) {
+            } else if (priority_local[i] == curr_priority) {
                 n_vols_at_curr_priority += 1;
             }
         }
@@ -437,10 +443,10 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
 
                 // Loop through volumes and add to the area_density.
                 for (int vol_id = 0; vol_id < NUM_VOLUMES; vol_id++) {
-                    if (do_trace[vol_id] && (priority[vol_id] == curr_priority)) {
+                    if (do_trace[vol_id] && (priority_local[vol_id] == curr_priority)) {
                         float vol_density = tex3D<float>(volume_texs[vol_id], px[vol_id], py[vol_id], pz[vol_id]);
                         for (int mat_id = 0; mat_id < NUM_MATERIALS; mat_id++) {
-                            area_density[(mat_id)] +=
+                            area_density[mat_id] +=
                                 (weight)*vol_density *
                                 seg_at_alpha[vol_id][mat_id];
                         }
