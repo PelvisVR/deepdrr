@@ -73,6 +73,7 @@ NUMBYTES_INT32 = 4
 NUMBYTES_FLOAT32 = 4
 
 
+@time_range()
 def gl_tex_to_gpu(reg_img, dst_ptr, width, height, num_channels):
     check_cudart_err(cudart.cudaGraphicsMapResources(1, reg_img, None))
 
@@ -809,28 +810,30 @@ class Projector(object):
 
     @time_range()
     def _render_mesh(self, proj: geo.CameraProjection) -> None:
-        for mesh_id, mesh in enumerate(self.meshes):
-            self.mesh_nodes[mesh_id].matrix = mesh.world_from_ijk
+        with time_range("set_mesh_poses"):
+            for mesh_id, mesh in enumerate(self.meshes):
+                self.mesh_nodes[mesh_id].matrix = mesh.world_from_ijk
 
-        self.cam.fx = proj.intrinsic.fx
-        self.cam.fy = proj.intrinsic.fy
-        self.cam.cx = proj.intrinsic.cx
-        self.cam.cy = proj.intrinsic.cy
-        self.cam.znear = self.device.source_to_detector_distance / 1000
-        self.cam.zfar = self.device.source_to_detector_distance
+        with time_range("mesh_camera_setup"):
+            self.cam.fx = proj.intrinsic.fx
+            self.cam.fy = proj.intrinsic.fy
+            self.cam.cx = proj.intrinsic.cx
+            self.cam.cy = proj.intrinsic.cy
+            self.cam.znear = self.device.source_to_detector_distance / 1000
+            self.cam.zfar = self.device.source_to_detector_distance
 
-        deepdrr_to_opengl_cam = np.array(
-            [
-                [1, 0, 0, 0],
-                [0, -1, 0, 0],
-                [0, 0, -1, 0],
-                [0, 0, 0, 1],
-            ]
-        )
+            deepdrr_to_opengl_cam = np.array(
+                [
+                    [1, 0, 0, 0],
+                    [0, -1, 0, 0],
+                    [0, 0, -1, 0],
+                    [0, 0, 0, 1],
+                ]
+            )
 
-        self.cam_node.matrix = np.array(proj.extrinsic.inv) @ deepdrr_to_opengl_cam
+            self.cam_node.matrix = np.array(proj.extrinsic.inv) @ deepdrr_to_opengl_cam
 
-        zfar = self.device.source_to_detector_distance * 2  # TODO (liam)
+            zfar = self.device.source_to_detector_distance * 2  # TODO (liam)
 
         self._render_mesh_additive(proj, zfar)
 
@@ -844,13 +847,14 @@ class Projector(object):
         total_pixels = width * height
 
         for mat_idx, mat in enumerate(self.prim_unique_materials):
-            self.gl_renderer.render(
-                self.scene,
-                drr_mode=DRRMode.DENSITY,
-                flags=RenderFlags.RGBA,
-                zfar=zfar,
-                mat=mat,
-            )
+            with time_range("additive_render"):
+                self.gl_renderer.render(
+                    self.scene,
+                    drr_mode=DRRMode.DENSITY,
+                    flags=RenderFlags.RGBA,
+                    zfar=zfar,
+                    mat=mat,
+                )
 
             # TODO: need gl synchronization here?
 
@@ -873,12 +877,13 @@ class Projector(object):
         height = proj.intrinsic.sensor_height
         total_pixels = width * height
 
-        self.gl_renderer.render(
-            self.scene,
-            drr_mode=DRRMode.DIST,
-            flags=RenderFlags.RGBA,
-            zfar=zfar,
-        )
+        with time_range("subtractive_render"):
+            self.gl_renderer.render(
+                self.scene,
+                drr_mode=DRRMode.DIST,
+                flags=RenderFlags.RGBA,
+                zfar=zfar,
+            )
 
         for tex_idx in range(self.gl_renderer.num_peel_passes):
             # TODO: need gl synchronization here?
@@ -897,8 +902,8 @@ class Projector(object):
 
         self.kernel_reorder(
             args=(
-                self.mesh_hit_alphas_tex_gpu,
-                self.mesh_hit_alphas_gpu,
+                np.uint64(self.mesh_hit_alphas_tex_gpu.data.ptr),
+                np.uint64(self.mesh_hit_alphas_gpu.data.ptr),
                 np.int32(total_pixels),
             ),
             block=(256, 1, 1),  # TODO (liam)
@@ -907,8 +912,8 @@ class Projector(object):
 
         self.kernel_tide(
             args=(
-                self.mesh_hit_alphas_gpu,
-                self.mesh_hit_facing_gpu,
+                np.uint64(self.mesh_hit_alphas_gpu.data.ptr),
+                np.uint64(self.mesh_hit_facing_gpu.data.ptr),
                 np.int32(total_pixels),
                 np.float32(self.device.source_to_detector_distance * 2),
             ),
