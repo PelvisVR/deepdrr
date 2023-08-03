@@ -580,6 +580,7 @@ class Projector(object):
     def output_size(self) -> int:
         return int(np.prod(self.output_shape))
 
+    @time_range()
     def project(
         self,
         *camera_projections: geo.CameraProjection,
@@ -603,17 +604,18 @@ class Projector(object):
                 "must provide a camera projection object to the projector, unless imaging device (e.g. CArm) is provided"
             )
         elif not camera_projections and self.device is not None:
-            camera_projections = [self.device.get_camera_projection()]
-            log.debug(
-                f"projecting with source at {camera_projections[0].center_in_world}, pointing in {self.device.principle_ray_in_world}..."
-            )
-            self.max_ray_length = (
-                math.sqrt(  # TODO: can these really change after construction?
-                    self.device.source_to_detector_distance**2
-                    + self.device.detector_height**2
-                    + self.device.detector_width**2
+            with time_range("get_projections"):
+                camera_projections = [self.device.get_camera_projection()]
+                # log.debug(
+                    # f"projecting with source at {camera_projections[0].center_in_world}, pointing in {self.device.principle_ray_in_world}..."
+                # )
+                self.max_ray_length = (
+                    math.sqrt(  # TODO: can these really change after construction?
+                        self.device.source_to_detector_distance**2
+                        + self.device.detector_height**2
+                        + self.device.detector_width**2
+                    )
                 )
-            )
         else:
             self.max_ray_length = -1
 
@@ -627,22 +629,26 @@ class Projector(object):
             intensities.append(intensity)
             photon_probs.append(photon_prob)
 
-        images = np.stack(intensities)
-        photon_prob = np.stack(photon_probs)
-        log.debug("Completed projection and attenuation")
+        with time_range("stacking"):
+            images = np.stack(intensities)
+            photon_prob = np.stack(photon_probs)
+            log.debug("Completed projection and attenuation")
 
         if self.add_noise:  # TODO: add tests
-            log.info("adding Poisson noise")
-            images = analytic_generators.add_noise(
-                images, photon_prob, self.photon_count
-            )
+            with time_range("add_noise"):
+                log.info("adding Poisson noise")
+                images = analytic_generators.add_noise(
+                    images, photon_prob, self.photon_count
+                )
 
         if self.intensity_upper_bound is not None:
-            images = np.clip(images, None, self.intensity_upper_bound)
+            with time_range("clipping"):
+                images = np.clip(images, None, self.intensity_upper_bound)
 
         if self.neglog:
-            log.debug("applying negative log transform")
-            images = utils.neglog(images)
+            with time_range("neglog"):
+                log.debug("applying negative log transform")
+                images = utils.neglog(images)
 
         if images.shape[0] == 1:
             return images[0]
@@ -710,12 +716,11 @@ class Projector(object):
             if blocks_w <= self.max_block_index and blocks_h <= self.max_block_index:
                 offset_w = np.int32(0)
                 offset_h = np.int32(0)
-                with cupyx.profiler.profile():
-                    self.project_kernel(
-                        block=block,
-                        grid=(blocks_w, blocks_h),
-                        args=(*args, offset_w, offset_h),
-                    )
+                self.project_kernel(
+                    block=block,
+                    grid=(blocks_w, blocks_h),
+                    args=(*args, offset_w, offset_h),
+                )
             else:
                 raise DeprecationWarning(
                     "Patchwise projection is deprecated, try increasing max_block_index and/or threads. Please raise an issue if you need this feature."
@@ -897,7 +902,7 @@ class Projector(object):
                 np.int32(total_pixels),
             ),
             block=(256, 1, 1),  # TODO (liam)
-            grid=(16, 1),  # TODO (liam)
+            grid=(128, 1),  # TODO (liam)
         )
 
         self.kernel_tide(
@@ -907,8 +912,8 @@ class Projector(object):
                 np.int32(total_pixels),
                 np.float32(self.device.source_to_detector_distance * 2),
             ),
-            block=(256, 1, 1),  # TODO (liam)
-            grid=(16, 1),  # TODO (liam)
+            block=(32, 1, 1),  # TODO (liam)
+            grid=(2048, 1),  # TODO (liam)
         )
 
     def project_over_carm_range(
