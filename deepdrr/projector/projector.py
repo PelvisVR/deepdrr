@@ -364,7 +364,7 @@ def _get_kernel_projector_module(
         "-I",
         str(d),
     ]
-    log.warn(
+    log.debug(
         f"compiling {source_path} with NUM_VOLUMES={num_volumes}, NUM_MATERIALS={num_materials}"
     )
 
