@@ -828,7 +828,7 @@ class Projector(object):
             deepdrr_to_opengl_cam = np.array(
                 [
                     [1, 0, 0, 0],
-                    [0, -1, 0, 0],
+                    [0, 1, 0, 0],
                     [0, 0, -1, 0],
                     [0, 0, 0, 1],
                 ]
