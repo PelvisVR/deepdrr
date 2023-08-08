@@ -1,4 +1,9 @@
 # TODO
+- fine threads in dense volume
+- low/high res volume
+- voxellized threads low/high res
+- mesh rendering off/on
+- low/high sample dist
 <!-- - Add dep on pycuda with gl support -->
 <!-- - Separate pyrender -->
 <!-- - Classmethod that loads mesh from stl file -->

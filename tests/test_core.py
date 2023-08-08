@@ -68,7 +68,7 @@ class TestSingleVolume:
         projector = deepdrr.Projector(
             volume=volume,
             carm=carm,
-            step=0.1,  # stepsize along projection ray, measured in voxels
+            step=0.01,  # stepsize along projection ray, measured in voxels
             mode="linear",
             max_block_index=65535,
             spectrum="90KV_AL40",
@@ -101,17 +101,17 @@ class TestSingleVolume:
             # Image.fromarray(np.abs(image_256.astype(np.float32) - truth_img.astype(np.float32))).save(self.output_dir / f"diff_{name}")
 
 
-        with projector:
-            from timer_util import FPS
-            start_time = time.time()
-            fps = FPS()
-            while True:
-                for i in range(100):
-                    image = projector.project()
-                    if fps_count := fps():
-                        print(f"FPS2 {fps_count}")
-                if time.time() - start_time > 4:
-                    break
+        # with projector:
+        #     from timer_util import FPS
+        #     start_time = time.time()
+        #     fps = FPS()
+        #     while True:
+        #         for i in range(100):
+        #             image = projector.project()
+        #             if fps_count := fps():
+        #                 print(f"FPS2 {fps_count}")
+        #         if time.time() - start_time > 4:
+        #             break
 
         if verify:
             assert np.allclose(image_256, truth_img, atol=1)
@@ -132,6 +132,7 @@ class TestSingleVolume:
 
     def test_mesh(self):
         volume = deepdrr.Volume.from_nrrd(self.file_path)
+        
         # load 10cmcube.stl from resources folder
         # stl = pv.read("tests/resources/10cmrighttri.stl")
         stl3 = pv.read("tests/resources/10cmcube.stl")
@@ -181,12 +182,138 @@ class TestSingleVolume:
         # mesh = deepdrr.Mesh("polyethylene", 1.05, stl)
         # mesh.morph_weights = np.array([-10])
         
-        carm = deepdrr.MobileCArm(isocenter=volume.center_in_world, sensor_width=300, sensor_height=200, pixel_size=0.6)
+        carm = deepdrr.MobileCArm(isocenter=volume.center_in_world, sensor_width=300*2, sensor_height=200*2, pixel_size=0.6/2)
         # self.project([volume], carm, "test_mesh.png")
         # self.project([mesh, mesh2, mesh3], carm, "test_mesh.png")
-        self.project([volume, mesh, mesh2, mesh3], carm, "test_mesh.png", verify=True)
+        self.project([volume, mesh, mesh2, mesh3], carm, "test_mesh.png", verify=False, num_mesh_layers=32)
+        # self.project([volume, mesh, mesh2, mesh3], carm, "test_mesh.png", verify=False, num_mesh_layers=64)
 
     
+
+    def test_threads(self):
+        # volume = deepdrr.Volume.from_nrrd(self.file_path)
+        density_arr = np.ones((100, 500, 100), dtype=np.float32)*7
+        titanium_arr = np.ones([100, 500, 100], dtype=np.float32)
+        anatomical_from_IJK = np.zeros((4,4), dtype=np.float32)
+        anatomical_from_IJK[0,0] = 0.02
+        anatomical_from_IJK[1,1] = 0.02
+        anatomical_from_IJK[2,2] = 0.02
+        anatomical_from_IJK[3,3] = 1
+
+        volume = deepdrr.Volume(density_arr, {"titanium": titanium_arr}, anatomical_from_IJK=anatomical_from_IJK)
+        # load 10cmcube.stl from resources folder
+        # stl = pv.read("tests/resources/10cmrighttri.stl")
+        stl3 = pv.read("tests/resources/threads.stl")
+        stl3.scale([100, 100, 100], inplace=True)
+        stl3.rotate_z(180, inplace=True)
+        # stl3.translate([0, 00, 0], inplace=True)
+
+        # stl2 = pv.read("tests/resources/10cmcube.stl")
+        # stl2.scale([200, 200, 200], inplace=True)
+        # # stl2.translate([0, 30, 0], inplace=True)
+        # stl = pv.read("tests/resources/solenoidasm.stl")
+        # stl.scale([400/1000]*3, inplace=True)
+        # # stl = pv.read("tests/resources/suzanne.stl")
+        # # stl.scale([200]*3, inplace=True)
+        # # stl.translate([0, 0, 0], inplace=True)
+        # stl.rotate_y(60, inplace=True)
+        # stl.rotate_x(10, inplace=True)
+        # stl.rotate_z(80, inplace=True)
+        # stl.translate([40, -200, -0], inplace=True)
+        # # stl = pv.read("tests/resources/suzanne.stl")
+        # morph_targets = np.array([
+        #     [1, 0, 0],
+        #     [1, 0, 0],
+        #     [1, 0, 0],
+        #     [1, 0, 0],
+        #     [0, 0, 1],
+        #     [0, 0, 1],
+        #     [-1, 0, 1],
+        #     [0, 0, 1],
+        # ]).reshape(1, -1, 3)
+        # # scale from m to mm
+        # # mesh = deepdrr.Mesh("titanium", 7, stl, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("y", 90, degrees=True)))
+        # # mesh = deepdrr.Mesh("air", 0, stl, morph_targets=morph_targets, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 90, degrees=True)))
+        # prim = pyrender.Mesh.from_trimesh(polydata_to_trimesh(stl), material=DRRMaterial("titanium", density=7, subtractive=False))
+        # # prim = pyrender.Mesh.from_trimesh(polydata_to_trimesh(stl), material=DRRMaterial("bone", density=2, subtractive=True))
+        # # mesh = deepdrr.Mesh(mesh=prim)
+        # mesh = deepdrr.Mesh(mesh=prim, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 90, degrees=True)))
+        # # mesh = deepdrr.Mesh(mesh=prim, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 90, degrees=True) * geo.Rotation.from_euler("y", 30, degrees=True)))
+
+        # # prim2 = deepdrr.Primitive("titanium", 2, stl2, subtractive=True)
+        # prim2 = trimesh_to_pyrender_mesh(polydata_to_trimesh(stl2), material=DRRMaterial("lung", density=2, subtractive=True))
+        # mesh2 = deepdrr.Mesh(mesh=prim2, world_from_anatomical=geo.FrameTransform.from_translation([30, 50, 200]))
+
+        # # prim3 = deepdrr.Primitive("titanium", 0, stl2, subtractive=True)
+        prim3 = polydata_to_pyrender_mesh(stl3, material=DRRMaterial("titanium", density=0, subtractive=True))
+        mesh3 = deepdrr.Mesh(mesh=prim3)
+        # mesh3 = deepdrr.Mesh(mesh=prim3, world_from_anatomical=geo.FrameTransform.from_translation([-30, 20, -70]))
+        # mesh = deepdrr.Mesh("polyethylene", 1.05, stl)
+        # mesh.morph_weights = np.array([-10])
+        
+        carm = deepdrr.SimpleDevice(sensor_width=200*4, sensor_height=400*4, pixel_size=0.02)
+
+
+        projector = deepdrr.Projector(
+            volume=[volume, mesh3],
+            carm=carm,
+            step=0.01,  # stepsize along projection ray, measured in voxels
+            mode="linear",
+            max_block_index=65535,
+            spectrum="90KV_AL40",
+            photon_count=100000,
+            scatter_num=0,
+            threads=8,
+            neglog=True,
+            num_mesh_layers=32
+        )
+
+
+        images = []
+
+        N = 100
+        with projector:
+            for i in range(N):
+
+                dirvec = geo.Vector3D(np.array([0, 0, 1, 0]))
+                upvec = geo.Vector3D(np.array([0, -1, 0, 0]))
+                dirvec = dirvec.rotate(upvec, i/N*np.pi*2)
+
+                carm.set_view(direction=dirvec, up=upvec)
+                # print(i, dirvec, carm._device_from_camera3d)
+
+                correct = carm._device_from_camera3d
+
+                b = geo.FrameTransform.from_rotation(geo.Rotation.from_euler("y", -i/N*np.pi*2))
+                c = geo.FrameTransform.from_translation([0, 0, -500])
+                new = b @ c
+                carm._device_from_camera3d = new
+                # carm = deepdrr.MobileCArm(isocenter=volume.center_in_world, sensor_width=300*2, sensor_height=200*2, pixel_size=0.6/2)
+                # self.project([volume], carm, "test_mesh.png")
+                # self.project([mesh, mesh2, mesh3], carm, "test_mesh.png")
+                # self.project([volume, mesh3], carm, f"test_threads_{i}.png", verify=False, num_mesh_layers=32)
+                image = projector.project()
+
+                # self.project([volume, mesh, mesh2, mesh3], carm, "test_mesh.png", verify=False, num_mesh_layers=32)
+                # self.project([volume, mesh, mesh2, mesh3], carm, "test_mesh.png", verify=False, num_mesh_layers=64)
+
+                image_256 = (image * 255).astype(np.uint8)
+                images.append(Image.fromarray(image_256))
+
+
+
+        # Save the list of images as a GIF
+        output_gif_path = self.output_dir/'output.gif'
+        images[0].save(
+            output_gif_path,
+            save_all=True,
+            append_images=images[1:],
+            duration=100,  # Duration between frames in milliseconds
+            loop=0,  # 0 means loop indefinitely, you can set another value if needed
+            disposal=1,  # 2 means replace with background color (use 1 for no disposal)
+        )
+
+
     def test_multi_projector(self):
         for i in range(10):
             self.test_mesh()
@@ -280,7 +407,8 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)
     test = TestSingleVolume()
     # test.test_layer_depth()
-    test.test_mesh()
+    test.test_threads()
+    # test.test_mesh()
     # volume = test.load_volume()
     # carm = deepdrr.MobileCArm(isocenter=volume.center_in_world)
     # test.project(volume, carm, "test.png")

@@ -14,7 +14,7 @@ pip install deepdrr[cuda12x] # for CUDA 12.x
 from . import vis, geo, projector, device, annotations, utils
 from .projector import Projector
 from .vol import Volume, Mesh
-from .device import CArm, MobileCArm
+from .device import CArm, MobileCArm, SimpleDevice
 from .annotations import LineAnnotation
 from .logging import setup_log
 
@@ -22,6 +22,7 @@ from .logging import setup_log
 __all__ = [
     "MobileCArm",
     "CArm",
+    "SimpleDevice",
     "Volume",
     "Mesh",
     "Projector",
