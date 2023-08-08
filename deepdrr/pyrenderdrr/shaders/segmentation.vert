@@ -9,6 +9,6 @@ uniform mat4 M;
 void main()
 {
     mat4 light_matrix = P * V;
-    gl_Position = light_matrix * M * inst_m * vec4(position, 1.0);
+    gl_Position = light_matrix * M * inst_m * vec4(-position, 1.0);
 }
 
