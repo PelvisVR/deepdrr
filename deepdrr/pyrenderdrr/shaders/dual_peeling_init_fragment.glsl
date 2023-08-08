@@ -19,7 +19,7 @@ void main(void)
 
     float dist = length(frag_position-cam_pos);
 
-    if (!gl_FrontFacing) {
+    if (gl_FrontFacing) {
         gl_FragColor.rgba = vec4(-dist, dist, -MaxDepth, -MaxDepth);
     } else {
         gl_FragColor.rgba = vec4(-MaxDepth, -MaxDepth, -dist, dist);

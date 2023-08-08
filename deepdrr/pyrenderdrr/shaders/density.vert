@@ -11,7 +11,7 @@ out vec3 frag_position;
 void main()
 {
     mat4 light_matrix=P*V;
-    gl_Position=light_matrix*M*inst_m*vec4(-position,1.);
-    frag_position=vec3(M*inst_m*vec4(-position,1.));
+    gl_Position=light_matrix*M*inst_m*vec4(position,1.);
+    frag_position=vec3(M*inst_m*vec4(position,1.));
 }
 

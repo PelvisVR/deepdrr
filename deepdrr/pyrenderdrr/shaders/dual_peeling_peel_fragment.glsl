@@ -68,7 +68,7 @@ void main(void)
 	
 	if (fragDepth > nearestDepth && fragDepth < farthestDepth) {
 		// This fragment needs to be peeled again
-        if (!gl_FrontFacing) {
+        if (gl_FrontFacing) {
             gl_FragData[0].rgba = vec4(-fragDepth, fragDepth, -MaxDepth, -MaxDepth);
         } else {
             gl_FragData[0].rgba = vec4(-MaxDepth, -MaxDepth, -fragDepth, fragDepth);
