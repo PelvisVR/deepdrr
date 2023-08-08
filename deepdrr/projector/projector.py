@@ -529,6 +529,9 @@ class Projector(object):
         for _vol in self.primitives:
             all_mats.append(_vol.material.drrMatName)
 
+        if attenuate_outside_volume:
+            all_mats.append("air")
+            
         self.all_materials = list(set(all_mats))
         self.all_materials.sort()
         log.debug(f"MATERIALS: {self.all_materials}")
