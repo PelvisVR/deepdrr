@@ -189,8 +189,7 @@ class TestSingleVolume:
         # self.project([volume, mesh, mesh2, mesh3], carm, "test_mesh.png", verify=False, num_mesh_layers=64)
 
     
-
-    def test_threads(self):
+    def test_cube(self):
         # volume = deepdrr.Volume.from_nrrd(self.file_path)
         vol_voxel_N = 2
         # vol_voxel_N = 100
@@ -287,6 +286,88 @@ class TestSingleVolume:
             save_all=True,
             append_images=images[1:],
             duration=5000/N,  # Duration between frames in milliseconds
+            loop=0,  # 0 means loop indefinitely, you can set another value if needed
+            disposal=1,  # 2 means replace with background color (use 1 for no disposal)
+        )
+
+    def test_threads(self):
+        # volume = deepdrr.Volume.from_nrrd(self.file_path)
+        # vol_voxel_N = 2
+        vol_voxel_N = 100
+        density_arr = np.ones((vol_voxel_N, vol_voxel_N*5, vol_voxel_N), dtype=np.float32)*7
+        titanium_arr = np.ones([vol_voxel_N, vol_voxel_N*5, vol_voxel_N], dtype=np.float32)
+        anatomical_from_IJK = np.zeros((4,4), dtype=np.float32)
+        anatomical_from_IJK[0,0] = 0.02
+        anatomical_from_IJK[1,1] = 0.02
+        anatomical_from_IJK[2,2] = 0.02
+        anatomical_from_IJK[3,3] = 1
+
+        volume = deepdrr.Volume(density_arr, {"titanium": titanium_arr}, anatomical_from_IJK=anatomical_from_IJK)
+        # load 10cmcube.stl from resources folder
+        # stl = pv.read("tests/resources/10cmrighttri.stl")
+        # stl3 = pv.read("tests/resources/xyzfaces.stl")
+        stl3 = pv.read("tests/resources/threads.stl")
+        stl3.scale([100, 100, 100], inplace=True)
+
+
+        # prim3 = polydata_to_pyrender_mesh(stl3, material=DRRMaterial("titanium", density=7, subtractive=False))
+        prim3 = polydata_to_pyrender_mesh(stl3, material=DRRMaterial("titanium", density=0, subtractive=True))
+        meshtransform = None
+        # meshtransform = geo.FrameTransform.from_translation([-3, 2, -7]) @ geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 60, degrees=True))
+        mesh3 = deepdrr.Mesh(mesh=prim3, world_from_anatomical=meshtransform)
+
+        # stl4 = pv.read("tests/resources/threads.stl")
+        # stl4.scale([100, 100, 100], inplace=True)
+
+        mesh4 = deepdrr.Volume.from_meshes(voxel_size = 0.05, world_from_anatomical=meshtransform, surfaces=[("titanium", 0, stl3)])
+        # mesh4 = deepdrr.Volume.from_meshes(voxel_size = 0.05, world_from_anatomical=meshtransform, surfaces=[("titanium", 7, stl3)])
+        
+        carm = deepdrr.SimpleDevice(sensor_width=400*4, sensor_height=400*4, pixel_size=1)
+        # carm = deepdrr.SimpleDevice(sensor_width=200*4, sensor_height=400*4, pixel_size=0.02)
+
+        projector = deepdrr.Projector(
+            # volume=[volume, mesh4],
+            # volume=[mesh4, mesh3],
+            volume=[volume, mesh3],
+            carm=carm,
+            step=0.01,  # stepsize along projection ray, measured in voxels
+            mode="linear",
+            max_block_index=65535,
+            spectrum="90KV_AL40",
+            photon_count=100000,
+            scatter_num=0,
+            threads=8,
+            neglog=True,
+            num_mesh_layers=32
+        )
+
+        images = []
+
+        # N = 20
+        N = 200
+        with projector:
+            for i in range(N):
+                z = geo.FrameTransform.from_translation([0, 5, 0])
+                # z = geo.FrameTransform.from_translation([10*np.sin(-i/N*np.pi*2*2), 10*np.sin(-i/N*np.pi*2), 0])
+                # a = geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", -i/N*np.pi*2))
+                b = geo.FrameTransform.from_rotation(geo.Rotation.from_euler("y", -i/N*np.pi*2))
+                # c = geo.FrameTransform.from_translation([0, 0, -30])
+                c = geo.FrameTransform.from_translation([0, 0, -10])
+                new = z @ b @ c
+                carm._device_from_camera3d = new
+
+                image = projector.project()
+
+                image_256 = (image * 255).astype(np.uint8)
+                images.append(Image.fromarray(image_256))
+
+        # Save the list of images as a GIF
+        output_gif_path = self.output_dir/'output.gif'
+        images[0].save(
+            output_gif_path,
+            save_all=True,
+            append_images=images[1:],
+            duration=7000/N,  # Duration between frames in milliseconds
             loop=0,  # 0 means loop indefinitely, you can set another value if needed
             disposal=1,  # 2 means replace with background color (use 1 for no disposal)
         )
