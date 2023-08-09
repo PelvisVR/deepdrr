@@ -291,46 +291,51 @@ class TestSingleVolume:
         )
 
     def test_threads(self):
-        # volume = deepdrr.Volume.from_nrrd(self.file_path)
+        # pass
+
+        for vol_voxel_N in [10, 100]:
+            for step in [0.1, 0.01]:
+                for mesh_enabled in [False, True]:
+                    for thread_voxel_size in [0.2,0.05] if not mesh_enabled else [0.2]:
+                        self.gen_threads_gif(vol_voxel_N=vol_voxel_N, step=step, thread_voxel_size=thread_voxel_size, mesh_enabled=mesh_enabled)
+
+    def gen_threads_gif(self, vol_voxel_N=100, step=0.01, thread_voxel_size=0.05, mesh_enabled=True, name="output"):
+        name = f"vol_voxel_N={vol_voxel_N}_step={step}_thread_voxel_size={thread_voxel_size}_mesh_enabled={mesh_enabled}"
+        print(name)
         # vol_voxel_N = 2
         vol_voxel_N = 100
         density_arr = np.ones((vol_voxel_N, vol_voxel_N*5, vol_voxel_N), dtype=np.float32)*7
         titanium_arr = np.ones([vol_voxel_N, vol_voxel_N*5, vol_voxel_N], dtype=np.float32)
         anatomical_from_IJK = np.zeros((4,4), dtype=np.float32)
-        anatomical_from_IJK[0,0] = 0.02
-        anatomical_from_IJK[1,1] = 0.02
-        anatomical_from_IJK[2,2] = 0.02
+        anatomical_from_IJK[0,0] = 0.02/vol_voxel_N*100
+        anatomical_from_IJK[1,1] = 0.02/vol_voxel_N*100
+        anatomical_from_IJK[2,2] = 0.02/vol_voxel_N*100
         anatomical_from_IJK[3,3] = 1
 
         volume = deepdrr.Volume(density_arr, {"titanium": titanium_arr}, anatomical_from_IJK=anatomical_from_IJK)
-        # load 10cmcube.stl from resources folder
-        # stl = pv.read("tests/resources/10cmrighttri.stl")
+
         # stl3 = pv.read("tests/resources/xyzfaces.stl")
         stl3 = pv.read("tests/resources/threads.stl")
         stl3.scale([100, 100, 100], inplace=True)
 
 
-        # prim3 = polydata_to_pyrender_mesh(stl3, material=DRRMaterial("titanium", density=7, subtractive=False))
-        prim3 = polydata_to_pyrender_mesh(stl3, material=DRRMaterial("titanium", density=0, subtractive=True))
+        prim3 = polydata_to_pyrender_mesh(stl3, material=DRRMaterial("titanium", density=7, subtractive=True))
+        # prim3 = polydata_to_pyrender_mesh(stl3, material=DRRMaterial("titanium", density=0, subtractive=True))
         meshtransform = None
-        # meshtransform = geo.FrameTransform.from_translation([-3, 2, -7]) @ geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 60, degrees=True))
         mesh3 = deepdrr.Mesh(mesh=prim3, world_from_anatomical=meshtransform)
 
-        # stl4 = pv.read("tests/resources/threads.stl")
-        # stl4.scale([100, 100, 100], inplace=True)
-
-        mesh4 = deepdrr.Volume.from_meshes(voxel_size = 0.05, world_from_anatomical=meshtransform, surfaces=[("titanium", 0, stl3)])
+        if not mesh_enabled:
+            mesh3 = deepdrr.Volume.from_meshes(voxel_size = thread_voxel_size, world_from_anatomical=meshtransform, surfaces=[("titanium", 7, stl3)])
         # mesh4 = deepdrr.Volume.from_meshes(voxel_size = 0.05, world_from_anatomical=meshtransform, surfaces=[("titanium", 7, stl3)])
         
-        carm = deepdrr.SimpleDevice(sensor_width=400*4, sensor_height=400*4, pixel_size=1)
-        # carm = deepdrr.SimpleDevice(sensor_width=200*4, sensor_height=400*4, pixel_size=0.02)
+        carm = deepdrr.SimpleDevice(sensor_width=200*2, sensor_height=400*2, pixel_size=2)
 
         projector = deepdrr.Projector(
             # volume=[volume, mesh4],
             # volume=[mesh4, mesh3],
             volume=[volume, mesh3],
             carm=carm,
-            step=0.01,  # stepsize along projection ray, measured in voxels
+            step=step,  # stepsize along projection ray, measured in voxels
             mode="linear",
             max_block_index=65535,
             spectrum="90KV_AL40",
@@ -344,7 +349,7 @@ class TestSingleVolume:
         images = []
 
         # N = 20
-        N = 200
+        N = 100
         with projector:
             for i in range(N):
                 z = geo.FrameTransform.from_translation([0, 5, 0])
@@ -362,7 +367,7 @@ class TestSingleVolume:
                 images.append(Image.fromarray(image_256))
 
         # Save the list of images as a GIF
-        output_gif_path = self.output_dir/'output.gif'
+        output_gif_path = self.output_dir/f'{name}.gif'
         images[0].save(
             output_gif_path,
             save_all=True,
