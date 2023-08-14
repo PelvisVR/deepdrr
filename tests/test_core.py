@@ -293,14 +293,16 @@ class TestSingleVolume:
     def test_threads(self):
         # pass
 
-        for vol_voxel_N in [10, 100]:
-            for step in [0.1, 0.01]:
-                for mesh_enabled in [False, True]:
-                    for thread_voxel_size in [0.2,0.05] if not mesh_enabled else [0.2]:
-                        self.gen_threads_gif(vol_voxel_N=vol_voxel_N, step=step, thread_voxel_size=thread_voxel_size, mesh_enabled=mesh_enabled)
+        for kwire_visible in [False, True]:
+            for vol_voxel_N in [10]:
+            # for vol_voxel_N in [10, 100]:
+                for step in [0.5, 0.1, 0.01]:
+                    for mesh_enabled in [False, True]:
+                        for thread_voxel_size in [0.2,0.05] if not mesh_enabled else [0.2]:
+                            self.gen_threads_gif(vol_voxel_N=vol_voxel_N, step=step, thread_voxel_size=thread_voxel_size, mesh_enabled=mesh_enabled, kwire_visible=kwire_visible)
 
-    def gen_threads_gif(self, vol_voxel_N=100, step=0.01, thread_voxel_size=0.05, mesh_enabled=True, name="output"):
-        name = f"vol_voxel_N={vol_voxel_N}_step={step}_thread_voxel_size={thread_voxel_size}_mesh_enabled={mesh_enabled}"
+    def gen_threads_gif(self, vol_voxel_N=100, step=0.01, thread_voxel_size=0.05, mesh_enabled=True, kwire_visible=True, name="output"):
+        name = f"kwire_visible={kwire_visible}_vol_voxel_N={vol_voxel_N}_step={step}_thread_voxel_size={thread_voxel_size}_mesh_enabled={mesh_enabled}"
         print(name)
         # vol_voxel_N = 2
         vol_voxel_N = 100
@@ -319,13 +321,14 @@ class TestSingleVolume:
         stl3.scale([100, 100, 100], inplace=True)
 
 
-        prim3 = polydata_to_pyrender_mesh(stl3, material=DRRMaterial("titanium", density=7, subtractive=True))
+        kwire_density = 7 if kwire_visible else 0
+        prim3 = polydata_to_pyrender_mesh(stl3, material=DRRMaterial("titanium", density=kwire_density, subtractive=True))
         # prim3 = polydata_to_pyrender_mesh(stl3, material=DRRMaterial("titanium", density=0, subtractive=True))
         meshtransform = None
         mesh3 = deepdrr.Mesh(mesh=prim3, world_from_anatomical=meshtransform)
 
         if not mesh_enabled:
-            mesh3 = deepdrr.Volume.from_meshes(voxel_size = thread_voxel_size, world_from_anatomical=meshtransform, surfaces=[("titanium", 7, stl3)])
+            mesh3 = deepdrr.Volume.from_meshes(voxel_size = thread_voxel_size, world_from_anatomical=meshtransform, surfaces=[("titanium", kwire_density, stl3)])
         # mesh4 = deepdrr.Volume.from_meshes(voxel_size = 0.05, world_from_anatomical=meshtransform, surfaces=[("titanium", 7, stl3)])
         
         carm = deepdrr.SimpleDevice(sensor_width=200*2, sensor_height=400*2, pixel_size=2)

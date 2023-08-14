@@ -1,4 +1,9 @@
 # TODO
+- make private
+- new pull request
+- xray of crowd
+- all organs
+- material boundaries mesh based
 - fine threads in dense volume
 - low/high res volume
 - voxellized threads low/high res
