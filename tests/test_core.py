@@ -37,6 +37,7 @@ class TestSingleVolume:
     params = {
         "test_simple": [dict()],
         "test_collected_energy": [dict()],
+        "test_cube": [dict()],
         "test_mesh": [dict()],
         "test_mesh_only": [dict()],
         "test_multi_projector": [dict()],
@@ -290,7 +291,7 @@ class TestSingleVolume:
             disposal=1,  # 2 means replace with background color (use 1 for no disposal)
         )
 
-    def test_threads(self):
+    def gen_threads(self):
         # pass
 
         for kwire_visible in [False, True]:
@@ -474,7 +475,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)
     test = TestSingleVolume()
     # test.test_layer_depth()
-    test.test_threads()
+    test.gen_threads()
     # test.test_mesh()
     # volume = test.load_volume()
     # carm = deepdrr.MobileCArm(isocenter=volume.center_in_world)
