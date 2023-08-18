@@ -10,6 +10,7 @@ docs/build
 /.DS_Store
 output
 cmake-build-debug
+.vscode
 
 *.npy
 
