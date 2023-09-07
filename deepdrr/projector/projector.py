@@ -520,8 +520,6 @@ class Projector(object):
         if self.num_mesh_layers < 4 or self.num_mesh_layers % 4 != 0:
             raise ValueError("max_mesh_depth must be a multiple of 4 and >= 4")
 
-        assert len(self.volumes) > 0
-
         all_mats = []
         for _vol in self.volumes:
             all_mats.extend(list(_vol.materials.keys()))

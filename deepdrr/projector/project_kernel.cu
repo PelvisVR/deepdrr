@@ -6,6 +6,10 @@
 #define AIR_DENSITY 0.1129
 #endif
 
+// #define NUM_VOLUMES 1 // default for syntax highlighting
+// #define MESH_ADDITIVE_AND_SUBTRACTIVE_ENABLED 1 // default for syntax highlighting
+// #define MESH_ADDITIVE_ENABLED 1 // default for syntax highlighting
+
 extern "C" {
 __device__ static void calculate_solid_angle(const float *world_from_index, // (3, 3) array giving the world_from_index ray
                                                                       // transform for the camera
@@ -232,29 +236,38 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
     // source point to all-volumes entry point of the ray, in world-space.
     // maxAlpha: the distance from source point to all-volumes exit point of the
     // ray.
-    float minAlpha = INFINITY; // the furthest along the ray we want to consider
+    float minAlpha = ray_length; // the furthest along the ray we want to consider
                                // is the start point.
     float maxAlpha = 0; // closest point to consider is at the detector
+
+    // initialize the projection-output to 0.
+    float area_density[NUM_MATERIALS];
+    for (int m = 0; m < NUM_MATERIALS; m++) {
+        area_density[m] = 0.0f;
+    }
+
+#if NUM_VOLUMES > 0
     float minAlpha_vol[NUM_VOLUMES],
         maxAlpha_vol[NUM_VOLUMES]; // same, but just for each volume.
     float alpha0, alpha1, reci;
     int do_trace[NUM_VOLUMES]; // for each volume, whether or not to perform the
                                // ray-tracing
-    int do_return = 1;
+    // int do_return = 1;
 
     // Get the ray direction in the IJK space for each volume.
     float rx_ijk[NUM_VOLUMES];
     float ry_ijk[NUM_VOLUMES];
     float rz_ijk[NUM_VOLUMES];
-    int offs = 12; // TODO: fix bad style
+
     for (int i = 0; i < NUM_VOLUMES; i++) {
         // Homogeneous transform of a vector.
-        rx_ijk[i] = ijk_from_world[offs * i + 0] * rx + ijk_from_world[offs * i + 1] * ry +
-                    ijk_from_world[offs * i + 2] * rz + ijk_from_world[offs * i + 3] * 0;
-        ry_ijk[i] = ijk_from_world[offs * i + 4] * rx + ijk_from_world[offs * i + 5] * ry +
-                    ijk_from_world[offs * i + 6] * rz + ijk_from_world[offs * i + 7] * 0;
-        rz_ijk[i] = ijk_from_world[offs * i + 8] * rx + ijk_from_world[offs * i + 9] * ry +
-                    ijk_from_world[offs * i + 10] * rz + ijk_from_world[offs * i + 11] * 0;
+# define OFFS 12 // TODO: fix bad style
+        rx_ijk[i] = ijk_from_world[OFFS * i + 0] * rx + ijk_from_world[OFFS * i + 1] * ry +
+                    ijk_from_world[OFFS * i + 2] * rz + ijk_from_world[OFFS * i + 3] * 0;
+        ry_ijk[i] = ijk_from_world[OFFS * i + 4] * rx + ijk_from_world[OFFS * i + 5] * ry +
+                    ijk_from_world[OFFS * i + 6] * rz + ijk_from_world[OFFS * i + 7] * 0;
+        rz_ijk[i] = ijk_from_world[OFFS * i + 8] * rx + ijk_from_world[OFFS * i + 9] * ry +
+                    ijk_from_world[OFFS * i + 10] * rz + ijk_from_world[OFFS * i + 11] * 0;
 
         // Get the number of times the ijk ray can fit between the source and
         // the entry/exit points of this volume in *this* IJK space.
@@ -291,7 +304,7 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
             do_trace[i] = 0;
             continue;
         }
-        do_return = 0;
+        // do_return = 0;
 
         // Now, this is valid, since "how many times the ray can fit in the
         // distance" is equivalent to the distance in world space, since [rx,
@@ -300,10 +313,11 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
         maxAlpha = fmax(maxAlpha, maxAlpha_vol[i]);
     }
 
-    // Means none of the volumes have do_trace = 1.
-    if (do_return) {
-        return;
-    }
+
+    // // Means none of the volumes have do_trace = 1. (remove for mesh rendering)
+    // if (do_return) {
+    //     return; 
+    // }
 
     // printf("global min, max alphas: %f, %f\n", minAlpha, maxAlpha);
 
@@ -311,11 +325,7 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
     int num_steps = ceil((maxAlpha - minAlpha) / step);
     // if (debug) printf("num_steps: %d\n", num_steps);
 
-    // initialize the projection-output to 0.
-    float area_density[NUM_MATERIALS];
-    for (int m = 0; m < NUM_MATERIALS; m++) {
-        area_density[m] = 0.0f;
-    }
+
 
     float px[NUM_VOLUMES]; // voxel-space point
     float py[NUM_VOLUMES];
@@ -467,6 +477,8 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
         }
         alpha += step;
     }
+
+#endif
 
     // Attenuate from the end of the volume to the detector.
     if (ATTENUATE_OUTSIDE_VOLUME) {
