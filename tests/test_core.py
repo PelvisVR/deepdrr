@@ -87,18 +87,7 @@ class TestSingleVolume:
         Image.fromarray(image_256).save(self.output_dir / name)
 
         if verify:
-            try: 
-                truth_img = np.array(Image.open(self.truth / name))
-            except FileNotFoundError:
-                print(f"Truth image not found: {self.truth / name}")
-                pytest.skip("Truth image not found")
-                # pytest.fail("Truth image not found")
-            diff_im = image_256.astype(np.float32) - truth_img.astype(np.float32)
-            from matplotlib import pyplot as plt
-            plt.imshow(diff_im, cmap="viridis")
-            plt.colorbar()
-            plt.savefig(self.output_dir / f"diff_{name}")
-
+            self.verify_image(name, image_256)
             # Image.fromarray(np.abs(image_256.astype(np.float32) - truth_img.astype(np.float32))).save(self.output_dir / f"diff_{name}")
 
 
@@ -114,12 +103,29 @@ class TestSingleVolume:
         #         if time.time() - start_time > 4:
         #             break
 
-        if verify:
-            assert np.allclose(image_256, truth_img, atol=1)
-            print(f"Test {name} passed")
+        # if verify:
+
 
 
         return image
+    
+    def verify_image(self, name, image_256):
+        try: 
+            truth_img = np.array(Image.open(self.truth / name))
+        except FileNotFoundError:
+            print(f"Truth image not found: {self.truth / name}")
+            pytest.skip("Truth image not found")
+            # pytest.fail("Truth image not found")
+        diff_im = image_256.astype(np.float32) - truth_img.astype(np.float32)
+        from matplotlib import pyplot as plt
+        plt.imshow(diff_im, cmap="viridis")
+        plt.colorbar()
+        plt.savefig(self.output_dir / f"diff_{name}")
+
+        assert np.allclose(image_256, truth_img, atol=1)
+        print(f"Test {name} passed")
+    
+
 
     def test_simple(self):
         volume = deepdrr.Volume.from_nrrd(self.file_path)
@@ -335,8 +341,9 @@ class TestSingleVolume:
         )
 
         images = []
+        images_raw = []
 
-        N = 100
+        N = 10
         with projector:
             for i in range(N):
                 z = geo.FrameTransform.from_translation([10*np.sin(-i/N*np.pi*2*2), 10*np.sin(-i/N*np.pi*2), 0])
@@ -350,7 +357,17 @@ class TestSingleVolume:
                 image = projector.project()
 
                 image_256 = (image * 255).astype(np.uint8)
+                images_raw.append(image_256)
                 images.append(Image.fromarray(image_256))
+
+        verify = True
+        num_compare = 10
+        compare_ims = images_raw[:num_compare]
+        for i, im in enumerate(compare_ims):
+            name = f"test_cube_{i}.png"
+            Image.fromarray(im).save(self.output_dir / name)
+            if verify:
+                self.verify_image(name, im)
 
         # Save the list of images as a GIF
         output_gif_path = self.output_dir/'output.gif'
@@ -548,9 +565,9 @@ if __name__ == "__main__":
     test = TestSingleVolume()
     # test.test_layer_depth()
     # test.test_mesh_only()
-    test.test_mesh()
+    # test.test_mesh()
     # test.gen_threads()
-    # test.test_cube()
+    test.test_cube()
     # volume = test.load_volume()
     # carm = deepdrr.MobileCArm(isocenter=volume.center_in_world)
     # test.project(volume, carm, "test.png")
