@@ -143,6 +143,16 @@ class TestSingleVolume:
 
         stl2 = pv.read("tests/resources/10cmcube.stl")
         stl2.scale([200, 200, 200], inplace=True)
+
+        # stl3_verts = np.array(stl2.points)
+        # stl3_verts[:, 0] *= 1
+        # stl3_verts[:, 1] *= 1
+        # stl3_verts[:, 2] *= 1
+        # stl3_faces = np.array(stl2.faces).reshape(-1, 4)
+        # stl3_faces = stl3_faces[:, [0, 2, 1, 3]]
+        # stl3_faces = stl3_faces.flatten()
+        # stl2 = pv.PolyData(stl3_verts, stl3_faces)
+
         # stl2.translate([0, 30, 0], inplace=True)
         stl = pv.read("tests/resources/solenoidasm.stl")
         stl.scale([400/1000]*3, inplace=True)
@@ -175,18 +185,18 @@ class TestSingleVolume:
 
         # prim2 = deepdrr.Primitive("titanium", 2, stl2, subtractive=True)
         prim2 = trimesh_to_pyrender_mesh(polydata_to_trimesh(stl2), material=DRRMaterial("lung", density=2, subtractive=True))
-        mesh2 = deepdrr.Mesh(mesh=prim2, world_from_anatomical=geo.FrameTransform.from_translation([30, 50, 200]))
+        mesh2 = deepdrr.Mesh(mesh=prim2, world_from_anatomical=geo.FrameTransform.from_translation([-30, 50, 200]))
 
         # prim3 = deepdrr.Primitive("titanium", 0, stl2, subtractive=True)
         prim3 = polydata_to_pyrender_mesh(stl2, material=DRRMaterial("titanium", density=0, subtractive=True))
-        mesh3 = deepdrr.Mesh(mesh=prim3, world_from_anatomical=geo.FrameTransform.from_translation([-30, 20, -70]))
+        mesh3 = deepdrr.Mesh(mesh=prim3, world_from_anatomical=geo.FrameTransform.from_translation([30, 20, -70]))
         # mesh = deepdrr.Mesh("polyethylene", 1.05, stl)
         # mesh.morph_weights = np.array([-10])
         
-        carm = deepdrr.MobileCArm(isocenter=volume.center_in_world, sensor_width=300*2, sensor_height=200*2, pixel_size=0.6/2)
+        carm = deepdrr.MobileCArm(isocenter=volume.center_in_world, sensor_width=300, sensor_height=200, pixel_size=0.6)
         # self.project([volume], carm, "test_mesh.png")
         # self.project([mesh, mesh2, mesh3], carm, "test_mesh.png")
-        self.project([volume, mesh, mesh2, mesh3], carm, "test_mesh.png", verify=False, num_mesh_layers=32)
+        self.project([volume, mesh, mesh2, mesh3], carm, "test_mesh.png", verify=True, num_mesh_layers=32)
         # self.project([volume, mesh, mesh2, mesh3], carm, "test_mesh.png", verify=False, num_mesh_layers=64)
 
     
@@ -245,7 +255,7 @@ class TestSingleVolume:
         carm = deepdrr.MobileCArm(isocenter=volume.center_in_world, sensor_width=300*2, sensor_height=200*2, pixel_size=0.6/2)
         # self.project([volume], carm, "test_mesh.png")
         # self.project([mesh, mesh2, mesh3], carm, "test_mesh.png")
-        self.project([mesh, mesh2, mesh3], carm, "test_mesh_only.png", verify=False, num_mesh_layers=32)
+        self.project([mesh, mesh2, mesh3], carm, "test_mesh_only.png", verify=True, num_mesh_layers=32)
         # self.project([volume, mesh, mesh2, mesh3], carm, "test_mesh.png", verify=False, num_mesh_layers=64)
 
     
@@ -264,6 +274,7 @@ class TestSingleVolume:
         volume = deepdrr.Volume(density_arr, {"titanium": titanium_arr}, anatomical_from_IJK=anatomical_from_IJK)
         # load 10cmcube.stl from resources folder
         # stl = pv.read("tests/resources/10cmrighttri.stl")
+        # stl3 = pv.read("tests/resources/10cmcube.stl")
         stl3 = pv.read("tests/resources/xyzfaces.stl")
         # stl3 = pv.read("tests/resources/threads.stl")
         stl3.scale([100, 100, 100], inplace=True)
@@ -272,15 +283,15 @@ class TestSingleVolume:
         stl3.rotate_y(30, inplace=True)
         stl3.rotate_z(30, inplace=True)
 
-        stl3_verts = np.array(stl3.points)
-        stl3_verts[:, 0] *= 1
-        stl3_verts[:, 1] *= 1
-        stl3_verts[:, 2] *= 1
-        stl3_faces = np.array(stl3.faces).reshape(-1, 4)
-        stl3_faces = stl3_faces[:, [0, 2, 1, 3]]
-        stl3_faces = stl3_faces.flatten()
+        # stl3_verts = np.array(stl3.points)
+        # stl3_verts[:, 0] *= 1
+        # stl3_verts[:, 1] *= 1
+        # stl3_verts[:, 2] *= 1
+        # stl3_faces = np.array(stl3.faces).reshape(-1, 4)
+        # stl3_faces = stl3_faces[:, [0, 2, 1, 3]]
+        # stl3_faces = stl3_faces.flatten()
 
-        stl3 = pv.PolyData(stl3_verts, stl3_faces)
+        # stl3 = pv.PolyData(stl3_verts, stl3_faces)
         # stl3.rotate_z(180, inplace=True)
 
 
@@ -290,23 +301,25 @@ class TestSingleVolume:
         mesh3 = deepdrr.Mesh(mesh=prim3, world_from_anatomical=meshtransform)
 
         # stl4 = pv.read("tests/resources/threads.stl")
-        stl4 = pv.read("tests/resources/xyzfaces.stl")
-        stl4.scale([100, 100, 100], inplace=True)
-        stl4.rotate_x(30, inplace=True)
-        stl4.rotate_y(30, inplace=True)
-        stl4.rotate_z(30, inplace=True)
+        # stl4 = pv.read("tests/resources/xyzfaces.stl")
+        # stl4.scale([100, 100, 100], inplace=True)
+        # stl4.rotate_x(30, inplace=True)
+        # stl4.rotate_y(30, inplace=True)
+        # stl4.rotate_z(30, inplace=True)
 
 
 
         # stl4.rotate_z(180, inplace=True)
 
-        mesh4 = deepdrr.Volume.from_meshes(voxel_size = 0.3, world_from_anatomical=meshtransform, surfaces=[("titanium", 7, stl4)])
+        mesh4 = deepdrr.Volume.from_meshes(voxel_size = 0.3, world_from_anatomical=meshtransform, surfaces=[("titanium", 7, stl3)])
         
         carm = deepdrr.SimpleDevice(sensor_width=400*4, sensor_height=400*4, pixel_size=2)
         # carm = deepdrr.SimpleDevice(sensor_width=200*4, sensor_height=400*4, pixel_size=0.02)
 
         projector = deepdrr.Projector(
             # volume=[volume, mesh4],
+            # volume=[mesh3],
+            # volume=[mesh4],
             volume=[mesh4, mesh3],
             # volume=[volume, mesh3],
             carm=carm,
@@ -534,8 +547,10 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)
     test = TestSingleVolume()
     # test.test_layer_depth()
-    test.test_mesh_only()
-    # test.test_mesh()
+    # test.test_mesh_only()
+    test.test_mesh()
+    # test.gen_threads()
+    # test.test_cube()
     # volume = test.load_volume()
     # carm = deepdrr.MobileCArm(isocenter=volume.center_in_world)
     # test.project(volume, carm, "test.png")
