@@ -152,7 +152,9 @@ class Renderer(object):
 
         # Clear it
         if drr_mode == DRRMode.DIST:
-            glClearColor(-zfar, -zfar, -zfar, -zfar)
+            clearval = -12345
+            # clearval = np.dtype_min(np.int32)
+            glClearColor(clearval,clearval,clearval,clearval)
         elif drr_mode == DRRMode.DENSITY:
             glClearColor(0, 0, 0, 0)
         elif drr_mode == DRRMode.SEG:
@@ -500,7 +502,7 @@ class Renderer(object):
                 glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
                 glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
                 glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-                glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGBA32F, self.viewport_width, self.viewport_height, 0, GL_RGBA, GL_FLOAT, None)
+                glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGBA32I, self.viewport_width, self.viewport_height, 0, GL_RGBA_INTEGER, GL_INT, None)
 
             for i in range(self.num_peel_passes):
                 glBindFramebuffer(GL_FRAMEBUFFER, self.g_peelFboIds[i])

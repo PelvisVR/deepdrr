@@ -834,7 +834,7 @@ class Projector(object):
 
             self.cam_node.matrix = np.array(proj.extrinsic.inv) @ deepdrr_to_opengl_cam
 
-            zfar = self.device.source_to_detector_distance * 2  # TODO (liam)
+            zfar = self.device.source_to_detector_distance
 
         self._render_mesh_additive(proj, zfar)
 
@@ -891,7 +891,7 @@ class Projector(object):
 
             pointer_into_hit_alphas = int(
                 int(self.mesh_hit_alphas_tex_gpu.data.ptr)
-                + tex_idx * total_pixels * 4 * NUMBYTES_FLOAT32
+                + tex_idx * total_pixels * 4 * NUMBYTES_INT32
             )
             gl_tex_to_gpu(
                 self.gl_renderer.subtractive_reg_ims[tex_idx],
@@ -905,6 +905,7 @@ class Projector(object):
             args=(
                 np.uint64(self.mesh_hit_alphas_tex_gpu.data.ptr),
                 np.uint64(self.mesh_hit_alphas_gpu.data.ptr),
+                np.float32(self.device.source_to_detector_distance),
                 np.int32(total_pixels),
             ),
             block=(256, 1, 1),  # TODO (liam)
@@ -916,7 +917,7 @@ class Projector(object):
                 np.uint64(self.mesh_hit_alphas_gpu.data.ptr),
                 np.uint64(self.mesh_hit_facing_gpu.data.ptr),
                 np.int32(total_pixels),
-                np.float32(self.device.source_to_detector_distance * 2),
+                np.float32(self.device.source_to_detector_distance),
             ),
             block=(32, 1, 1),  # TODO (liam)
             grid=(2048, 1),  # TODO (liam)
@@ -1234,7 +1235,7 @@ class Projector(object):
             (total_pixels, self.num_mesh_layers), dtype=np.float32
         )
         self.mesh_hit_alphas_tex_gpu = cp.zeros(
-            (total_pixels, self.num_mesh_layers), dtype=np.float32
+            (total_pixels, self.num_mesh_layers), dtype=np.int32
         )
         self.mesh_hit_facing_gpu = cp.zeros(
             (total_pixels, self.num_mesh_layers), dtype=np.int8
