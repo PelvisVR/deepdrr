@@ -409,4 +409,3 @@ material_coefficients = {
     "polyethylene": polyethylene,
     "concrete": concrete,
 }
-
