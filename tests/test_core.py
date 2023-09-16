@@ -202,7 +202,8 @@ class TestSingleVolume:
         carm = deepdrr.MobileCArm(isocenter=volume.center_in_world, sensor_width=300, sensor_height=200, pixel_size=0.6)
         # self.project([volume], carm, "test_mesh.png")
         # self.project([mesh, mesh2, mesh3], carm, "test_mesh.png")
-        self.project([volume, mesh, mesh2, mesh3], carm, "test_mesh.png", verify=True, num_mesh_layers=32)
+        self.project([volume, mesh, mesh2, mesh3], carm, "test_mesh.png", verify=True, num_mesh_layers=4)
+        # self.project([volume, mesh, mesh2, mesh3], carm, "test_mesh.png", verify=True, num_mesh_layers=32)
         # self.project([volume, mesh, mesh2, mesh3], carm, "test_mesh.png", verify=False, num_mesh_layers=64)
 
     
@@ -565,9 +566,9 @@ if __name__ == "__main__":
     test = TestSingleVolume()
     # test.test_layer_depth()
     # test.test_mesh_only()
-    # test.test_mesh()
+    test.test_mesh()
     # test.gen_threads()
-    test.test_cube()
+    # test.test_cube()
     # volume = test.load_volume()
     # carm = deepdrr.MobileCArm(isocenter=volume.center_in_world)
     # test.project(volume, carm, "test.png")

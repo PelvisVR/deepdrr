@@ -1,6 +1,11 @@
 #include <stdint.h>
 
 extern "C" {
+
+    
+// #define INT_MAX 2147483647
+// #define INT_MIN -2147483648
+
 // Function to fix odd ray intersections.
 
 // Method:
@@ -171,19 +176,21 @@ __global__ void kernelTide(float *__restrict__ rayInterceptTs, int8_t *__restric
     }
 }
 
-__device__ void reorder(float *__restrict__ rayInterceptTsIn, float *__restrict__ rayInterceptTsOut, int numRays,
+__device__ void reorder(uint32_t *__restrict__ rayInterceptTsIn, float *__restrict__ rayInterceptTsOut, float sourceToDetectorDistance, int numRays,
                         int rayIdx) {
     int num_layers = 4;
     for (int i = 0; i < NUM_INTERSECTIONS / num_layers; i++) {
         for (int j = 0; j < num_layers; j++) {
             // rayInterceptTsOut[rayIdx * NUM_INTERSECTIONS + i] = rayInterceptTsIn[rayIdx * NUM_INTERSECTIONS + i];
-            rayInterceptTsOut[rayIdx * NUM_INTERSECTIONS + i * num_layers + j] =
-                rayInterceptTsIn[i * numRays * num_layers + rayIdx * num_layers + j];
+            float fdsdsfsa = (float) rayInterceptTsIn[i * numRays * num_layers + rayIdx * num_layers + j];
+            float normalized = fdsdsfsa/4294967295.0f;
+
+            rayInterceptTsOut[rayIdx * NUM_INTERSECTIONS + i * num_layers + j] = (normalized - 0.5f) * 2.0f * sourceToDetectorDistance;
         }
     }
 }
 
-__global__ void kernelReorder(float *__restrict__ rayInterceptTsIn, float *__restrict__ rayInterceptTsOut,
+__global__ void kernelReorder(uint32_t *__restrict__ rayInterceptTsIn, float *__restrict__ rayInterceptTsOut, float sourceToDetectorDistance,
                               int numRays) {
     __shared__ int stride;
     if (threadIdx.x == 0) {
@@ -195,7 +202,7 @@ __global__ void kernelReorder(float *__restrict__ rayInterceptTsIn, float *__res
 
     for (int idx = threadStartIdx; idx < numRays; idx += stride) {
         if (idx < numRays) {
-            reorder(rayInterceptTsIn, rayInterceptTsOut, numRays, idx);
+            reorder(rayInterceptTsIn, rayInterceptTsOut, sourceToDetectorDistance, numRays, idx);
         }
     }
 }
