@@ -152,20 +152,15 @@ class Renderer(object):
 
         # Clear it
         if drr_mode == DRRMode.DIST:
-            # clearval = 1
-            # clearval = -12345
-            # clearval = np.dtype_min(np.int32)
-            # glClearColor(clearval,clearval,clearval,clearval)
-            glClearBufferuiv(GL_COLOR, 0, 0)
-        else:
-            if drr_mode == DRRMode.DENSITY:
-                glClearColor(0, 0, 0, 0)
-            elif drr_mode == DRRMode.SEG:
-                glClearColor(0.0, 0.0, 0.0, 1.0)
-                if seg_node_map is None:
-                    seg_node_map = {}
+            glClearColor(-zfar, -zfar, -zfar, -zfar)
+        elif drr_mode == DRRMode.DENSITY:
+            glClearColor(0, 0, 0, 0)
+        elif drr_mode == DRRMode.SEG:
+            glClearColor(0.0, 0.0, 0.0, 1.0)
+            if seg_node_map is None:
+                seg_node_map = {}
 
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glDisable(GL_MULTISAMPLE)
 
         # Set up camera matrices
@@ -257,8 +252,7 @@ class Renderer(object):
 
             program.set_uniform('MaxDepth', float(zfar))
 
-            glDisable(GL_BLEND)
-            # glEnable(GL_BLEND)
+            glEnable(GL_BLEND)
             glBlendEquation(GL_MAX)
             glBlendFunc(GL_ONE, GL_ONE)
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
@@ -506,7 +500,7 @@ class Renderer(object):
                 glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
                 glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
                 glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-                glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGBA32UI, self.viewport_width, self.viewport_height, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT, None)
+                glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGBA32F, self.viewport_width, self.viewport_height, 0, GL_RGBA, GL_FLOAT, None)
 
             for i in range(self.num_peel_passes):
                 glBindFramebuffer(GL_FRAMEBUFFER, self.g_peelFboIds[i])
