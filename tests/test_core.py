@@ -191,7 +191,7 @@ class TestSingleVolume:
 
         # prim2 = deepdrr.Primitive("titanium", 2, stl2, subtractive=True)
         prim2 = trimesh_to_pyrender_mesh(polydata_to_trimesh(stl2), material=DRRMaterial("lung", density=2, subtractive=True))
-        mesh2 = deepdrr.Mesh(mesh=prim2, world_from_anatomical=geo.FrameTransform.from_translation([-30, 50, 200]))
+        mesh2 = deepdrr.Mesh(mesh=prim2, world_from_anatomical=geo.FrameTransform.from_translation([20, 50, 200]))
 
         # prim3 = deepdrr.Primitive("titanium", 0, stl2, subtractive=True)
         prim3 = polydata_to_pyrender_mesh(stl2, material=DRRMaterial("titanium", density=0, subtractive=True))
@@ -565,9 +565,9 @@ if __name__ == "__main__":
     test = TestSingleVolume()
     # test.test_layer_depth()
     # test.test_mesh_only()
-    # test.test_mesh()
+    test.test_mesh()
     # test.gen_threads()
-    test.test_cube()
+    # test.test_cube()
     # volume = test.load_volume()
     # carm = deepdrr.MobileCArm(isocenter=volume.center_in_world)
     # test.project(volume, carm, "test.png")
