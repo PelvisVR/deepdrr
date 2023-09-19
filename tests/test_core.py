@@ -118,6 +118,7 @@ class TestSingleVolume:
             # pytest.fail("Truth image not found")
         diff_im = image_256.astype(np.float32) - truth_img.astype(np.float32)
         from matplotlib import pyplot as plt
+        plt.figure()
         plt.imshow(diff_im, cmap="viridis")
         plt.colorbar()
         plt.savefig(self.output_dir / f"diff_{name}")
@@ -191,7 +192,7 @@ class TestSingleVolume:
 
         # prim2 = deepdrr.Primitive("titanium", 2, stl2, subtractive=True)
         prim2 = trimesh_to_pyrender_mesh(polydata_to_trimesh(stl2), material=DRRMaterial("lung", density=2, subtractive=True))
-        mesh2 = deepdrr.Mesh(mesh=prim2, world_from_anatomical=geo.FrameTransform.from_translation([20, 50, 200]))
+        mesh2 = deepdrr.Mesh(mesh=prim2, world_from_anatomical=geo.FrameTransform.from_translation([-30, 50, 200]))
 
         # prim3 = deepdrr.Primitive("titanium", 0, stl2, subtractive=True)
         prim3 = polydata_to_pyrender_mesh(stl2, material=DRRMaterial("titanium", density=0, subtractive=True))
@@ -345,20 +346,22 @@ class TestSingleVolume:
 
         N = 10
         with projector:
-            for i in range(N):
-                z = geo.FrameTransform.from_translation([10*np.sin(-i/N*np.pi*2*2), 10*np.sin(-i/N*np.pi*2), 0])
-                a = geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", -i/N*np.pi*2))
-                b = geo.FrameTransform.from_rotation(geo.Rotation.from_euler("y", -i/N*np.pi*2))
-                c = geo.FrameTransform.from_translation([0, 0, -30])
-                # c = geo.FrameTransform.from_translation([0, 0, -10])
-                new = z @ a @ b @ c
-                carm._device_from_camera3d = new
+            # for i in range(N):
+            i = 3
+            z = geo.FrameTransform.from_translation([10*np.sin(-i/N*np.pi*2*2), 10*np.sin(-i/N*np.pi*2), 0])
+            a = geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", -i/N*np.pi*2))
+            b = geo.FrameTransform.from_rotation(geo.Rotation.from_euler("y", -i/N*np.pi*2))
+            c = geo.FrameTransform.from_translation([0, 0, -30])
+            # c = geo.FrameTransform.from_translation([0, 0, -10])
+            new = z @ a @ b @ c
+            carm._device_from_camera3d = new
 
-                image = projector.project()
+            image = projector.project()
 
-                image_256 = (image * 255).astype(np.uint8)
-                images_raw.append(image_256)
-                images.append(Image.fromarray(image_256))
+            image_256 = (image * 255).astype(np.uint8)
+            images_raw.append(image_256)
+            images.append(Image.fromarray(image_256))
+            return
 
         verify = True
         num_compare = 10
@@ -565,9 +568,9 @@ if __name__ == "__main__":
     test = TestSingleVolume()
     # test.test_layer_depth()
     # test.test_mesh_only()
-    test.test_mesh()
+    # test.test_mesh()
     # test.gen_threads()
-    # test.test_cube()
+    test.test_cube()
     # volume = test.load_volume()
     # carm = deepdrr.MobileCArm(isocenter=volume.center_in_world)
     # test.project(volume, carm, "test.png")
