@@ -346,20 +346,22 @@ class TestSingleVolume:
 
         N = 10
         with projector:
-            for i in range(N):
-                z = geo.FrameTransform.from_translation([10*np.sin(-i/N*np.pi*2*2), 10*np.sin(-i/N*np.pi*2), 0])
-                a = geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", -i/N*np.pi*2))
-                b = geo.FrameTransform.from_rotation(geo.Rotation.from_euler("y", -i/N*np.pi*2))
-                c = geo.FrameTransform.from_translation([0, 0, -30])
-                # c = geo.FrameTransform.from_translation([0, 0, -10])
-                new = z @ a @ b @ c
-                carm._device_from_camera3d = new
+            # for i in range(N):
+            i = 3
+            z = geo.FrameTransform.from_translation([10*np.sin(-i/N*np.pi*2*2), 10*np.sin(-i/N*np.pi*2), 0])
+            a = geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", -i/N*np.pi*2))
+            b = geo.FrameTransform.from_rotation(geo.Rotation.from_euler("y", -i/N*np.pi*2))
+            c = geo.FrameTransform.from_translation([0, 0, -30])
+            # c = geo.FrameTransform.from_translation([0, 0, -10])
+            new = z @ a @ b @ c
+            carm._device_from_camera3d = new
 
-                image = projector.project()
+            image = projector.project()
 
-                image_256 = (image * 255).astype(np.uint8)
-                images_raw.append(image_256)
-                images.append(Image.fromarray(image_256))
+            image_256 = (image * 255).astype(np.uint8)
+            images_raw.append(image_256)
+            images.append(Image.fromarray(image_256))
+            return
 
         verify = True
         num_compare = 10

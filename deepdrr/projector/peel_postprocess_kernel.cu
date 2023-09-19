@@ -16,23 +16,22 @@ __device__ void tide(float *interceptTs, int8_t *interceptFacing, int rayIdx, fl
         // for (int i = 0; i < NUM_INTERSECTIONS; i++) { // TODO
         //     interceptFacing[i] = i < NUM_INTERSECTIONS / 2 ? 1 : -1;
         // }
-        for (int i = 0; i < NUM_INTERSECTIONS; i += 2) {
-            interceptFacing[i] = -1;
+        for (int i = 0; i < NUM_INTERSECTIONS; i += 4) {
+            interceptFacing[i] = 1;
             interceptFacing[i + 1] = 1;
-            // interceptFacing[i + 2] = -1;
-            // interceptFacing[i + 3] = -1;
-            // interceptTs[i] = interceptTs[i];
-            // interceptTs[i + 1] = interceptTs[i + 1];
-            // interceptTs[i + 2] = -interceptTs[i + 2];
-            // interceptTs[i + 3] = interceptTs[i + 3];
+            interceptFacing[i + 2] = -1;
+            interceptFacing[i + 3] = -1;
+            interceptTs[i] = -interceptTs[i];
+            interceptTs[i + 1] = interceptTs[i + 1];
+            interceptTs[i + 2] = -interceptTs[i + 2];
+            interceptTs[i + 3] = interceptTs[i + 3];
         }
     }
 
     {
-        float cutoffEpsilon = 0.001;
+        float cutoffEpsilon = 0.00001;
         for (int i = 0; i < NUM_INTERSECTIONS; i++) {
-            if (interceptTs[i] <= cutoffEpsilon || interceptTs[i] >= sourceToDetectorDistance - cutoffEpsilon) {
-                // interceptTs[i] = 0;
+            if (interceptTs[i] < cutoffEpsilon || interceptTs[i] > sourceToDetectorDistance - 0.001) {
                 interceptTs[i] = INFINITY;
                 interceptFacing[i] = 0;
             }
@@ -102,7 +101,6 @@ __device__ void tide(float *interceptTs, int8_t *interceptFacing, int rayIdx, fl
             dstIdx++;
         }
     }
-
 
     {
 

@@ -153,12 +153,11 @@ class Renderer(object):
 
         # Clear it
         if drr_mode == DRRMode.DIST:
+            glClearColor(0,0,0,0)
             # glClearColor(-zfar, -zfar, -zfar, -zfar)
             if peelnum % 2 == 0:
-                glClearColor(0,zfar,0,0)
                 glClearDepth(1.0)
             else:
-                glClearColor(0,0,0,0)
                 glClearDepth(0.0)
         elif drr_mode == DRRMode.DENSITY:
             glClearColor(0, 0, 0, 0)
@@ -266,10 +265,10 @@ class Renderer(object):
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
             # glDisable(GL_CULL_FACE)
             glEnable(GL_CULL_FACE)
-            if peelnum % 2 == 0:
-                glCullFace(GL_BACK)
-            else:
-                glCullFace(GL_FRONT)
+            # if peelnum % 2 == 0:
+            #     glCullFace(GL_FRONT)
+            # else:
+            glCullFace(GL_BACK)
         elif drr_mode == DRRMode.DENSITY:
             density = material.density
             assert density is not None, "Density must be set for DRRMode.DENSITY"
@@ -492,10 +491,8 @@ class Renderer(object):
             glDepthMask(GL_TRUE)
 
             if peelnum % 2 == 0:
-                # glDepthFunc(GL_LESS)
                 glDepthFunc(GL_LEQUAL)
             else:
-                # glDepthFunc(GL_GREATER)
                 glDepthFunc(GL_GEQUAL)
 
             # glDepthFunc(GL_ALWAYS)

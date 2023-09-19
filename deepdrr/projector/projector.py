@@ -916,6 +916,8 @@ class Projector(object):
             # )
         self.cupy_device.synchronize()  # TODO for debug only
 
+        np.save("self.mesh_hit_alphas_tex_gpu", self.mesh_hit_alphas_tex_gpu.get())
+
         self.kernel_reorder(
             args=(
                 np.uint64(self.mesh_hit_alphas_tex_gpu.data.ptr),
@@ -927,6 +929,9 @@ class Projector(object):
             grid=(128, 1),  # TODO (liam)
         )
         self.cupy_device.synchronize()  # TODO for debug only
+
+        np.save("self.mesh_hit_alphas_gpu", self.mesh_hit_alphas_gpu.get())
+
 
 
         self.kernel_tide(
@@ -940,8 +945,6 @@ class Projector(object):
             block=(32, 1, 1),  # TODO (liam)
             grid=(2048, 1),  # TODO (liam)
         )
-        np.save("self.mesh_hit_alphas_gpu", self.mesh_hit_alphas_gpu.get())
-
 
     def project_over_carm_range(
         self,
