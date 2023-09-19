@@ -121,10 +121,6 @@ __device__ void tide(float *interceptTs, int8_t *interceptFacing, int rayIdx, fl
                 interceptTs[i] = INFINITY;
                 interceptFacing[i] = 0;
             }
-            if (currentAltitude > 1 || prevAltitide > 1) { // we don't care about depth > 1
-                interceptTs[i] = INFINITY;
-                interceptFacing[i] = 0;
-            }
             prevAltitide = currentAltitude;
         }
     }
@@ -203,34 +199,4 @@ __global__ void kernelReorder(float *__restrict__ rayInterceptTsIn, float *__res
         }
     }
 }
-
-__device__ void reorder2(float *__restrict__ rayInterceptTsIn, float *__restrict__ rayInterceptTsOut, int numRays,
-                        int rayIdx) {
-    int num_layers = 2;
-    for (int i = 0; i < NUM_INTERSECTIONS / num_layers; i++) {
-        for (int j = 0; j < num_layers; j++) {
-            // rayInterceptTsOut[rayIdx * NUM_INTERSECTIONS + i] = rayInterceptTsIn[rayIdx * NUM_INTERSECTIONS + i];
-            rayInterceptTsOut[i * numRays * num_layers + rayIdx * num_layers + j] =
-                rayInterceptTsIn[rayIdx * NUM_INTERSECTIONS + i * num_layers + j];
-        }
-    }
-}
-
-__global__ void kernelReorder2(float *__restrict__ rayInterceptTsIn, float *__restrict__ rayInterceptTsOut,
-                              int numRays) {
-    __shared__ int stride;
-    if (threadIdx.x == 0) {
-        stride = gridDim.x * blockDim.x;
-    }
-    __syncthreads();
-
-    int threadStartIdx = blockIdx.x * blockDim.x + threadIdx.x;
-
-    for (int idx = threadStartIdx; idx < numRays; idx += stride) {
-        if (idx < numRays) {
-            reorder2(rayInterceptTsIn, rayInterceptTsOut, numRays, idx);
-        }
-    }
-}
-
 }

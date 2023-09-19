@@ -12,7 +12,6 @@ class DRRMode:
     DENSITY = 1
     DIST = 2
     SEG = 3
-    MESH_SUB = 4
 
 GL_COLOR_ATTACHMENT_LIST = [
     GL_COLOR_ATTACHMENT0,
@@ -104,14 +103,14 @@ class Renderer(object):
     def point_size(self, value):
         self._point_size = float(value)
 
-    def render(self, scene, flags, seg_node_map=None, drr_mode=DRRMode.NONE, zfar=0, mat=None, layer_id=None):
+    def render(self, scene, flags, seg_node_map=None, drr_mode=DRRMode.NONE, zfar=0, mat=None):
         self._update_context(scene, flags)
 
         if drr_mode != DRRMode.DENSITY:
             for i in range(self.num_peel_passes):
                 retval = self._forward_pass(scene, flags, seg_node_map=seg_node_map, drr_mode=drr_mode, zfar=zfar, peelnum=i)
         else:
-            retval = self._forward_pass(scene, flags, seg_node_map=seg_node_map, drr_mode=drr_mode, zfar=zfar, peelnum=0, mat=mat, layer_id=layer_id)
+            retval = self._forward_pass(scene, flags, seg_node_map=seg_node_map, drr_mode=drr_mode, zfar=zfar, peelnum=0, mat=mat)
 
         return retval
 
@@ -147,7 +146,7 @@ class Renderer(object):
     # Rendering passes
     ###########################################################################
 
-    def _forward_pass(self, scene, flags, seg_node_map=None, drr_mode=DRRMode.NONE, zfar=0, peelnum=0, mat=None, layer_id=None):
+    def _forward_pass(self, scene, flags, seg_node_map=None, drr_mode=DRRMode.NONE, zfar=0, peelnum=0, mat=None):
         # Set up viewport for render
         self._configure_forward_pass_viewport(flags, drr_mode=drr_mode, peelnum=peelnum)
 
@@ -195,8 +194,6 @@ class Renderer(object):
                 if drr_mode == DRRMode.DIST and not primitive.material.subtractive:
                     continue
                 if mat is not None and primitive.material.drrMatName != mat:
-                    continue
-                if layer_id is not None and primitive.material.layer != layer_id:
                     continue
 
                 # First, get and bind the appropriate program
@@ -509,21 +506,6 @@ class Renderer(object):
                 glBindFramebuffer(GL_FRAMEBUFFER, self.g_peelFboIds[i])
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT_LIST[0], GL_TEXTURE_RECTANGLE, self.g_peelTexId[i], 0)
 
-            self.g_peelTexSubId = listify(glGenTextures(self.num_peel_passes*2))
-            self.g_peelFboSubIds = listify(glGenFramebuffers(self.num_peel_passes*2))
-
-            for i in range(self.num_peel_passes*2):
-                glBindTexture(GL_TEXTURE_RECTANGLE, self.g_peelTexSubId[i])
-                glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
-                glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
-                glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
-                glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-                glTexImage2D(GL_TEXTURE_RECTANGLE, 0, RG32F, self.viewport_width, self.viewport_height, 0, GL_RG, GL_FLOAT, None)
-
-            for i in range(self.num_peel_passes*2):
-                glBindFramebuffer(GL_FRAMEBUFFER, self.g_peelFboSubIds[i])
-                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT_LIST[0], GL_TEXTURE_RECTANGLE, self.g_peelTexSubId[i], 0)
-
             self.g_densityTexId = glGenTextures(1)
             self.g_densityFboId = glGenFramebuffers(1)
 
@@ -549,17 +531,6 @@ class Renderer(object):
                     )
                 )
                 self.subtractive_reg_ims.append(reg_img)
-
-            self.mesh_sub_reg_ims = []
-            for tex_idx in range(self.num_peel_passes*2):
-                reg_img = check_cudart_err(
-                    cudart.cudaGraphicsGLRegisterImage(
-                        int(self.g_peelTexSubId[tex_idx]),
-                        GL_TEXTURE_RECTANGLE,
-                        cudart.cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsWriteDiscard,
-                    )
-                )
-                self.mesh_sub_reg_ims.append(reg_img)
             
             self.additive_reg_im = check_cudart_err(
                 cudart.cudaGraphicsGLRegisterImage(
