@@ -95,6 +95,28 @@ def gl_tex_to_gpu(reg_img, dst_ptr, width, height, num_channels):
     )
     check_cudart_err(cudart.cudaGraphicsUnmapResources(1, reg_img, None))
 
+@time_range()
+def gl_gpu_to_tex(reg_img, src_ptr, width, height, num_channels):
+    check_cudart_err(cudart.cudaGraphicsMapResources(1, reg_img, None))
+
+    cuda_array = check_cudart_err(
+        cudart.cudaGraphicsSubResourceGetMappedArray(reg_img, 0, 0)
+    )
+
+    check_cudart_err(
+        cudart.cudaMemcpy2DToArray(
+            dst=cuda_array,
+            wOffset=0,
+            hOffset=0,
+            src=src_ptr,
+            spitch=int(width * num_channels * NUMBYTES_FLOAT32),
+            width=int(width * num_channels * NUMBYTES_FLOAT32),
+            height=int(height),
+            kind=cudart.cudaMemcpyKind.cudaMemcpyDeviceToDevice,
+        )
+    )
+    check_cudart_err(cudart.cudaGraphicsUnmapResources(1, reg_img, None))
+
 
 def create_cuda_texture(
     array,
@@ -397,6 +419,7 @@ class Projector(object):
         source_to_detector_distance: float = -1,
         carm: Optional[Device] = None,
         num_mesh_layers=32,
+        num_mesh_mesh_layers=2,
         cuda_device_id=None,
     ) -> None:
         """Create the projector, which has info for simulating the DRR.
@@ -435,6 +458,8 @@ class Projector(object):
         self._egl_platform = None
 
         self.cuda_device_id = cuda_device_id
+
+        self.num_mesh_mesh_layers = num_mesh_mesh_layers
 
         # set variables
         volume = utils.listify(volume)
@@ -702,6 +727,7 @@ class Projector(object):
                 np.uint64(self.additive_densities_gpu.data.ptr),
                 np.uint64(self.prim_unique_materials_gpu.data.ptr),
                 np.int32(len(self.prim_unique_materials)),
+                np.int32(self.num_mesh_mesh_layers),
                 # np.int32(self.num_mesh_layers),
             ]
 
@@ -811,6 +837,10 @@ class Projector(object):
 
     @time_range()
     def _render_mesh(self, proj: geo.CameraProjection) -> None:
+        width = proj.intrinsic.sensor_width
+        height = proj.intrinsic.sensor_height
+        total_pixels = width * height
+
         with time_range("set_mesh_poses"):
             for mesh_id, mesh in enumerate(self.meshes):
                 self.mesh_nodes[mesh_id].matrix = mesh.world_from_ijk
@@ -838,8 +868,57 @@ class Projector(object):
 
         self._render_mesh_additive(proj, zfar)
 
-        if self.mesh_subtractive_enabled:
-            self._render_mesh_subtractive(proj, zfar)
+        # if self.mesh_subtractive_enabled:
+        #     self._render_mesh_subtractive(proj, zfar)
+
+        # # TODO: reorder
+        
+
+        # # TODO: verify alphas
+        # for tex_idx in range(self.num_mesh_layers // 2):
+        #     # transfer self.mesh_hit_alphas_gpu to gl textures
+        #     pointer_into_mesh_hit_alphas_tex_gpu = int(
+        #         int(self.mesh_hit_alphas_tex_gpu.data.ptr)
+        #         + tex_idx * total_pixels * 2 * NUMBYTES_FLOAT32
+        #     )
+        #     gl_gpu_to_tex(
+        #         self.gl_renderer.mesh_sub_reg_ims[tex_idx],
+        #         pointer_into_mesh_hit_alphas_tex_gpu,
+        #         width,
+        #         height,
+        #         2,
+        #     )
+            
+        #     for mat_idx, mat in enumerate(self.prim_unique_materials):
+        #         with time_range("mesh_mesh_sub_render"):
+        #             self.gl_renderer.render(
+        #                 self.scene,
+        #                 drr_mode=DRRMode.MESH_SUB,
+        #                 flags=RenderFlags.RGBA,
+        #                 zfar=zfar,
+        #                 mat=mat,
+        #                 layer_id=tex_idx,
+        #             )
+        #         # render onto existing texture
+
+        # # transfer all the additive
+        # for layer_id in range(self.num_mesh_mesh_layers):
+        #     for mat_idx, mat in enumerate(self.prim_unique_materials):
+        #         pointer_into_additive_densities = (
+        #             int(self.additive_densities_gpu.data.ptr) 
+        #             + layer_id * len(self.prim_unique_materials) * total_pixels * 2 * NUMBYTES_FLOAT32
+        #             + mat_idx * total_pixels * 2 * NUMBYTES_FLOAT32
+        #         )
+
+        #         gl_tex_to_gpu(
+        #             self.gl_renderer.additive_reg_ims[layer_id],
+        #             pointer_into_additive_densities,
+        #             width,
+        #             height,
+        #             2,
+        #         )
+        
+
 
     @time_range()
     def _render_mesh_additive(self, proj: geo.CameraProjection, zfar: float) -> None:
@@ -847,30 +926,35 @@ class Projector(object):
         height = proj.intrinsic.sensor_height
         total_pixels = width * height
 
-        for mat_idx, mat in enumerate(self.prim_unique_materials):
-            with time_range("additive_render"):
-                self.gl_renderer.render(
-                    self.scene,
-                    drr_mode=DRRMode.DENSITY,
-                    flags=RenderFlags.RGBA,
-                    zfar=zfar,
-                    mat=mat,
+        for layer_id in range(self.num_mesh_mesh_layers):
+            for mat_idx, mat in enumerate(self.prim_unique_materials):
+                with time_range("additive_render"):
+                    self.gl_renderer.render(
+                        self.scene,
+                        drr_mode=DRRMode.DENSITY,
+                        flags=RenderFlags.RGBA,
+                        zfar=zfar,
+                        mat=mat,
+                        mat_idx=mat_idx,
+                        layer_id=layer_id,
+                    )
+
+                # TODO: need gl synchronization here?
+
+                pointer_into_additive_densities = ( 
+                    int(self.additive_densities_gpu.data.ptr) 
+                    + layer_id * len(self.prim_unique_materials) * total_pixels * 2 * NUMBYTES_FLOAT32
+                    + mat_idx * total_pixels * 2 * NUMBYTES_FLOAT32
                 )
 
-            # TODO: need gl synchronization here?
-
-            pointer_into_additive_densities = (
-                int(self.additive_densities_gpu.data.ptr)
-                + mat_idx * total_pixels * 2 * NUMBYTES_FLOAT32
-            )
-
-            gl_tex_to_gpu(
-                self.gl_renderer.additive_reg_im,
-                pointer_into_additive_densities,
-                width,
-                height,
-                2,
-            )
+                gl_tex_to_gpu( # TODO: this transfer isn't necessary
+                    # self.gl_renderer.additive_reg_im,
+                    self.gl_renderer.additive_reg_ims[layer_id * len(self.prim_unique_materials) + mat_idx],
+                    pointer_into_additive_densities,
+                    width,
+                    height,
+                    2,
+                )
 
     @time_range()
     def _render_mesh_subtractive(self, proj: geo.CameraProjection, zfar: float) -> None:
@@ -920,6 +1004,16 @@ class Projector(object):
             ),
             block=(32, 1, 1),  # TODO (liam)
             grid=(2048, 1),  # TODO (liam)
+        )
+
+        self.kernel_reorder2(
+            args=(
+                np.uint64(self.mesh_hit_alphas_gpu.data.ptr),
+                np.uint64(self.mesh_hit_alphas_tex_gpu.data.ptr),
+                np.int32(total_pixels),
+            ),
+            block=(256, 1, 1),  # TODO (liam)
+            grid=(128, 1),  # TODO (liam)
         )
 
     def project_over_carm_range(
@@ -1056,6 +1150,7 @@ class Projector(object):
         )
         self.kernel_tide = self.peel_postprocess_mod.get_function("kernelTide")
         self.kernel_reorder = self.peel_postprocess_mod.get_function("kernelReorder")
+        self.kernel_reorder2 = self.peel_postprocess_mod.get_function("kernelReorder2")
 
         self.volumes_texobs = []
         self.volumes_texarrs = []
@@ -1135,11 +1230,13 @@ class Projector(object):
             viewport_width=width,
             viewport_height=height,
             num_peel_passes=self.num_mesh_layers // 4,
+            num_mesh_mesh_layers=self.num_mesh_layers,
+            prim_unqiue_materials=len(self.prim_unique_materials),
         )
         self.gl_renderer = self._renderer
 
         self.additive_densities_gpu = cp.zeros(
-            len(self.prim_unique_materials) * total_pixels * 2, dtype=np.float32
+            self.num_mesh_mesh_layers * len(self.prim_unique_materials) * total_pixels * 2, dtype=np.float32
         )
 
         # allocate volumes' priority level on the GPU
