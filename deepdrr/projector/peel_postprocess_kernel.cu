@@ -171,22 +171,19 @@ __global__ void kernelTide(float *__restrict__ rayInterceptTs, int8_t *__restric
     }
 }
 
-__device__ void reorder(int *__restrict__ rayInterceptTsIn, float *__restrict__ rayInterceptTsOut, int *__restrict__ rayInterceptIdsOut, int numRays,
+__device__ void reorder(float *__restrict__ rayInterceptTsIn, float *__restrict__ rayInterceptTsOut, int numRays,
                         int rayIdx) {
-    int num_layers = 1;
-    int inChannels = 2;
+    int num_layers = 4;
     for (int i = 0; i < NUM_INTERSECTIONS / num_layers; i++) {
         for (int j = 0; j < num_layers; j++) {
             // rayInterceptTsOut[rayIdx * NUM_INTERSECTIONS + i] = rayInterceptTsIn[rayIdx * NUM_INTERSECTIONS + i];
-            rayInterceptIdsOut[rayIdx * NUM_INTERSECTIONS + i * num_layers + j] = 
-                rayInterceptTsIn[i * numRays * num_layers * inChannels + rayIdx * num_layers*inChannels + j];
             rayInterceptTsOut[rayIdx * NUM_INTERSECTIONS + i * num_layers + j] =
-                *(float *)&rayInterceptTsIn[i * numRays * num_layers * inChannels + rayIdx * num_layers*inChannels + j+1];
+                rayInterceptTsIn[i * numRays * num_layers + rayIdx * num_layers + j];
         }
     }
 }
 
-__global__ void kernelReorder(int *__restrict__ rayInterceptTsIn, float *__restrict__ rayInterceptTsOut, int *__restrict__ rayInterceptIdsOut,
+__global__ void kernelReorder(float *__restrict__ rayInterceptTsIn, float *__restrict__ rayInterceptTsOut,
                               int numRays) {
     __shared__ int stride;
     if (threadIdx.x == 0) {
@@ -198,7 +195,7 @@ __global__ void kernelReorder(int *__restrict__ rayInterceptTsIn, float *__restr
 
     for (int idx = threadStartIdx; idx < numRays; idx += stride) {
         if (idx < numRays) {
-            reorder(rayInterceptTsIn, rayInterceptTsOut, rayInterceptIdsOut, numRays, idx);
+            reorder(rayInterceptTsIn, rayInterceptTsOut, numRays, idx);
         }
     }
 }

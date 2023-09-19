@@ -878,8 +878,6 @@ class Projector(object):
         height = proj.intrinsic.sensor_height
         total_pixels = width * height
 
-        self.cupy_device.synchronize()  # TODO for debug only
-
         with time_range("subtractive_render"):
             self.gl_renderer.render(
                 self.scene,
@@ -888,55 +886,33 @@ class Projector(object):
                 zfar=zfar,
             )
 
-        for tex_idx in range(self.gl_renderer.num_peel_passes*2):
+        for tex_idx in range(self.gl_renderer.num_peel_passes):
             # TODO: need gl synchronization here?
 
             pointer_into_hit_alphas = int(
                 int(self.mesh_hit_alphas_tex_gpu.data.ptr)
-                + tex_idx * total_pixels * 2 * NUMBYTES_FLOAT32
+                + tex_idx * total_pixels * 4 * NUMBYTES_FLOAT32
             )
             gl_tex_to_gpu(
                 self.gl_renderer.subtractive_reg_ims[tex_idx],
                 pointer_into_hit_alphas,
                 width,
                 height,
-                2,
+                4,
             )
-
-            # pointer_into_hit_alphas_id = int(
-            #     int(self.mesh_hit_alphas_id_tex_gpu.data.ptr)
-            #     + tex_idx * total_pixels * 1 * NUMBYTES_INT32
-            # )
-            # gl_tex_to_gpu(
-            #     self.gl_renderer.subtractive_reg_id_ims[tex_idx],
-            #     pointer_into_hit_alphas_id,
-            #     width,
-            #     height,
-            #     1,
-            # )
-        self.cupy_device.synchronize()  # TODO for debug only
-
-        np.save("self.mesh_hit_alphas_tex_gpu", self.mesh_hit_alphas_tex_gpu.get())
 
         self.kernel_reorder(
             args=(
                 np.uint64(self.mesh_hit_alphas_tex_gpu.data.ptr),
                 np.uint64(self.mesh_hit_alphas_gpu.data.ptr),
-                np.uint64(self.mesh_hit_alphas_id_gpu.data.ptr),
                 np.int32(total_pixels),
             ),
             block=(256, 1, 1),  # TODO (liam)
             grid=(128, 1),  # TODO (liam)
         )
-        self.cupy_device.synchronize()  # TODO for debug only
-
-        np.save("self.mesh_hit_alphas_gpu", self.mesh_hit_alphas_gpu.get())
-
-
 
         self.kernel_tide(
             args=(
-                # np.uint64(self.mesh_hit_alphas_id_gpu.data.ptr),
                 np.uint64(self.mesh_hit_alphas_gpu.data.ptr),
                 np.uint64(self.mesh_hit_facing_gpu.data.ptr),
                 np.int32(total_pixels),
@@ -1158,7 +1134,7 @@ class Projector(object):
         self._renderer = Renderer(
             viewport_width=width,
             viewport_height=height,
-            num_peel_passes=self.num_mesh_layers // 2,
+            num_peel_passes=self.num_mesh_layers // 4,
         )
         self.gl_renderer = self._renderer
 
@@ -1257,14 +1233,8 @@ class Projector(object):
         self.mesh_hit_alphas_gpu = cp.zeros(
             (total_pixels, self.num_mesh_layers), dtype=np.float32
         )
-        self.mesh_hit_alphas_id_gpu = cp.zeros(
-            (total_pixels, self.num_mesh_layers), dtype=np.int32
-        )
         self.mesh_hit_alphas_tex_gpu = cp.zeros(
-            (total_pixels, self.num_mesh_layers*2), dtype=np.int32
-        )
-        self.mesh_hit_alphas_id_tex_gpu = cp.zeros(
-            (total_pixels, self.num_mesh_layers), dtype=np.int32
+            (total_pixels, self.num_mesh_layers), dtype=np.float32
         )
         self.mesh_hit_facing_gpu = cp.zeros(
             (total_pixels, self.num_mesh_layers), dtype=np.int8
@@ -1289,9 +1259,7 @@ class Projector(object):
             self.seg_texarrs = None
 
             self.mesh_hit_alphas_gpu = None
-            self.mesh_hit_alphas_id_gpu = None
             self.mesh_hit_alphas_tex_gpu = None
-            self.mesh_hit_alphas_id_tex_gpu = None
             self.mesh_hit_facing_gpu = None
             self.additive_densities_gpu = None
             self.prim_unique_materials_gpu = None
