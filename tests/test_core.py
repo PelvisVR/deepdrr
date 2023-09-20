@@ -12,6 +12,13 @@ import copy
 import time
 import matplotlib.pyplot as plt
 import tqdm
+import numpy as np
+import matplotlib.pyplot as plt
+from PIL import Image, ImageSequence
+from pathlib import Path
+import io
+from matplotlib import pyplot as plt
+
 
 import pyvista as pv
 import logging
@@ -35,7 +42,8 @@ class TestSingleVolume:
     output_dir = d / "output"
     output_dir.mkdir(exist_ok=True)
     file_path = test_utils.download_sampledata("CT-chest")
-
+    diff_dir = d / "diff"
+    diff_dir.mkdir(exist_ok=True)
     params = {
         "test_simple": [dict()],
         "test_collected_energy": [dict()],
@@ -118,23 +126,102 @@ class TestSingleVolume:
 
         return image
     
-    def verify_image(self, name, image_256):
-        try: 
-            truth_img = np.array(Image.open(self.truth / name))
-        except FileNotFoundError:
-            print(f"Truth image not found: {self.truth / name}")
-            pytest.skip("Truth image not found")
-            # pytest.fail("Truth image not found")
-        diff_im = image_256.astype(np.float32) - truth_img.astype(np.float32)
-        from matplotlib import pyplot as plt
-        plt.figure()
-        plt.imshow(diff_im, cmap="viridis")
-        plt.colorbar()
-        plt.savefig(self.output_dir / f"diff_{name}")
-
-        assert np.allclose(image_256, truth_img, atol=1)
-        print(f"Test {name} passed")
+    def verify_image(self, name, actual_dir=None, expected_dir=None, diff_dir=None, atol=1):
+        if actual_dir is None:
+            actual_dir = self.output_dir
+        if expected_dir is None:
+            expected_dir = self.truth
+        if diff_dir is None:
+            diff_dir = self.diff_dir
     
+        diff_dir.mkdir(parents=True, exist_ok=True)
+    
+        try:
+            actual_img = Image.open(actual_dir / name)
+        except FileNotFoundError:
+            print(f"Actual image not found: {actual_dir / name}")
+            pytest.fail("Actual image not found")
+    
+        try: 
+            expected_img = Image.open(expected_dir / name)
+        except FileNotFoundError:
+            print(f"Truth image not found: {expected_dir / name}")
+            pytest.skip("Truth image not found")
+    
+        actual_frames = []
+        for actual_frame in ImageSequence.Iterator(actual_img):
+            # actual_frames.append(np.array(actual_frame)) # ValueError: No packer found from P to L
+            actual_frames.append(np.array(actual_frame.convert('RGB')))
+    
+        expected_frames = []
+        for expected_frame in ImageSequence.Iterator(expected_img):
+            # expected_frames.append(np.array(expected_frame))
+            expected_frames.append(np.array(expected_frame.convert('RGB')))
+
+        assert len(actual_frames) == len(expected_frames), f"Number of frames in actual and expected images do not match: {len(actual_frames)} != {len(expected_frames)}"
+        
+        
+        if len(expected_frames) == 1:
+            # add newaxis
+            actual_frames = [actual_frames]
+        
+        diff_ims = []
+        max_diff = 0
+        min_diff = 0
+        for i, expected_frame in enumerate(expected_frames):
+            actual_frame = actual_frames[i]
+            if not np.allclose(actual_frame, actual_frame[:, :, 0][:, :, np.newaxis]):
+                print(f"Warning: Image {i} has different values in different channels, this compare function only shows the first channel diff")
+            diff_im = actual_frame.astype(np.float32) - expected_frame.astype(np.float32)
+            max_diff = max(max_diff, diff_im.max())
+            min_diff = min(min_diff, diff_im.min())
+            diff_ims.append(diff_im)
+    
+        same = True
+        for i, diff_im in enumerate(diff_ims):
+            if not np.allclose(diff_im, 0, atol=atol):
+                same = False
+                break
+
+        diff_name = Path(name).stem+"_diff"
+        diff_path = diff_dir / (diff_name + ".png")
+        if not same:  
+            pil_fig_imgs = []
+            for i, diff_im in enumerate(tqdm.tqdm(diff_ims)):
+                plt.figure()
+                plt.imshow(diff_im[:,:,0], cmap="viridis", vmin=min_diff, vmax=max_diff)
+                plt.colorbar()
+                # diff_name = f"diff_{name}"
+                # if len(expected_frames) > 1:
+                #     diff_name = f"{diff_name}_diff_{i:03d}"
+        
+                # plt.savefig(self.output_dir / (diff_name + ".png"))
+                # save figure to PIL Image
+                buf = io.BytesIO()
+                plt.savefig(buf, format='png')
+                plt.close()
+                
+                buf.seek(0)
+                pil_fig_img = Image.open(buf)
+                pil_fig_imgs.append(pil_fig_img)
+            
+            pil_fig_imgs[0].save(
+                diff_path,
+                save_all=True,
+                append_images=pil_fig_imgs[1:],
+                duration=expected_img.info['duration'],
+                loop=0,  # 0 means loop indefinitely, you can set another value if needed
+                disposal=1,  # 2 means replace with background color (use 1 for no disposal)
+            )
+        else:
+            # write a green image
+            passed_img = Image.new('RGB', (expected_img.width, expected_img.height), color = (0, 255, 0))
+            passed_img.save(diff_path)
+    
+        for i, diff_im in enumerate(diff_ims):
+            assert np.allclose(diff_im, 0, atol=atol), f"Test {name} failed"
+    
+        print(f"Test {name} passed")
 
 
     def test_simple(self):
@@ -366,11 +453,11 @@ class TestSingleVolume:
 
         duration = 10000
         # N = 100
-        # N = 20
+        N = 20
         # N = 200
 
-        fps = 25
-        N = int(duration/1000*fps)
+        # fps = 25
+        # N = int(duration/1000*fps)
         with projector:
 
             for i in tqdm.tqdm(range(N)):
@@ -412,10 +499,9 @@ class TestSingleVolume:
                 image_256 = (image * 255).astype(np.uint8)
                 images.append(Image.fromarray(image_256))
 
-                # break
-                
-
-        output_gif_path = self.output_dir/f'test_mesh_mesh_1.gif'
+        
+        name = f'test_mesh_mesh_1.gif'
+        output_gif_path = self.output_dir/name
         images[0].save(
             output_gif_path,
             save_all=True,
@@ -425,7 +511,9 @@ class TestSingleVolume:
             disposal=1,  # 2 means replace with background color (use 1 for no disposal)
         )
 
-        # self.project([body, prim3]+cube_meshes, carm, "test_mesh_mesh_1.png", verify=False, num_mesh_layers=32, neglog=True)
+        verify = True
+        if verify:
+            self.verify_image(name)
 
 
     def test_mesh_only(self):
@@ -539,7 +627,7 @@ class TestSingleVolume:
 
         # stl4.rotate_z(180, inplace=True)
 
-        mesh4 = deepdrr.Volume.from_meshes(voxel_size = 0.3, world_from_anatomical=meshtransform, surfaces=[("titanium", 7, stl3)])
+        cube_vol = deepdrr.Volume.from_meshes(voxel_size = 0.3, world_from_anatomical=meshtransform, surfaces=[("titanium", 7, stl3)])
         
         carm = deepdrr.SimpleDevice(sensor_width=400*4, sensor_height=400*4, pixel_size=2)
         # carm = deepdrr.SimpleDevice(sensor_width=200*4, sensor_height=400*4, pixel_size=0.02)
@@ -548,7 +636,9 @@ class TestSingleVolume:
             # volume=[volume, mesh4],
             # volume=[mesh3],
             # volume=[mesh4],
-            volume=[mesh4, mesh3],
+            # volume=[mesh3],
+            volume=[cube_vol, mesh3],
+            # volume=[cube_vol, mesh3],
             # volume=[volume, mesh3],
             carm=carm,
             step=0.01,  # stepsize along projection ray, measured in voxels
@@ -563,38 +653,26 @@ class TestSingleVolume:
         )
 
         images = []
-        images_raw = []
 
         N = 10
         with projector:
-            # for i in range(N):
-            i = 3
-            z = geo.FrameTransform.from_translation([10*np.sin(-i/N*np.pi*2*2), 10*np.sin(-i/N*np.pi*2), 0])
-            a = geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", -i/N*np.pi*2))
-            b = geo.FrameTransform.from_rotation(geo.Rotation.from_euler("y", -i/N*np.pi*2))
-            c = geo.FrameTransform.from_translation([0, 0, -30])
-            # c = geo.FrameTransform.from_translation([0, 0, -10])
-            new = z @ a @ b @ c
-            carm._device_from_camera3d = new
+            for i in tqdm.tqdm(range(N)):
+                z = geo.FrameTransform.from_translation([10*np.sin(-i/N*np.pi*2*2), 10*np.sin(-i/N*np.pi*2), 0])
+                a = geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", -i/N*np.pi*2))
+                b = geo.FrameTransform.from_rotation(geo.Rotation.from_euler("y", -i/N*np.pi*2))
+                c = geo.FrameTransform.from_translation([0, 0, -30])
+                # c = geo.FrameTransform.from_translation([0, 0, -10])
+                new = z @ a @ b @ c
+                carm._device_from_camera3d = new
 
-            image = projector.project()
+                image = projector.project()
 
-            image_256 = (image * 255).astype(np.uint8)
-            images_raw.append(image_256)
-            images.append(Image.fromarray(image_256))
-            return
-
-        verify = True
-        num_compare = 10
-        compare_ims = images_raw[:num_compare]
-        for i, im in enumerate(compare_ims):
-            name = f"test_cube_{i}.png"
-            Image.fromarray(im).save(self.output_dir / name)
-            if verify:
-                self.verify_image(name, im)
+                image_256 = (image * 255).astype(np.uint8)
+                images.append(Image.fromarray(image_256))
 
         # Save the list of images as a GIF
-        output_gif_path = self.output_dir/'output.gif'
+        name = f"test_cube.gif"
+        output_gif_path = self.output_dir/name
         images[0].save(
             output_gif_path,
             save_all=True,
@@ -603,6 +681,10 @@ class TestSingleVolume:
             loop=0,  # 0 means loop indefinitely, you can set another value if needed
             disposal=1,  # 2 means replace with background color (use 1 for no disposal)
         )
+
+        verify = True
+        if verify:
+            self.verify_image(name)
 
     def gen_threads(self):
         # pass
@@ -791,7 +873,8 @@ if __name__ == "__main__":
     # test.test_mesh_only()
     # test.test_mesh()
     # test.gen_threads()
-    test.test_mesh_mesh_1()
+    test.test_cube()
+    # test.test_mesh_mesh_1()
     # volume = test.load_volume()
     # carm = deepdrr.MobileCArm(isocenter=volume.center_in_world)
     # test.project(volume, carm, "test.png")

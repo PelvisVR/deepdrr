@@ -59,7 +59,7 @@ class Renderer(object):
         assert self.num_mesh_mesh_layers is not None, "num_mesh_mesh_layers must be set"
         assert self.num_mesh_mesh_layers > 0, "num_mesh_mesh_layers must be > 0"
         assert self.prim_unqiue_materials is not None, "prim_unqiue_materials must be set"
-        assert self.prim_unqiue_materials > 0, "prim_unqiue_materials must be > 0"
+        assert self.prim_unqiue_materials >= 0, "prim_unqiue_materials must be >= 0"
 
         # Optional framebuffer for offscreen renders
         self._fb_initialized = False
