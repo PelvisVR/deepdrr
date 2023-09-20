@@ -305,8 +305,6 @@ class TestSingleVolume:
         #     print(stl.points.max(axis=0))
         #     print(stl.points.min(axis=0))
 
-        # prim2 = trimesh_to_pyrender_mesh(polydata_to_trimesh(stl2), material=DRRMaterial("bone", density=0.1, subtractive=True, layer=1))
-        # mesh2 = deepdrr.Mesh(mesh=prim2, world_from_anatomical=geo.FrameTransform.from_translation([10, 30, 5]))
         cube_meshes = []
         for i, stl in enumerate(stls[1:]):
             prim = trimesh_to_pyrender_mesh(polydata_to_trimesh(stl), material=DRRMaterial("bone", density=0, subtractive=True, layer=1))
@@ -314,12 +312,9 @@ class TestSingleVolume:
 
         body = polydata_to_pyrender_mesh(stls[0], material=DRRMaterial("titanium", density=0.1, subtractive=False))
         body = deepdrr.Mesh(mesh=body, world_from_anatomical=geo.FrameTransform.from_translation([0, 20, 0]))
-        # mesh = deepdrr.Mesh("polyethylene", 1.05, stl)
-        # mesh.morph_weights = np.array([-10])
+
+        # TODO: implemnet blend shapes - should support up to 8 morph targets
         
-        # carm = deepdrr.MobileCArm(isocenter=volume.center_in_world, sensor_width=300, sensor_height=200, pixel_size=0.6)
-        # self.project([volume], carm, "test_mesh.png")
-        # self.project([mesh, mesh2, mesh3], carm, "test_mesh.png")
 
         stl3 = pv.read("tests/resources/threads.stl")
         stl3.scale([10000, 10000, 10000], inplace=True)
