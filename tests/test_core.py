@@ -298,16 +298,18 @@ class TestSingleVolume:
 
         stls = [pv.read(f"tests/resources/meshmesh_1/{name}") for name in obj_names]
 
-        # print max and min of verts
-        for stl in stls:
-            print(stl.points.max(axis=0))
-            print(stl.points.min(axis=0))
+        
+
+        # # print max and min of verts
+        # for stl in stls:
+        #     print(stl.points.max(axis=0))
+        #     print(stl.points.min(axis=0))
 
         # prim2 = trimesh_to_pyrender_mesh(polydata_to_trimesh(stl2), material=DRRMaterial("bone", density=0.1, subtractive=True, layer=1))
         # mesh2 = deepdrr.Mesh(mesh=prim2, world_from_anatomical=geo.FrameTransform.from_translation([10, 30, 5]))
         cube_meshes = []
         for i, stl in enumerate(stls[1:]):
-            prim = trimesh_to_pyrender_mesh(polydata_to_trimesh(stl), material=DRRMaterial("bone", density=0, subtractive=True, layer=i+1))
+            prim = trimesh_to_pyrender_mesh(polydata_to_trimesh(stl), material=DRRMaterial("bone", density=0, subtractive=True, layer=1))
             cube_meshes.append(deepdrr.Mesh(mesh=prim, world_from_anatomical=geo.FrameTransform.from_translation([10, 30, 5])))
 
         body = polydata_to_pyrender_mesh(stls[0], material=DRRMaterial("titanium", density=0.1, subtractive=False))
@@ -318,6 +320,20 @@ class TestSingleVolume:
         # carm = deepdrr.MobileCArm(isocenter=volume.center_in_world, sensor_width=300, sensor_height=200, pixel_size=0.6)
         # self.project([volume], carm, "test_mesh.png")
         # self.project([mesh, mesh2, mesh3], carm, "test_mesh.png")
+
+        stl3 = pv.read("tests/resources/threads.stl")
+        stl3.scale([10000, 10000, 10000], inplace=True)
+
+        # print max and min of verts
+        print(stl3.points.max(axis=0))
+        print(stl3.points.min(axis=0))
+
+
+        kwire_density = 0
+        prim3 = polydata_to_pyrender_mesh(stl3, material=DRRMaterial("titanium", density=kwire_density, subtractive=True, layer=1))
+        meshtransform = None
+        mesh3 = deepdrr.Mesh(mesh=prim3, world_from_anatomical=meshtransform)
+
 
         N = 4
         i=0
@@ -335,7 +351,7 @@ class TestSingleVolume:
         carm._device_from_camera3d = new
 
         projector = deepdrr.Projector(
-            volume=[body]+cube_meshes,
+            volume=[body,mesh3]+cube_meshes,
             carm=carm,
             step=0.01,  # stepsize along projection ray, measured in voxels
             mode="linear",
@@ -344,6 +360,7 @@ class TestSingleVolume:
             photon_count=100000,
             scatter_num=0,
             threads=8,
+            num_mesh_layers=128,
         )
 
         images = []
@@ -352,8 +369,13 @@ class TestSingleVolume:
         np.random.seed(2)
         rand_coeffs = np.random.rand(4, 3) * 100
 
-        N = 100
+        duration = 10000
+        # N = 100
+        # N = 20
         # N = 200
+
+        fps = 25
+        N = int(duration/1000*fps)
         with projector:
 
             for i in tqdm.tqdm(range(N)):
@@ -361,7 +383,7 @@ class TestSingleVolume:
 
                 # move each cube in xyz in a periodic motion that occurs 3 times during the gif with a random phase by setting m.world_from_anatomical
                 for m_idx, m in enumerate(cube_meshes):
-                    motion_magnitude = 200
+                    motion_magnitude = 300
                     motion_cycle = 3
 
                     # t=  35
@@ -372,7 +394,11 @@ class TestSingleVolume:
                         0,
                         motion_magnitude * np.sin(t/N*np.pi*2*motion_cycle + rand_coeffs[m_idx, 2]),
                     ])
-                    # if m_idx == 2:
+                    if m_idx in [2]:
+                        mesh3.world_from_anatomical = a
+
+                    if m_idx in [2, 1]:
+                        a =  geo.FrameTransform.from_translation([0,0,0])
                         # a = geo.FrameTransform.from_translation([1000,1000,1000])
 
                     m.world_from_anatomical = a
@@ -399,12 +425,12 @@ class TestSingleVolume:
             output_gif_path,
             save_all=True,
             append_images=images[1:],
-            duration=7000/N,  # Duration between frames in milliseconds
+            duration=duration/N,  # Duration between frames in milliseconds
             loop=0,  # 0 means loop indefinitely, you can set another value if needed
             disposal=1,  # 2 means replace with background color (use 1 for no disposal)
         )
 
-        # self.project([body]+cube_meshes, carm, "test_mesh_mesh_1.png", verify=False, num_mesh_layers=32, neglog=True)
+        # self.project([body, prim3]+cube_meshes, carm, "test_mesh_mesh_1.png", verify=False, num_mesh_layers=32, neglog=True)
 
 
     def test_mesh_only(self):
