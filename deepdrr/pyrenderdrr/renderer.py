@@ -312,6 +312,8 @@ class Renderer(object):
             program.set_uniform('DepthBlenderTex', 0)
             glActiveTexture(GL_TEXTURE0)
 
+            program.set_uniform('MaxDepth', float(zfar))
+
             glEnable(GL_BLEND)
             glBlendEquation(GL_FUNC_ADD)
             glBlendFunc(GL_ONE, GL_ONE)
