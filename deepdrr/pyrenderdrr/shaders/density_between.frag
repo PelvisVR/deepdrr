@@ -26,7 +26,7 @@ void main(void)
     // for each frag between neardist and fardist
     // += density * facing * dist
 
-    if (farDist > 1000000) {
+    if (farDist > 1000000) { // TODO
         discard;
     }
 

@@ -19,6 +19,7 @@ from pathlib import Path
 import io
 from matplotlib import pyplot as plt
 
+from deepdrr.utils.img_cmp import verify_image
 
 import pyvista as pv
 import logging
@@ -94,17 +95,17 @@ class TestSingleVolume:
         with projector:
             image = projector.project()
 
-        # make fig with colorbar
-        plt.figure()
-        plt.imshow(image, cmap="viridis")
-        plt.colorbar()
-        plt.savefig(self.output_dir / f"plt_{name}")
+        # # make fig with colorbar
+        # plt.figure()
+        # plt.imshow(image, cmap="viridis")
+        # plt.colorbar()
+        # plt.savefig(self.output_dir / f"plt_{name}")
 
         image_256 = (image * 255).astype(np.uint8)
-        Image.fromarray(image_256).save(self.output_dir / name)
 
-        if verify:
-            self.verify_image(name, image_256)
+        with verify_image(name, actual_dir=self.output_dir, expected_dir=self.truth, diff_dir=self.diff_dir):
+            Image.fromarray(image_256).save(self.output_dir / name)
+
             # Image.fromarray(np.abs(image_256.astype(np.float32) - truth_img.astype(np.float32))).save(self.output_dir / f"diff_{name}")
 
 
@@ -125,103 +126,6 @@ class TestSingleVolume:
 
 
         return image
-    
-    def verify_image(self, name, actual_dir=None, expected_dir=None, diff_dir=None, atol=1):
-        if actual_dir is None:
-            actual_dir = self.output_dir
-        if expected_dir is None:
-            expected_dir = self.truth
-        if diff_dir is None:
-            diff_dir = self.diff_dir
-    
-        diff_dir.mkdir(parents=True, exist_ok=True)
-    
-        try:
-            actual_img = Image.open(actual_dir / name)
-        except FileNotFoundError:
-            print(f"Actual image not found: {actual_dir / name}")
-            pytest.fail("Actual image not found")
-    
-        try: 
-            expected_img = Image.open(expected_dir / name)
-        except FileNotFoundError:
-            print(f"Truth image not found: {expected_dir / name}")
-            pytest.skip("Truth image not found")
-    
-        actual_frames = []
-        for actual_frame in ImageSequence.Iterator(actual_img):
-            # actual_frames.append(np.array(actual_frame)) # ValueError: No packer found from P to L
-            actual_frames.append(np.array(actual_frame.convert('RGB')))
-    
-        expected_frames = []
-        for expected_frame in ImageSequence.Iterator(expected_img):
-            # expected_frames.append(np.array(expected_frame))
-            expected_frames.append(np.array(expected_frame.convert('RGB')))
-
-        assert len(actual_frames) == len(expected_frames), f"Number of frames in actual and expected images do not match: {len(actual_frames)} != {len(expected_frames)}"
-        
-        
-        if len(expected_frames) == 1:
-            # add newaxis
-            actual_frames = [actual_frames]
-        
-        diff_ims = []
-        max_diff = 0
-        min_diff = 0
-        for i, expected_frame in enumerate(expected_frames):
-            actual_frame = actual_frames[i]
-            if not np.allclose(actual_frame, actual_frame[:, :, 0][:, :, np.newaxis]):
-                print(f"Warning: Image {i} has different values in different channels, this compare function only shows the first channel diff")
-            diff_im = actual_frame.astype(np.float32) - expected_frame.astype(np.float32)
-            max_diff = max(max_diff, diff_im.max())
-            min_diff = min(min_diff, diff_im.min())
-            diff_ims.append(diff_im)
-    
-        same = True
-        for i, diff_im in enumerate(diff_ims):
-            if not np.allclose(diff_im, 0, atol=atol):
-                same = False
-                break
-
-        diff_name = Path(name).stem+"_diff"
-        diff_path = diff_dir / (diff_name + ".png")
-        if not same:  
-            pil_fig_imgs = []
-            for i, diff_im in enumerate(tqdm.tqdm(diff_ims)):
-                plt.figure()
-                plt.imshow(diff_im[:,:,0], cmap="viridis", vmin=min_diff, vmax=max_diff)
-                plt.colorbar()
-                # diff_name = f"diff_{name}"
-                # if len(expected_frames) > 1:
-                #     diff_name = f"{diff_name}_diff_{i:03d}"
-        
-                # plt.savefig(self.output_dir / (diff_name + ".png"))
-                # save figure to PIL Image
-                buf = io.BytesIO()
-                plt.savefig(buf, format='png')
-                plt.close()
-                
-                buf.seek(0)
-                pil_fig_img = Image.open(buf)
-                pil_fig_imgs.append(pil_fig_img)
-            
-            pil_fig_imgs[0].save(
-                diff_path,
-                save_all=True,
-                append_images=pil_fig_imgs[1:],
-                duration=expected_img.info['duration'],
-                loop=0,  # 0 means loop indefinitely, you can set another value if needed
-                disposal=1,  # 2 means replace with background color (use 1 for no disposal)
-            )
-        else:
-            # write a green image
-            passed_img = Image.new('RGB', (expected_img.width, expected_img.height), color = (0, 255, 0))
-            passed_img.save(diff_path)
-    
-        for i, diff_im in enumerate(diff_ims):
-            assert np.allclose(diff_im, 0, atol=atol), f"Test {name} failed"
-    
-        print(f"Test {name} passed")
 
 
     def test_simple(self):
@@ -287,11 +191,11 @@ class TestSingleVolume:
         # mesh = deepdrr.Mesh(mesh=prim, world_from_anatomical=geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 90, degrees=True) * geo.Rotation.from_euler("y", 30, degrees=True)))
 
         # prim2 = deepdrr.Primitive("titanium", 2, stl2, subtractive=True)
-        prim2 = trimesh_to_pyrender_mesh(polydata_to_trimesh(stl2), material=DRRMaterial("lung", density=2, subtractive=True))
+        prim2 = trimesh_to_pyrender_mesh(polydata_to_trimesh(stl2), material=DRRMaterial("lung", density=2, subtractive=True, layer=1))
         mesh2 = deepdrr.Mesh(mesh=prim2, world_from_anatomical=geo.FrameTransform.from_translation([-30, 50, 200]))
 
         # prim3 = deepdrr.Primitive("titanium", 0, stl2, subtractive=True)
-        prim3 = polydata_to_pyrender_mesh(stl2, material=DRRMaterial("titanium", density=0, subtractive=True))
+        prim3 = polydata_to_pyrender_mesh(stl2, material=DRRMaterial("titanium", density=0, subtractive=True, layer=1))
         mesh3 = deepdrr.Mesh(mesh=prim3, world_from_anatomical=geo.FrameTransform.from_translation([30, 20, -70]))
         # mesh = deepdrr.Mesh("polyethylene", 1.05, stl)
         # mesh.morph_weights = np.array([-10])
@@ -502,18 +406,16 @@ class TestSingleVolume:
         
         name = f'test_mesh_mesh_1.gif'
         output_gif_path = self.output_dir/name
-        images[0].save(
-            output_gif_path,
-            save_all=True,
-            append_images=images[1:],
-            duration=duration/N,  # Duration between frames in milliseconds
-            loop=0,  # 0 means loop indefinitely, you can set another value if needed
-            disposal=1,  # 2 means replace with background color (use 1 for no disposal)
-        )
 
-        verify = True
-        if verify:
-            self.verify_image(name)
+        with verify_image(name, actual_dir=self.output_dir, expected_dir=self.truth, diff_dir=self.diff_dir):
+            images[0].save(
+                output_gif_path,
+                save_all=True,
+                append_images=images[1:],
+                duration=duration/N,  # Duration between frames in milliseconds
+                loop=0,  # 0 means loop indefinitely, you can set another value if needed
+                disposal=1,  # 2 means replace with background color (use 1 for no disposal)
+            )
 
 
     def test_mesh_only(self):
@@ -612,7 +514,7 @@ class TestSingleVolume:
 
 
         # prim3 = polydata_to_pyrender_mesh(stl3, material=DRRMaterial("titanium", density=7, subtractive=False))
-        prim3 = polydata_to_pyrender_mesh(stl3, material=DRRMaterial("titanium", density=0, subtractive=True))
+        prim3 = polydata_to_pyrender_mesh(stl3, material=DRRMaterial("titanium", density=0, subtractive=True, layer=1))
         meshtransform = geo.FrameTransform.from_translation([-3, 2, -7]) @ geo.FrameTransform.from_rotation(geo.Rotation.from_euler("x", 60, degrees=True))
         mesh3 = deepdrr.Mesh(mesh=prim3, world_from_anatomical=meshtransform)
 
@@ -673,18 +575,18 @@ class TestSingleVolume:
         # Save the list of images as a GIF
         name = f"test_cube.gif"
         output_gif_path = self.output_dir/name
-        images[0].save(
-            output_gif_path,
-            save_all=True,
-            append_images=images[1:],
-            duration=5000/N,  # Duration between frames in milliseconds
-            loop=0,  # 0 means loop indefinitely, you can set another value if needed
-            disposal=1,  # 2 means replace with background color (use 1 for no disposal)
-        )
 
-        verify = True
-        if verify:
-            self.verify_image(name)
+        with verify_image(name, actual_dir=self.output_dir, expected_dir=self.truth, diff_dir=self.diff_dir):
+            images[0].save(
+                output_gif_path,
+                save_all=True,
+                append_images=images[1:],
+                duration=5000/N,  # Duration between frames in milliseconds
+                loop=0,  # 0 means loop indefinitely, you can set another value if needed
+                disposal=1,  # 2 means replace with background color (use 1 for no disposal)
+            )
+
+
 
     def gen_threads(self):
         # pass
@@ -871,9 +773,9 @@ if __name__ == "__main__":
     test = TestSingleVolume()
     # test.test_layer_depth()
     # test.test_mesh_only()
-    # test.test_mesh()
+    test.test_mesh()
     # test.gen_threads()
-    test.test_cube()
+    # test.test_cube()
     # test.test_mesh_mesh_1()
     # volume = test.load_volume()
     # carm = deepdrr.MobileCArm(isocenter=volume.center_in_world)
