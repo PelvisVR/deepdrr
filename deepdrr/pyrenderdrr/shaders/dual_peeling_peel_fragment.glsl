@@ -58,7 +58,7 @@ void main(void)
 	float farthestDepthAway = depthBlender.w;
 	// float alphaMultiplier = 1.0 - forwardTemp.w;
 
-    // gl_FragData[0].xy = vec2(99999); // TODO
+    // gl_FragData[0].xy = vec2(99999);
     // return;
 
 	// if (fragDepth < nearestDepth || fragDepth > farthestDepth) {
