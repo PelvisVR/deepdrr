@@ -413,7 +413,7 @@ class Projector(object):
         add_noise: bool = False,
         photon_count: int = 10000,
         threads: int = 8,
-        max_block_index: int = 65535,  # TODO (liam): why not 65535?
+        max_block_index: int = 65535,
         collected_energy: bool = False,  # TODO: add unit test for this
         neglog: bool = True,
         intensity_upper_bound: Optional[float] = None,
@@ -878,7 +878,6 @@ class Projector(object):
         # np.save("self.mesh_hit_alphas_tex_gpu.npy", cp.asnumpy(self.mesh_hit_alphas_tex_gpu))
         
 
-        # TODO: verify alphas
         for tex_idx in range(self.num_mesh_layers // 2):
             # transfer self.mesh_hit_alphas_gpu to gl textures
             pointer_into_mesh_hit_alphas_tex_gpu = int(
@@ -1101,7 +1100,7 @@ class Projector(object):
         if self.initialized:
             if len(self.primitives) > 0:
                 log.error(
-                    "Changing sensor size while using meshes is not yet supported."
+                    "Changing sensor size while using meshes is not yet supported." # TODO (liam)
                 )
             self.intensity_gpu = None
             self.photon_prob_gpu = None
@@ -1146,7 +1145,7 @@ class Projector(object):
 
         width = (
             self.device.sensor_width
-        )  # TODO (liam): was deepdrr not locked to fixed resolution before?
+        )
         height = self.device.sensor_height
         total_pixels = width * height
 

@@ -13,9 +13,6 @@ extern "C" {
 // Keep a pointer at at the highest filled index, and another that sweeps forward palcing into the lowest index
 __device__ void tide(float *interceptTs, int8_t *interceptFacing, int rayIdx, float sourceToDetectorDistance) {
     {
-        // for (int i = 0; i < NUM_INTERSECTIONS; i++) { // TODO
-        //     interceptFacing[i] = i < NUM_INTERSECTIONS / 2 ? 1 : -1;
-        // }
         for (int i = 0; i < NUM_INTERSECTIONS; i += 4) {
             interceptFacing[i] = 0;
             interceptFacing[i + 1] = -1;
@@ -105,7 +102,7 @@ __device__ void tide(float *interceptTs, int8_t *interceptFacing, int rayIdx, fl
 
     {
 
-        int altitudes[64]; // TODO
+        int altitudes[NUM_INTERSECTIONS]; // TODO
         int altitude = 0;
 
         for (int i = 0; i < NUM_INTERSECTIONS; i++) {

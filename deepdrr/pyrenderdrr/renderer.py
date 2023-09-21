@@ -289,7 +289,7 @@ class Renderer(object):
             assert isinstance(density, float), "Density must be float"
             if density < 0:
                 density = 0
-            program.set_uniform('density', float(density)) # TODO (liam)
+            program.set_uniform('density', float(density))
 
             glEnable(GL_BLEND)
             glBlendEquation(GL_FUNC_ADD)
@@ -303,7 +303,7 @@ class Renderer(object):
             if density < 0:
                 raise ValueError("Density must be >= 0")
                 # density = 0
-            program.set_uniform('density', float(density)) # TODO (liam)
+            program.set_uniform('density', float(density))
 
             assert tex_idx is not None, "tex_idx must be set for DRRMode.MESH_SUB"
 
