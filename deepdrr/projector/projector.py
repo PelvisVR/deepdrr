@@ -878,7 +878,7 @@ class Projector(object):
         # np.save("self.mesh_hit_alphas_tex_gpu.npy", cp.asnumpy(self.mesh_hit_alphas_tex_gpu))
         
 
-        for tex_idx in range(self.num_mesh_layers // 2):
+        for tex_idx in range(self.num_mesh_layers // 2): # TODO: only mesh peel nonzero
             # transfer self.mesh_hit_alphas_gpu to gl textures
             pointer_into_mesh_hit_alphas_tex_gpu = int(
                 int(self.mesh_hit_alphas_tex_gpu.data.ptr)
