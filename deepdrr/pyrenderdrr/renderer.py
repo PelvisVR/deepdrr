@@ -6,6 +6,7 @@ from pyrender.shader_program import ShaderProgramCache
 from .material import DRRMaterial
 from ..utils.cuda_utils import check_cudart_err, format_cudart_err
 from cuda import cudart
+import sys
 
 class DRRMode:
     NONE = 0
@@ -62,6 +63,9 @@ class Renderer(object):
         assert self.prim_unqiue_materials >= 0, "prim_unqiue_materials must be >= 0"
 
         # Optional framebuffer for offscreen renders
+        self._main_fb = None
+        self._main_cb = None
+        self._main_db = None
         self._fb_initialized = False
         self._main_fb_dims = (None, None)
         self.g_peelTexId = None
@@ -123,6 +127,8 @@ class Renderer(object):
         elif drr_mode == DRRMode.MESH_SUB:
             retval = self._forward_pass(scene, flags, seg_node_map=seg_node_map, drr_mode=drr_mode, zfar=zfar, peelnum=None, mat=mat, mat_idx=mat_idx, layer_id=layer_id, tex_idx=tex_idx)
         elif drr_mode == DRRMode.DENSITY:
+            retval = self._forward_pass(scene, flags, seg_node_map=seg_node_map, drr_mode=drr_mode, zfar=zfar, peelnum=None, mat=mat, mat_idx=mat_idx, layer_id=layer_id, tex_idx=tex_idx)
+        elif drr_mode == DRRMode.SEG:
             retval = self._forward_pass(scene, flags, seg_node_map=seg_node_map, drr_mode=drr_mode, zfar=zfar, peelnum=None, mat=mat, mat_idx=mat_idx, layer_id=layer_id, tex_idx=tex_idx)
         else:
             raise NotImplementedError
@@ -200,9 +206,10 @@ class Renderer(object):
 
             # If SEG, set color
             if drr_mode == DRRMode.SEG:
-                if node not in seg_node_map:
-                    continue
-                color = seg_node_map[node]
+                # if node not in seg_node_map:
+                #     continue
+                # color = seg_node_map[node]
+                color = (255)
                 if not isinstance(color, (list, tuple, np.ndarray)):
                     color = np.repeat(color, 3)
                 else:
@@ -233,7 +240,7 @@ class Renderer(object):
                 program.set_uniform(
                     'cam_pos', scene.get_pose(scene.main_camera_node)[:3, 3]
                 )
-                if bool(flags & RenderFlags.SEG):
+                if drr_mode == DRRMode.SEG:
                     program.set_uniform('color', color)
 
                 # Finally, bind and draw the primitive
@@ -248,7 +255,6 @@ class Renderer(object):
                     tex_idx=tex_idx,
                 )
                 self._reset_active_textures()
-
         # Unbind the shader and flush the output
         if program is not None:
             program._unbind()
@@ -257,6 +263,9 @@ class Renderer(object):
         # if peelnum == self.max_dual_peel_layers-1 or drr_mode == DRRMode.DENSITY:
         #     return self._read_main_framebuffer(scene, flags, drr_mode=drr_mode, front=front)
         # return []
+
+        if drr_mode == DRRMode.SEG:
+            return self._read_main_framebuffer(scene, flags)
 
     def _bind_and_draw_primitive(self, primitive, pose, program, flags, drr_mode=DRRMode.NONE, zfar=3, peelnum=0, tex_idx=None):
         # Set model pose matrix
@@ -296,6 +305,12 @@ class Renderer(object):
             glBlendFunc(GL_ONE, GL_ONE)
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
             glDisable(GL_CULL_FACE)
+        elif drr_mode == DRRMode.SEG:
+            glEnable(GL_BLEND)
+            glBlendFunc(GL_ONE, GL_ZERO)
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
+            glEnable(GL_CULL_FACE)
+            glCullFace(GL_BACK)
         elif drr_mode == DRRMode.MESH_SUB:
             density = material.density
             assert density is not None, "Density must be set for DRRMode.DENSITY"
@@ -465,6 +480,9 @@ class Renderer(object):
         elif drr_mode == DRRMode.MESH_SUB:
             vertex_shader = 'density_between.vert'
             fragment_shader = 'density_between.frag'
+        elif drr_mode == DRRMode.SEG:
+            vertex_shader = 'segmentation.vert'
+            fragment_shader = 'segmentation.frag'
         else:
             raise NotImplementedError
 
@@ -515,6 +533,9 @@ class Renderer(object):
 
         if drr_mode == DRRMode.DENSITY:
             glBindFramebuffer(GL_FRAMEBUFFER, self.g_densityFboId[layer_id * self.prim_unqiue_materials + mat_idx])
+        elif drr_mode == DRRMode.SEG:
+            # glBindFramebuffer(GL_FRAMEBUFFER, self._main_fb)
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, self._main_fb)
         elif drr_mode == DRRMode.MESH_SUB:
             glBindFramebuffer(GL_FRAMEBUFFER, self.g_densityFboId[layer_id * self.prim_unqiue_materials + mat_idx])
         elif drr_mode == DRRMode.DIST:
@@ -548,6 +569,32 @@ class Renderer(object):
         # If framebuffer doesn't exist, create it
         if not self._fb_initialized:
             self._fb_initialized = True
+
+            # seg textures
+            self._main_cb, self._main_db = glGenRenderbuffers(2)
+            
+            glBindRenderbuffer(GL_RENDERBUFFER, self._main_cb)
+            glRenderbufferStorage(
+                GL_RENDERBUFFER, GL_RGBA,
+                self.viewport_width, self.viewport_height
+            )
+            
+            glBindRenderbuffer(GL_RENDERBUFFER, self._main_db)
+            glRenderbufferStorage(
+                GL_RENDERBUFFER, GL_DEPTH_COMPONENT24,
+                self.viewport_width, self.viewport_height
+            )
+
+            self._main_fb = glGenFramebuffers(1)
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, self._main_fb)
+            glFramebufferRenderbuffer(
+                GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                GL_RENDERBUFFER, self._main_cb
+            )
+            glFramebufferRenderbuffer(
+                GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                GL_RENDERBUFFER, self._main_db
+            )
 
             # output depth textures for peeling 
             self.g_peelTexId = listify(glGenTextures(self.num_peel_passes))
@@ -636,6 +683,17 @@ class Renderer(object):
 
     def _delete_main_framebuffer(self):
 
+        if self._main_fb is not None:
+            glDeleteFramebuffers(1, [self._main_fb])
+        if self._main_cb is not None:
+            glDeleteRenderbuffers(1, [self._main_cb])
+        if self._main_db is not None:
+            glDeleteRenderbuffers(1, [self._main_db])
+
+        self._main_fb = None
+        self._main_cb = None
+        self._main_db = None
+
         if self.additive_reg_ims is not None:
             for reg_img in self.additive_reg_ims:
                 check_cudart_err(cudart.cudaGraphicsUnregisterResource(reg_img))
@@ -677,51 +735,66 @@ class Renderer(object):
         self._fb_initialized = False
         self._main_fb_dims = (None, None)
 
-    # def _read_main_framebuffer(self, scene, flags, drr_mode=DRRMode.NONE, front=True):
-    #     width, height = self._main_fb_dims[0], self._main_fb_dims[1]
 
-    #     # Bind framebuffer and blit buffers
-    #     glBindFramebuffer(GL_READ_FRAMEBUFFER, self._main_fb_ms)
-    #     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, self._main_fb)
-    #     glBlitFramebuffer(
-    #         0, 0, width, height, 0, 0, width, height,
-    #         GL_COLOR_BUFFER_BIT, GL_LINEAR
-    #     )
-    #     glBlitFramebuffer(
-    #         0, 0, width, height, 0, 0, width, height,
-    #         GL_DEPTH_BUFFER_BIT, GL_NEAREST
-    #     )
-    #     glBindFramebuffer(GL_READ_FRAMEBUFFER, self._main_fb)
+    def _read_main_framebuffer(self, scene, flags):
+        width, height = self._main_fb_dims[0], self._main_fb_dims[1]
 
-    #     ims = []
+        # Bind framebuffer and blit buffers
+        # glBindFramebuffer(GL_DRAW_FRAMEBUFFER, self._main_fb)
+        # glBlitFramebuffer(
+        #     0, 0, width, height, 0, 0, width, height,
+        #     GL_COLOR_BUFFER_BIT, GL_LINEAR
+        # )
+        # glBlitFramebuffer(
+        #     0, 0, width, height, 0, 0, width, height,
+        #     GL_DEPTH_BUFFER_BIT, GL_NEAREST
+        # )
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, self._main_fb)
 
-    #     numbufs = self.max_dual_peel_layers
-    #     if drr_mode == DRRMode.DENSITY:
-    #         glBindFramebuffer(GL_READ_FRAMEBUFFER, self.g_densityFboId)
-    #         glReadBuffer(GL_COLOR_ATTACHMENT_LIST[0])
+        # Read depth
+        # depth_buf = glReadPixels(
+        #     0, 0, width, height, GL_DEPTH_COMPONENT, GL_FLOAT
+        # )
+        # depth_im = np.frombuffer(depth_buf, dtype=np.float32)
+        # depth_im = depth_im.reshape((height, width))
+        # depth_im = np.flip(depth_im, axis=0)
+        # inf_inds = (depth_im == 1.0)
+        # depth_im = 2.0 * depth_im - 1.0
+        # z_near = scene.main_camera_node.camera.znear
+        # z_far = scene.main_camera_node.camera.zfar
+        # noninf = np.logical_not(inf_inds)
+        # if z_far is None:
+        #     depth_im[noninf] = 2 * z_near / (1.0 - depth_im[noninf])
+        # else:
+        #     depth_im[noninf] = ((2.0 * z_near * z_far) /
+        #                         (z_far + z_near - depth_im[noninf] *
+        #                         (z_far - z_near)))
+        # depth_im[inf_inds] = 0.0
 
-    #         color_buf = glReadPixels(
-    #             0, 0, width, height, GL_RGB, GL_FLOAT
-    #         )
-    #         color_im = np.frombuffer(color_buf, dtype=np.float32)
-    #         color_im = color_im.reshape((height, width, 3))
-    #         color_im = np.flip(color_im, axis=0)
-    #         ims.append(color_im)
+        # # Resize for macos if needed
+        # if sys.platform == 'darwin':
+        #     depth_im = self._resize_image(depth_im)
 
-    #     else:
-    #         for i in range(numbufs):
-    #             bufferidx = i + (0 if front else self.max_dual_peel_layers)
-    #             glBindFramebuffer(GL_READ_FRAMEBUFFER, self.g_dualPeelingFboIds[bufferidx])
-    #             glReadBuffer(GL_COLOR_ATTACHMENT_LIST[0])
-    #             # glReadBuffer(GL_COLOR_ATTACHMENT_LIST[bufferidx])
-    #             print(f"Reading buffer {bufferidx}")
+        # if flags & RenderFlags.DEPTH_ONLY:
+        #     return depth_im
 
-    #             color_buf = glReadPixels(
-    #                 0, 0, width, height, GL_RGBA, GL_FLOAT
-    #             )
-    #             color_im = np.frombuffer(color_buf, dtype=np.float32)
-    #             color_im = color_im.reshape((height, width, 4))
-    #             color_im = np.flip(color_im, axis=0)
-    #             ims.append(color_im)
+        # Read color
+        if flags & RenderFlags.RGBA:
+            color_buf = glReadPixels(
+                0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE
+            )
+            color_im = np.frombuffer(color_buf, dtype=np.uint8)
+            color_im = color_im.reshape((height, width, 4))
+        else:
+            color_buf = glReadPixels(
+                0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE
+            )
+            color_im = np.frombuffer(color_buf, dtype=np.uint8)
+            color_im = color_im.reshape((height, width, 3))
+        color_im = np.flip(color_im, axis=0)
 
-    #     return ims
+        # Resize for macos if needed
+        if sys.platform == 'darwin':
+            color_im = self._resize_image(color_im, True)
+
+        return color_im

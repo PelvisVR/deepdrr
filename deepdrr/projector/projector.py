@@ -478,7 +478,7 @@ class Projector(object):
                     if isinstance(prim.material, DRRMaterial):
                         self.primitives.append(prim)
                     else:
-                        raise ValueError(f"unrecognized Renderable type: {type(_vol)}.")
+                        raise ValueError(f"unrecognized material type: {type(_vol)}.")
             else:
                 raise ValueError(f"unrecognized Renderable type: {type(_vol)}.")
 
@@ -608,26 +608,12 @@ class Projector(object):
     @property
     def output_size(self) -> int:
         return int(np.prod(self.output_shape))
-
+    
     @time_range()
-    def project(
-        self,
-        *camera_projections: geo.CameraProjection,
-    ) -> np.ndarray:
-        """Perform the projection.
-
-        Args:
-            camera_projection: any number of camera projections. If none are provided, the Projector uses the CArm device to obtain a camera projection.
-
-        Raises:
-            ValueError: if no projections are provided and self.device is None.
-
-        Returns:
-            np.ndarray: array of DRRs, after mass attenuation, etc.
-        """
+    def _prepare_project(self, camera_projections: geo.CameraProjection):
         if not self.initialized:
             raise RuntimeError("Projector has not been initialized.")
-
+        
         if not camera_projections and self.device is None:
             raise ValueError(
                 "must provide a camera projection object to the projector, unless imaging device (e.g. CArm) is provided"
@@ -647,6 +633,27 @@ class Projector(object):
                 )
         else:
             self.max_ray_length = -1
+
+        return camera_projections
+
+    @time_range()
+    def project(
+        self,
+        *camera_projections: geo.CameraProjection,
+    ) -> np.ndarray:
+        """Perform the projection.
+
+        Args:
+            camera_projection: any number of camera projections. If none are provided, the Projector uses the CArm device to obtain a camera projection.
+
+        Raises:
+            ValueError: if no projections are provided and self.device is None.
+
+        Returns:
+            np.ndarray: array of DRRs, after mass attenuation, etc.
+        """
+
+        camera_projections = self._prepare_project(camera_projections)
 
         intensities = []
         photon_probs = []
@@ -838,15 +845,11 @@ class Projector(object):
         return deposited_energy
 
     @time_range()
-    def _render_mesh(self, proj: geo.CameraProjection) -> None:
-        width = proj.intrinsic.sensor_width
-        height = proj.intrinsic.sensor_height
-        total_pixels = width * height
-
+    def _setup_pyrender_scene(self, proj: geo.CameraProjection): 
         with time_range("set_mesh_poses"):
             for mesh_id, mesh in enumerate(self.meshes):
                 self.mesh_nodes[mesh_id].matrix = mesh.world_from_ijk
-
+        
         with time_range("mesh_camera_setup"):
             self.cam.fx = proj.intrinsic.fx
             self.cam.fy = proj.intrinsic.fy
@@ -854,7 +857,7 @@ class Projector(object):
             self.cam.cy = proj.intrinsic.cy
             self.cam.znear = self.device.source_to_detector_distance / 1000
             self.cam.zfar = self.device.source_to_detector_distance
-
+        
             deepdrr_to_opengl_cam = np.array(
                 [
                     [1, 0, 0, 0],
@@ -863,10 +866,31 @@ class Projector(object):
                     [0, 0, 0, 1],
                 ]
             )
-
+        
             self.cam_node.matrix = np.array(proj.extrinsic.inv) @ deepdrr_to_opengl_cam
-
+        
             zfar = self.device.source_to_detector_distance * 2  # TODO (liam)
+
+        return zfar
+    
+
+    def project_seg(self, *camera_projections: geo.CameraProjection) -> np.ndarray:
+        camera_projections = self._prepare_project(camera_projections)
+        return self._render_seg(camera_projections[0])
+    
+    def _render_seg(self, proj: geo.CameraProjection):
+        zfar = self._setup_pyrender_scene(proj)
+        res = self._render_mesh_seg(proj, zfar)
+        return res
+
+
+    @time_range()
+    def _render_mesh(self, proj: geo.CameraProjection) -> None:
+        width = proj.intrinsic.sensor_width
+        height = proj.intrinsic.sensor_height
+        total_pixels = width * height
+
+        zfar = self._setup_pyrender_scene(proj)
 
         self._render_mesh_additive(proj, zfar)
 
@@ -986,6 +1010,25 @@ class Projector(object):
                     height,
                     2,
                 )
+
+    @time_range()
+    def _render_mesh_seg(self, proj: geo.CameraProjection, zfar: float) -> None:
+        width = proj.intrinsic.sensor_width
+        height = proj.intrinsic.sensor_height
+        total_pixels = width * height
+
+        with time_range("seg_render"):
+            res = self.gl_renderer.render(
+                self.scene,
+                drr_mode=DRRMode.SEG,
+                flags=RenderFlags.RGBA,
+                zfar=zfar,
+                # mat=mat,
+                # mat_idx=mat_idx,
+                # layer_id=layer_id,
+            )
+
+        return res
 
     @time_range()
     def _render_mesh_subtractive(self, proj: geo.CameraProjection, zfar: float) -> None:
