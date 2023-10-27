@@ -185,8 +185,6 @@ class Renderer(object):
             pass
         elif drr_mode == DRRMode.SEG:
             glClearColor(0.0, 0.0, 0.0, 1.0)
-            if seg_node_map is None:
-                seg_node_map = {}
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
             
 
@@ -206,10 +204,12 @@ class Renderer(object):
 
             # If SEG, set color
             if drr_mode == DRRMode.SEG:
-                # if node not in seg_node_map:
-                #     continue
-                # color = seg_node_map[node]
-                color = (255)
+                if seg_node_map is None:
+                    color = (255)
+                else:
+                    if not hasattr(mesh, "originmesh") or mesh.originmesh is None or mesh.originmesh not in seg_node_map:
+                        continue
+                    color = seg_node_map[mesh.originmesh]
                 if not isinstance(color, (list, tuple, np.ndarray)):
                     color = np.repeat(color, 3)
                 else:

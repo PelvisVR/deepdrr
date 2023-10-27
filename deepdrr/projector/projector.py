@@ -874,13 +874,13 @@ class Projector(object):
         return zfar
     
 
-    def project_seg(self, *camera_projections: geo.CameraProjection) -> np.ndarray:
+    def project_seg(self, *camera_projections: geo.CameraProjection, seg_node_map=None) -> np.ndarray:
         camera_projections = self._prepare_project(camera_projections)
-        return self._render_seg(camera_projections[0])
+        return self._render_seg(camera_projections[0], seg_node_map=seg_node_map)
     
-    def _render_seg(self, proj: geo.CameraProjection):
+    def _render_seg(self, proj: geo.CameraProjection, seg_node_map=None):
         zfar = self._setup_pyrender_scene(proj)
-        res = self._render_mesh_seg(proj, zfar)
+        res = self._render_mesh_seg(proj, zfar, seg_node_map=seg_node_map)
         return res
 
 
@@ -1012,7 +1012,7 @@ class Projector(object):
                 )
 
     @time_range()
-    def _render_mesh_seg(self, proj: geo.CameraProjection, zfar: float) -> None:
+    def _render_mesh_seg(self, proj: geo.CameraProjection, zfar: float, seg_node_map=None) -> None:
         width = proj.intrinsic.sensor_width
         height = proj.intrinsic.sensor_height
         total_pixels = width * height
@@ -1023,10 +1023,13 @@ class Projector(object):
                 drr_mode=DRRMode.SEG,
                 flags=RenderFlags.RGBA,
                 zfar=zfar,
+                seg_node_map=seg_node_map,
                 # mat=mat,
                 # mat_idx=mat_idx,
                 # layer_id=layer_id,
             )
+            res = np.flip(res, axis=0)
+
 
         return res
 
@@ -1288,6 +1291,7 @@ class Projector(object):
         self.mesh_nodes = []
         for drrmesh in self.meshes:
             node = Node()
+            drrmesh.mesh.originmesh = drrmesh
             self.scene.add_node(node)
             self.mesh_nodes.append(node)
             self.scene.add(drrmesh.mesh, parent_node=node)
