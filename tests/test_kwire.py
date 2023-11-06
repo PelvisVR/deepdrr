@@ -7,8 +7,6 @@ from deepdrr import geo, vis
 from deepdrr.utils import image_utils, test_utils
 from PIL import Image
 from scipy.spatial.transform import Rotation
-import pytest
-from pathlib import Path
 
 # TODO: create a test case possibly using the new dataset, along with some annotations, that tests the KWire alignment code.
 # This will create a test case, demo that the annotations are correct, etc.
@@ -16,7 +14,6 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 
-@pytest.mark.skip(reason="sample data not available")
 def test_kwire():
     output_dir = test_utils.get_output_dir()
     data_dir = test_utils.download_sampledata("CTPelvic1K_sample")
@@ -37,12 +34,7 @@ def test_kwire():
     # first, just do the CT volume on its own
     with deepdrr.Projector(volume, carm=carm) as projector:
         image = projector()
-
-        try:
-            image_utils.save(output_dir / "test_kwire_empty.png", image)
-        except e:
-            print(e)
-        
+        image_utils.save(output_dir / "test_kwire_empty.png", image)
 
     # Then add a kwire
     kwire = deepdrr.vol.KWire.from_example()
