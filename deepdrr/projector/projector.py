@@ -75,7 +75,7 @@ NUMBYTES_INT32 = 4
 NUMBYTES_FLOAT32 = 4
 
 
-@time_range()
+@cupyx.profiler.time_range()
 def gl_tex_to_gpu(reg_img, dst_ptr, width, height, num_channels):
     check_cudart_err(cudart.cudaGraphicsMapResources(1, reg_img, None))
 
@@ -556,7 +556,7 @@ class Projector(object):
 
         if attenuate_outside_volume:
             all_mats.append("air")
-            
+
         self.all_materials = list(set(all_mats))
         self.all_materials.sort()
         log.debug(f"MATERIALS: {self.all_materials}")
@@ -622,7 +622,7 @@ class Projector(object):
             with time_range("get_projections"):
                 camera_projections = [self.device.get_camera_projection()]
                 # log.debug(
-                    # f"projecting with source at {camera_projections[0].center_in_world}, pointing in {self.device.principle_ray_in_world}..."
+                # f"projecting with source at {camera_projections[0].center_in_world}, pointing in {self.device.principle_ray_in_world}..."
                 # )
                 self.max_ray_length = (
                     math.sqrt(  # TODO: can these really change after construction?
@@ -1112,7 +1112,7 @@ class Projector(object):
         if self.device is None:
             raise RuntimeError("must provide carm device to projector")
 
-        if not isinstance(self.device, CArm):
+        if not isinstance(self.device, Device):
             raise TypeError("device must be a CArm")
 
         camera_projections = []
