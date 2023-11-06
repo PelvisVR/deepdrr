@@ -7,7 +7,7 @@ dist
 build
 docs/build
 **flycheck*.py
-/.DS_Store
+.DS_Store
 output
 cmake-build-debug
 .vscode
