@@ -8,9 +8,10 @@ build
 docs/build
 **flycheck*.py
 .DS_Store
-output
 cmake-build-debug
 .vscode
+tests/diff
+tests/output
 
 *.npy
 
