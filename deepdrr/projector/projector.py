@@ -896,12 +896,7 @@ class Projector(object):
 
         if self.mesh_subtractive_enabled:
             self._render_mesh_subtractive(proj, zfar)
-
-        # # save self.mesh_hit_alphas_gpu
-        # np.save("self.mesh_hit_alphas_gpu.npy", cp.asnumpy(self.mesh_hit_alphas_gpu))
-        # np.save("self.mesh_hit_alphas_tex_gpu.npy", cp.asnumpy(self.mesh_hit_alphas_tex_gpu))
         
-
         for tex_idx in range(self.num_mesh_layers // 2): # TODO: only mesh peel nonzero
             # transfer self.mesh_hit_alphas_gpu to gl textures
             pointer_into_mesh_hit_alphas_tex_gpu = int(
@@ -929,7 +924,6 @@ class Projector(object):
                             layer_id=layer_id,
                             tex_idx=tex_idx,
                         )
-                    # render onto existing texture
 
         # transfer all the additive
         for layer_id in range(self.num_mesh_mesh_layers):
@@ -942,37 +936,12 @@ class Projector(object):
                 )
 
                 gl_tex_to_gpu(
-                    # self.gl_renderer.additive_reg_im,
                     self.gl_renderer.additive_reg_ims[layer_id * len(self.prim_unique_materials) + mat_idx],
                     pointer_into_additive_densities,
                     width,
                     height,
                     2,
                 )
-
-        # # save self.additive_densities_gpu
-        # np.save("self.additive_densities_gpu.npy", cp.asnumpy(self.additive_densities_gpu))
-        # actual = np.load("../deepdrr/self.additive_densities_gpu.npy")
-        # # print(actual.shape)
-        # # print(actual.dtype)
-        # actual = actual.reshape(-1, width, height, 2)
-        # # print(actual.shape)
-        # # actual[actual == np.inf] = np.nan
-
-        # def plot_channel(i, arr):
-        #     plt.figure(figsize=(5, 3))
-        #     plt.imshow(arr)
-        #     plt.title(f"expected {i} min: {np.nanmin(arr):.2f} max: {np.nanmax(arr):.2f}")
-        #     plt.colorbar()
-        #     # plt.show()
-        #     plt.savefig(f"expected_{i}.png")
-            
-
-        # for i in range(4):
-        # # for i in range(actual.shape[2]):
-        #     plot_channel(i, actual[i, :, :, 0])
-
-        
 
 
     @time_range()
@@ -1002,8 +971,7 @@ class Projector(object):
                     + mat_idx * total_pixels * 2 * NUMBYTES_FLOAT32
                 )
 
-                gl_tex_to_gpu( # TODO: this transfer isn't necessary
-                    # self.gl_renderer.additive_reg_im,
+                gl_tex_to_gpu(
                     self.gl_renderer.additive_reg_ims[layer_id * len(self.prim_unique_materials) + mat_idx],
                     pointer_into_additive_densities,
                     width,
@@ -1072,9 +1040,6 @@ class Projector(object):
             grid=(128, 1),  # TODO (liam)
         )
 
-                # save self.mesh_hit_alphas_gpu
-        # np.save("self.mesh_hit_alphas_gpu_0.npy", cp.asnumpy(self.mesh_hit_alphas_gpu))
-
         self.kernel_tide(
             args=(
                 np.uint64(self.mesh_hit_alphas_gpu.data.ptr),
@@ -1085,8 +1050,6 @@ class Projector(object):
             block=(32, 1, 1),  # TODO (liam)
             grid=(2048, 1),  # TODO (liam)
         )
-
-        # np.save("self.mesh_hit_alphas_gpu_1.npy", cp.asnumpy(self.mesh_hit_alphas_gpu))
 
         self.kernel_reorder2(
             args=(
