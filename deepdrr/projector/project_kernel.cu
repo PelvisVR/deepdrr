@@ -338,12 +338,9 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
     float seg_at_alpha[NUM_VOLUMES][NUM_MATERIALS];
     // if (debug) printf("start trace\n");
 
-// #if MESH_ADDITIVE_AND_SUBTRACTIVE_ENABLED > 0
     int mesh_hit_depth = 0;
     int mesh_hit_index = 0;
     // int hit_arr_index = 0;
-
-// #endif
 
     // Attenuate up to minAlpha, assuming it is filled with air.
     if (ATTENUATE_OUTSIDE_VOLUME) {
@@ -425,11 +422,8 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
             }
         }
 
-        // bool mesh_hit_this_step = false;
-        
 #if MESH_ADDITIVE_AND_SUBTRACTIVE_ENABLED > 0
         while (true) {
-        // for (int i = 0; i < 2; i++) {
             if ((mesh_hit_index < MAX_MESH_DEPTH && facing_local[mesh_hit_index] != 0 && alpha_local[mesh_hit_index] < alpha)){
                 mesh_hit_depth += facing_local[mesh_hit_index];
                 mesh_hit_index += 1;
@@ -438,9 +432,6 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
             }
         }
 
-        // if (mesh_hit_depth) {
-        //     mesh_hit_this_step = true; // TODO mesh priorities?
-        // }
 #endif
 
         // if (debug) printf("  got priority at alpha, num vols\n"); // This is
@@ -495,11 +486,6 @@ projectKernel(const cudaTextureObject_t * __restrict__ volume_texs, // array of 
 
 #if MESH_ADDITIVE_ENABLED > 0
     for (int i = 0; i < mesh_unique_material_count; i++) {
-        // int add_dens_idx = i * (out_height * out_width * 2) + (vdx * out_width + udx) * 2;
-        // // If there is a matching number of front and back hits, add the density
-        // if (fabs(additive_densities[add_dens_idx + 1]) < 0.00001) {
-        //     area_density[mesh_unique_materials[i]] += additive_densities[add_dens_idx];
-        // }
         for (int j = 0; j < num_mesh_mesh_layers; j++) {
             int add_dens_idx = j * mesh_unique_material_count * (out_height * out_width * 2) + i * (out_height * out_width * 2) + (vdx * out_width + udx) * 2;
             // If there is a matching number of front and back hits, add the density

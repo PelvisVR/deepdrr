@@ -11,6 +11,7 @@ extern "C" {
 // To do this, set the intercept Ts to infinity, decrement the count, and set facing to 0
 // Then loop through to fill gaps
 // Keep a pointer at at the highest filled index, and another that sweeps forward palcing into the lowest index
+// TODO: The sorting is unnecessary, the depth peeling has a deterministic order. This is the lazy way.
 __device__ void tide(float *interceptTs, int8_t *interceptFacing, int rayIdx, float sourceToDetectorDistance) {
     {
         for (int i = 0; i < NUM_INTERSECTIONS; i += 4) {
@@ -102,7 +103,7 @@ __device__ void tide(float *interceptTs, int8_t *interceptFacing, int rayIdx, fl
 
     {
 
-        int altitudes[NUM_INTERSECTIONS]; // TODO
+        int altitudes[NUM_INTERSECTIONS];
         int altitude = 0;
 
         for (int i = 0; i < NUM_INTERSECTIONS; i++) {
