@@ -942,16 +942,15 @@ class Projector(object):
         self,
         *camera_projections: geo.CameraProjection,
         tags: Optional[List[str]] = None,
-    ) -> np.ndarray:
-        """
-        TODO
+    ) -> List[np.ndarray]:
+        """For each of the given tags, render a binary segmentation mask of all meshes with that tag.
 
         Args:
-            camera_projections: TODO
-            seg_node_map: TODO
+            camera_projections: any number of camera projections. If none are provided, the Projector uses the CArm device to obtain a camera projection.
+            tags: List of tags to render. 
 
         Returns:
-            np.ndarray: TODO
+            List[np.ndarray]: List of binary segmentation masks corresponding to the given tags.
         """
         if len(camera_projections) > 1:
             raise NotImplementedError("multiple projections")
@@ -969,19 +968,19 @@ class Projector(object):
         self,
         *camera_projections: geo.CameraProjection,
         tags: Optional[List[Optional[List[str]]]] = None,
-    ) -> cupy.array:
+    ) -> List[cupy.array]:
         """
-        For each mesh layer, compute a list of entry and exit alpha values for each pixel.
+        For each of the given tags, render an image where each pixel is a list of entry and exit distance values for each mesh hit for meshes with that tag.
         Each pixel list will have an even number of elements and is padded by [inf] values.
         The list is sorted by closest to farthest intersection.
         For example: [entry0, exit0, entry1, exit1, inf, inf, ...].
 
         Args:
-            camera_projections: TODO
-            seg_node_map: TODO
+            camera_projections: any number of camera projections. If none are provided, the Projector uses the CArm device to obtain a camera projection.
+            tags: List of tags to render. 
 
         Returns:
-            np.array: Numpy array of Float32s of shape (mesh_layers, height, width, max_mesh_hits)
+            List[cupy.array]: List of cupy arrays of Float32s of shape (height, width, max_mesh_hits)
         """
         if len(camera_projections) > 1:
             raise NotImplementedError("multiple projections")
@@ -1013,7 +1012,17 @@ class Projector(object):
         self,
         *camera_projections: geo.CameraProjection,
         tags: Optional[List[Optional[List[str]]]] = None,
-    ) -> cupy.array:
+    ) -> List[cupy.array]:
+        """
+        For each of the given tags, render a float32 image where each pixel is the travel distance of the ray through meshes with that tag.
+
+        Args:
+            camera_projections: any number of camera projections. If none are provided, the Projector uses the CArm device to obtain a camera projection.
+            tags: List of tags to render. 
+
+        Returns:
+            List[cupy.array]: List of cupy arrays of Float32s
+        """
 
         if len(camera_projections) > 1:
             raise NotImplementedError("multiple projections")
