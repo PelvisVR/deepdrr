@@ -9,7 +9,7 @@ class Primitive:
     pass
 
 class PrimitiveInstance:
-    def __init__(self, primitive: Primitive, transform_node: TransformTreeNode, morph_weights: List[float]):
+    def __init__(self, primitive: Primitive, transform_node: TransformNode, morph_weights: List[float]):
         self.primitive = primitive
         self.transform_node = transform_node
         self.morph_weights = morph_weights
@@ -92,42 +92,6 @@ class GraphScene(Scene):
             ))
         return render_instance_list
 
-class TransformDriver(ABC):
-    # drives the transform graph
-    pass
-
-class MobileCArm(TransformDriver):
-
-    # isocenter node field
-    # camera node field
-
-    def __init__(self, graph: TransformTree, parent):
-        # make a node, attach it to parent
-        # make a sub-node, attach it to node
-        # assign a camera to the sub-node
-        pass
-
-    def move_by(
-        self,
-        delta_isocenter: Optional[geo.Vector3D] = None,
-        delta_alpha: Optional[float] = None,
-        delta_beta: Optional[float] = None,
-        delta_gamma: Optional[float] = None,
-        degrees: bool = True,
-    ) -> None:
-        # move the nodes
-        pass
-
-class Renderable(TransformDriver):
-    pass
-
-class Mesh(Renderable):
-    # not allowed to change vertex data or material data after construction
-    pass
-
-class Volume(Renderable):
-    # not allowed to change volume data or material data after construction
-    pass
 
 
 class RenderProfile(ABC):
