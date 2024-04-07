@@ -1,22 +1,11 @@
 from __future__ import annotations
-import os
-from pathlib import Path
+
+from abc import ABC, abstractmethod
+from typing import Iterable, List, Optional, Any, Set, Union
 
 import networkx as nx
-from typing import Callable, Collection, Dict, Iterable, List, Optional, Any, Set, Union
-from abc import ABC, abstractmethod
-import nrrd
-import numpy as np
-import h5py
-import logging
-import tempfile
-import hashlib
-import shutil
 
-from .. import load_dicom
 from .volume_processing import *
-
-from deepdrr import geo
 
 log = logging.getLogger(__name__)
 
@@ -67,7 +56,7 @@ class TransformNodeContent(ABC):
 class TransformNode:
     transform: geo.FrameTransform  # parent to self transform
     _contents: Set[TransformNodeContent]
-    _tree: TransformTree
+    _tree: Optional[TransformTree]
 
     def __init__(
         self,
@@ -229,8 +218,8 @@ class TransformTree:
 
     def get_transform(
         self,
-        source: Union[TransformTree, TransformNode],
-        target: Union[TransformTree, TransformNode],
+        source: Union[TransformTree, TransformNode, None],
+        target: Union[TransformTree, TransformNode, None],
     ) -> geo.FrameTransform:
         if source is None:
             source = self._root_node

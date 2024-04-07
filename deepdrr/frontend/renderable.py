@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from .node_content import PrimitiveInstance
 from .primitive import *
 
 
-class Renderable(TransformDriver):
+class Renderable(TransformDriver, ABC):
     pass
 
 

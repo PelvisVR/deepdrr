@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-import numpy as np
-
+from .render import *
 from .cache import *
-
-from deepdrr.frontend.render import *
 from .transform_manager import *
 
 

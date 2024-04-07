@@ -1,20 +1,19 @@
 from __future__ import annotations
-from pathlib import Path
 
-import networkx as nx
-from typing import Dict, List, Optional, Any, Tuple, Union
-from abc import ABC, abstractmethod
+import logging
+from pathlib import Path
+from typing import Dict, Tuple
+
+import h5py
+import nibabel as nib
 import nrrd
 import numpy as np
-import h5py
-from .. import load_dicom
-import logging
 
 from deepdrr import geo
-import nibabel as nib
-
+from .. import load_dicom
 
 log = logging.getLogger(__name__)
+
 
 def _convert_hounsfield_to_density(hu_values: np.ndarray, smooth_air: bool = False):
     # Use two linear interpolations from data: (HU,g/cm^3)
@@ -30,9 +29,10 @@ def _convert_hounsfield_to_density(hu_values: np.ndarray, smooth_air: bool = Fal
     )
     return densities
 
+
 def segment_materials(
-    hu_values: np.ndarray,
-    use_thresholding: bool = True,
+        hu_values: np.ndarray,
+        use_thresholding: bool = True,
 ) -> Dict[str, np.ndarray]:
     """Segment the materials in a volume, potentially caching.
 
@@ -56,8 +56,8 @@ def segment_materials(
 
 
 def _segment_materials(
-    hu_values: np.ndarray,
-    use_thresholding: bool = True,
+        hu_values: np.ndarray,
+        use_thresholding: bool = True,
 ) -> Dict[str, np.ndarray]:
     """Segment the materials.
 
@@ -97,10 +97,9 @@ def parse_nrrd_header(header) -> geo.FrameTransform:
 
 
 def load_nrrd(
-    nrrd_path: str,
-    use_thresholding: bool = True,
+        nrrd_path: str,
+        use_thresholding: bool = True,
 ) -> Tuple[np.ndarray, Dict[str, np.ndarray], np.ndarray, str]:
-
     nrrd_path = Path(nrrd_path)
 
     hu_values, header = nrrd.read(nrrd_path)
@@ -117,9 +116,9 @@ def load_nrrd(
 
 
 def h5_from_nrrd(
-    nrrd_path: str,
-    h5_path: str,
-    use_thresholding: bool = True,
+        nrrd_path: str,
+        h5_path: str,
+        use_thresholding: bool = True,
 ):
     data, materials, anatomical_from_IJK, anatomical_coordinate_system = load_nrrd(
         nrrd_path
@@ -129,13 +128,13 @@ def h5_from_nrrd(
 
 
 def write_h5_file(
-    h5_path: str,
-    data: np.ndarray,
-    materials: Dict[str, np.ndarray],
-    anatomical_from_IJK: np.ndarray,
-    anatomical_coordinate_system: str,
-    compression: str = None,
-    # compression: str = "lzf",
+        h5_path: str,
+        data: np.ndarray,
+        materials: Dict[str, np.ndarray],
+        anatomical_from_IJK: np.ndarray,
+        anatomical_coordinate_system: str,
+        compression: str = None,
+        # compression: str = "lzf",
 ):
     h5_path = str(h5_path)
     with h5py.File(h5_path, "w") as f:
@@ -163,8 +162,7 @@ def h5_from_nifti(
         nifti_path: str,
         h5_path: str,
         use_thresholding: bool = True,
-    ):
-
+):
     nifti_path = Path(nifti_path)
     h5_path = Path(h5_path)
 
@@ -174,7 +172,7 @@ def h5_from_nifti(
         log.warning(
             f'got NifTi xyz units: {img.header.get_xyzt_units()[0]}. (Expected "mm").'
         )
-    
+
     anatomical_from_IJK = geo.FrameTransform(img.affine)
 
     hu_values = img.get_fdata()

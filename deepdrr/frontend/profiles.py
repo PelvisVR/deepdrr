@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from deepdrr.frontend.renderer import Renderer
-
 from .frontend import *
+from .renderer import Renderer
 from .transform_manager import *
 
 

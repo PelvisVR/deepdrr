@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from deepdrr.frontend.frontend import Scene
-from deepdrr.frontend.render import *
+from .frontend import Scene
+from .render import *
 from .transform_manager import *
+
 
 class Renderer(ABC):
 
@@ -25,6 +26,7 @@ class Renderer(ABC):
     @abstractmethod
     def __exit__(self, exc_type, exc_value, traceback):
         ...
+
 
 class SynchronousRenderer(Renderer):
 
@@ -64,6 +66,7 @@ class SynchronousRenderer(Renderer):
 
 class ProcessRenderer(Renderer):
     pass
+
 
 class DeferredRenderer(Renderer):
     def __init__(self, path: Union[str, Path]):
@@ -140,6 +143,7 @@ class Backend(ABC):
         else:
             raise ValueError(f"Unknown render type {render_settings.settings.render_type}")
 
+
 class DRRBackend(Backend):
 
     def __init__(self):
@@ -171,6 +175,7 @@ class DRRBackend(Backend):
 
     def render_frame(self, frame: RenderFrame):
         return self.render_frames([frame])[0]
+
 
 class RasterizeBackend(Backend):
 

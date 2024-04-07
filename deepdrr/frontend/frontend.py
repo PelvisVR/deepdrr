@@ -20,6 +20,8 @@ class Scene(ABC):
 class GraphScene(Scene):
 
     def __init__(self, graph: TransformTree):
+        super().__init__()
+        self._prim_to_id = None
         self.graph = graph
         self._primitives = None
         self._camera = None

@@ -5,7 +5,7 @@ from .transform_manager import *
 from .. import utils
 
 
-class Device(TransformDriver):
+class Device(TransformDriver, ABC):
     _camera: Camera
 
     def __init__(self, camera: Camera):
