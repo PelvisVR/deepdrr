@@ -19,7 +19,7 @@ class Scene(ABC):
 
 class GraphScene(Scene):
 
-    def __init__(self, graph: TransformTree):
+    def __init__(self, graph: TransformTree, camera: Optional[Camera] = None):
         super().__init__()
         self._prim_to_id = None
         self.graph = graph
@@ -27,15 +27,29 @@ class GraphScene(Scene):
         self._camera = None
         self._render_primitives = None
 
+        if camera is not None:
+            self.set_camera(camera)
+
     def get_camera(self) -> Camera:
         if self._camera is None:
             for node in self.graph:
                 for content in node:
                     if isinstance(content, Camera):
                         if self._camera is not None:
-                            raise ValueError("Multiple cameras in scene")
+                            raise ValueError(
+                                "Multiple cameras in scene, use set_camera to specify"
+                            )
                         self._camera = content
         return self._camera
+
+    def set_camera(self, camera: Camera):
+        # make sure camera is in the graph
+        for node in self.graph:
+            for content in node:
+                if content is camera:
+                    self._camera = camera
+                    return
+        raise ValueError("Camera not in scene graph")
 
     def _get_instances(self) -> List[PrimitiveInstance]:
         instances = []
