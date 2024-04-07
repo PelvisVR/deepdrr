@@ -128,8 +128,10 @@ class PrimitiveVolume(Primitive):
     def save_h5(
         self,
         path: Optional[str] = None,
-        anatomical_from_IJK: Optional[geo.FrameTransform] = None,
     ) -> str: ...
+
+    @abstractmethod
+    def to_memory_volume(self) -> MemoryVolume: ...
 
 
 class H5Volume(PrimitiveVolume):
@@ -150,12 +152,14 @@ class H5Volume(PrimitiveVolume):
     def save_h5(
         self,
         path: Optional[str] = None,
-        anatomical_from_IJK: Optional[geo.FrameTransform] = None,
     ) -> str:
         if path is None:
             return self.path
         shutil.copy(self.path, path)
         return path
+
+    def to_memory_volume(self) -> MemoryVolume:
+        return MemoryVolume.from_h5(self.path)
 
 
 class MemoryVolume(PrimitiveVolume):
@@ -179,7 +183,17 @@ class MemoryVolume(PrimitiveVolume):
         self.materials = materials
         self.anatomical_coordinate_system = anatomical_coordinate_system
         self.serialize_path = serialize_path
-        self.anatomical_from_IJK = geo.FrameTransform.identity()
+        self._anatomical_from_IJK = anatomical_from_IJK
+
+    @property
+    def anatomical_from_IJK(self) -> geo.FrameTransform:
+        if self._anatomical_from_IJK is None:
+            self._anatomical_from_IJK = geo.FrameTransform.identity()
+        return self._anatomical_from_IJK
+
+    @anatomical_from_IJK.setter
+    def anatomical_from_IJK(self, value: geo.FrameTransform):
+        self._anatomical_from_IJK = value
 
     def get_render_primitive(self) -> RenderPrimitive:
         saved_path = self.save_h5(self.serialize_path)
@@ -192,17 +206,13 @@ class MemoryVolume(PrimitiveVolume):
     def save_h5(
         self,
         path: Optional[str] = None,
-        anatomical_from_IJK: Optional[geo.FrameTransform] = None,
     ) -> str:
-        if anatomical_from_IJK is None:
-            anatomical_from_IJK = self.anatomical_from_IJK
-
         def save_h5(p):
             write_h5_file(
                 p,
                 self.data,
                 self.materials,
-                anatomical_from_IJK,
+                self.anatomical_from_IJK,
                 self.anatomical_coordinate_system,
             )
 
@@ -212,6 +222,37 @@ class MemoryVolume(PrimitiveVolume):
             log.info(f"Saved H5 file to {saved_path}")
 
         return saved_path
+
+    @classmethod
+    def from_h5(cls, path: str):
+        data, materials, anatomical_from_IJK, anatomical_coordinate_system = load_h5(
+            path
+        )
+
+        return cls(
+            data=data,
+            materials=materials,
+            anatomical_from_IJK=anatomical_from_IJK,
+            anatomical_coordinate_system=anatomical_coordinate_system,
+            serialize_path=path,
+        )
+
+    @classmethod
+    def from_nrrd(cls, path: str):
+        data, materials, anatomical_from_IJK, anatomical_coordinate_system = load_nrrd(
+            path
+        )
+
+        return cls(
+            data=data,
+            materials=materials,
+            anatomical_from_IJK=anatomical_from_IJK,
+            anatomical_coordinate_system=anatomical_coordinate_system,
+            serialize_path=path,
+        )
+
+    def to_memory_volume(self) -> MemoryVolume:
+        return self
 
 
 class StlMesh(Primitive):
@@ -330,12 +371,10 @@ class MobileCArm(TransformDriver):
 class Renderable(TransformDriver):
 
     @abstractmethod
-    def add_to(self, node: TransformNode): ...
+    def _add_to(self, node: TransformNode): ...
 
 
 class Mesh(Renderable):
-    # not allowed to change vertex data or material data after construction
-
     def __init__(
         self,
         world_from_anatomical: Optional[geo.FrameTransform] = None,
@@ -346,9 +385,25 @@ class Mesh(Renderable):
         self._node_anatomical = TransformNode(
             transform=world_from_anatomical, contents=[mesh]
         )
+        self.enabled = enabled
 
-    def add_to(self, node: TransformNode):
+    @classmethod
+    def from_stl(cls, path: str, **kwargs):
+        return cls(
+            mesh=StlMesh(path=path, **kwargs),
+            **kwargs,
+        )
+
+    def _add_to(self, node: TransformNode):
         node.add(self._node_anatomical)
+
+    @property
+    def enabled(self) -> bool:
+        return self.mesh.enabled
+
+    @enabled.setter
+    def enabled(self, value: bool):
+        self.mesh.enabled = value
 
     @property
     def world_from_anatomical(self) -> geo.FrameTransform:
@@ -358,47 +413,43 @@ class Mesh(Renderable):
     def world_from_anatomical(self, value: geo.FrameTransform):
         self._node_anatomical.transform = value
 
+    @property
+    def mesh(self) -> PrimitiveMesh:
+        return self._mesh
+
 
 class Volume(Renderable):
-    # not allowed to change volume data or material data after construction
-
     def __init__(
         self,
         world_from_anatomical: Optional[geo.FrameTransform] = None,
-        anatomical_from_IJK: Optional[geo.FrameTransform] = None,
         volume: PrimitiveVolume = None,
         enabled: bool = True,
     ):
         self._volume = volume
-        self._node_anatomical = TransformNode(transform=world_from_anatomical)
-        self._node_ijk = TransformNode(transform=anatomical_from_IJK, contents=[volume])
+        self._node_anatomical = TransformNode(
+            transform=world_from_anatomical, contents=[volume]
+        )
+        self.enabled = enabled
 
-    def add_to(self, node: TransformNode):
+    @classmethod
+    def from_h5(cls, path: str, in_memory=False, **kwargs):
+        volume = H5Volume(path)
+        if in_memory:
+            volume = volume.to_memory_volume()
+        return cls(
+            volume=volume,
+            **kwargs,
+        )
+
+    @classmethod
+    def from_nrrd(cls, path: str, **kwargs):
+        return cls(
+            volume=MemoryVolume.from_nrrd(path),
+            **kwargs,
+        )
+
+    def _add_to(self, node: TransformNode):
         node.add(self._node_anatomical)
-        self._node_anatomical.add(self._node_ijk)
-
-    @property
-    def world_from_anatomical(self) -> geo.FrameTransform:
-        return self._node_anatomical.transform
-
-    @world_from_anatomical.setter
-    def world_from_anatomical(self, value: geo.FrameTransform):
-        self._node_anatomical.transform = value
-
-    @property
-    def anatomical_from_IJK(self) -> geo.FrameTransform:
-        return self._node_ijk.transform
-
-    @anatomical_from_IJK.setter
-    def anatomical_from_IJK(self, value: geo.FrameTransform):
-        self._node_ijk.transform = value
-
-    def save_h5(self, path: str):
-        self._volume.save_h5(path, self.anatomical_from_IJK)
-
-    @property
-    def volume(self) -> PrimitiveVolume:
-        return self._volume
 
     @property
     def enabled(self) -> bool:
@@ -408,41 +459,38 @@ class Volume(Renderable):
     def enabled(self, value: bool):
         self.volume.enabled = value
 
-    @classmethod
-    def from_h5(cls, path: str):
-        data, materials, anatomical_from_IJK, anatomical_coordinate_system = (
-            read_h5_file(path)
-        )
+    @property
+    def world_from_anatomical(self) -> geo.FrameTransform:
+        return self._node_anatomical.transform
 
-        world_from_anatomical = geo.FrameTransform.identity()
+    @world_from_anatomical.setter
+    def world_from_anatomical(self, value: geo.FrameTransform):
+        self._node_anatomical.transform = value
 
-        volume = H5Volume(
-            url=path,
-        )
+    @property
+    def volume(self) -> PrimitiveVolume:
+        return self._volume
 
-        return cls(
-            anatomical_from_IJK=anatomical_from_IJK,
-            world_from_anatomical=world_from_anatomical,
-            volume=volume,
-        )
+    @property
+    def memory_volume(self) -> MemoryVolume:
+        if isinstance(self._volume, MemoryVolume):
+            return self._volume
+        self._volume = self._volume.to_memory_volume()
+        return self._volume
 
-    @classmethod
-    def from_nrrd(cls, path: str):
-        data, materials, anatomical_from_IJK, anatomical_coordinate_system = load_nrrd(
-            path
-        )
+    def to_memory_volume(self):
+        self._volume = self._volume.to_memory_volume()
 
-        volume = MemoryVolume(
-            data=data,
-            materials=materials,
-            anatomical_coordinate_system=anatomical_coordinate_system,
-        )
+    @property
+    def anatomical_from_IJK(self) -> geo.FrameTransform:
+        return self.memory_volume.anatomical_from_IJK
 
-        return cls(
-            anatomical_from_IJK=anatomical_from_IJK,
-            world_from_anatomical=geo.FrameTransform.identity(),
-            volume=volume,
-        )
+    @anatomical_from_IJK.setter
+    def anatomical_from_IJK(self, value: geo.FrameTransform):
+        self.memory_volume.anatomical_from_IJK = value
+
+    def save_h5(self, path: str):
+        self._volume.save_h5(path, self.anatomical_from_IJK)
 
 
 class RenderProfile(ABC):

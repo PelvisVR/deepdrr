@@ -147,7 +147,7 @@ def write_h5_file(
         meta_grp.create_dataset("anatomical_coordinate_system", data=anatomical_coordinate_system)
 
 
-def read_h5_file(h5_path: str) -> Tuple[np.ndarray, Dict[str, np.ndarray], np.ndarray, str]:
+def load_h5(h5_path: str) -> Tuple[np.ndarray, Dict[str, np.ndarray], np.ndarray, str]:
     h5_path = str(h5_path)
     with h5py.File(h5_path, "r") as f:
         data = f["data"][()]

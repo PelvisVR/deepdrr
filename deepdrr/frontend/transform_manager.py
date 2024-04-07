@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 import os
 from pathlib import Path
@@ -25,8 +24,8 @@ class TransformDriver(ABC):
     # drives the transform graph
 
     @abstractmethod
-    def add_to(self, node: TransformNode):
-        ...
+    def _add_to(self, node: TransformNode): ...
+
 
 class TransformNode:
     transform: geo.FrameTransform # parent to self transform
@@ -65,7 +64,7 @@ class TransformNode:
 
     def __repr__(self):
         return self.__str__()
-    
+
 
 class TransformTree:
     def __init__(self):
@@ -86,27 +85,27 @@ class TransformTree:
             return next((x for x in self._g.neighbors(node) if not self._g[node][x]['forward']))
         except StopIteration:
             return None
-        
+
     def get_children(self, node: TransformNode) -> List[TransformNode]:
         return [x for x in self._g.neighbors(node) if self._g[node][x]['forward']]
-    
+
     def _forward_view(self) -> nx.DiGraph:
         return nx.subgraph_view(self._g, filter_edge=lambda u, v: self._g[u][v]['forward'])
-    
+
     def _reverse_view(self) -> nx.DiGraph:
         return nx.reverse_view(self._forward_view())
 
     def is_ancestor(self, ancestor: TransformNode, descendant: TransformNode) -> bool:
         return nx.has_path(self._reverse_view(), descendant, ancestor)
-    
+
     def add(self, node: Union[TransformNode, TransformDriver], parent: Optional[TransformNode] = None):
         if parent is None:
             parent = self._root_node
 
         if isinstance(node, TransformDriver):
-            node.add_to(parent)
+            node._add_to(parent)
             return
-            
+
         self._add_node(node, parent)
 
     def _add_node(self, node: TransformNode, parent: TransformNode):
@@ -134,7 +133,7 @@ class TransformTree:
             # add the new parent edge
             self._add_tree_edge(parent=parent, child=node)
             return
-        
+
         node._set_tree(self)
         self._g.add_node(node)
         self._add_tree_edge(parent, node)
@@ -142,14 +141,14 @@ class TransformTree:
     def remove(self, node: TransformNode):
         if node == self._root_node:
             raise ValueError("Cannot remove root node")
-        
+
         if node not in self._g:
             raise ValueError("Node not in tree")
-        
+
         # remove all children
         for child in self.get_children(node):
             self.remove(child)
-        
+
         node._tree = None
         self._g.remove_node(node)
 
@@ -161,39 +160,34 @@ class TransformTree:
 
         if source == target:
             return geo.FrameTransform.identity()
-        
+
         if source not in self._g:
             raise ValueError("Source not in tree")
         if target not in self._g:
             raise ValueError("Target not in tree")
-        
+
         try:
             path = nx.shortest_path(self._g, source, target)
         except nx.NetworkXNoPath:
             raise ValueError("No path between source and target")
-        
+
         transform = geo.FrameTransform.identity()
-        
+
         for i in range(len(path) - 1):
             forward = self._g[path[i]][path[i+1]]['forward']
             if forward:
                 transform = transform @ path[i+1].transform
             else:
                 transform = transform @ path[i].transform.inverse()
-        
+
         return transform
-    
+
     def __iter__(self):
         return self._g.__iter__()
-    
+
     def draw(self):
         import matplotlib.pyplot as plt
         pos = nx.spring_layout(self._g)
         g_forward = self._forward_view()
         nx.draw(g_forward, pos, with_labels=True, node_size=3000, node_color="skyblue", font_size=10, font_weight="bold", edge_color="gray", linewidths=1, font_color="black")
         plt.show()
-
-
-
-
-    
