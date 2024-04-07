@@ -32,6 +32,8 @@ class GraphScene(Scene):
             for node in self.graph:
                 for content in node:
                     if isinstance(content, Camera):
+                        if self._camera is not None:
+                            raise ValueError("Multiple cameras in scene")
                         self._camera = content
         return self._camera
 
