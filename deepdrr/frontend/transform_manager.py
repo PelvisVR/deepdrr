@@ -1,12 +1,25 @@
 
 from __future__ import annotations
+import os
+from pathlib import Path
 
 import networkx as nx
-from typing import List, Optional, Any, Union
+from typing import Callable, Dict, List, Optional, Any, Union
 from abc import ABC, abstractmethod
+import nrrd
 import numpy as np
+import h5py
+import logging
+import tempfile
+import hashlib
+import shutil
+
+from .. import load_dicom
+from .volume_processing import *
 
 from deepdrr import geo
+
+log = logging.getLogger(__name__)
 
 class TransformDriver(ABC):
     # drives the transform graph
@@ -14,55 +27,6 @@ class TransformDriver(ABC):
     @abstractmethod
     def add_to(self, node: TransformNode):
         ...
-
-
-
-class MobileCArm(TransformDriver):
-
-    # isocenter node field
-    # camera node field
-
-    def __init__(self, graph: TransformTree, parent):
-        # make a node, attach it to parent
-        # make a sub-node, attach it to node
-        # assign a camera to the sub-node
-        pass
-
-    def move_by(
-        self,
-        delta_isocenter: Optional[geo.Vector3D] = None,
-        delta_alpha: Optional[float] = None,
-        delta_beta: Optional[float] = None,
-        delta_gamma: Optional[float] = None,
-        degrees: bool = True,
-    ) -> None:
-        # move the nodes
-        pass
-class Renderable(TransformDriver):
-    
-    @abstractmethod
-    def add_to(self, node: TransformNode):
-        ...
-
-class Mesh(Renderable):
-    # not allowed to change vertex data or material data after construction
-    pass
-
-class Volume(Renderable):
-    # not allowed to change volume data or material data after construction
-
-    def __init__(self, ft1, ft2):
-        self._ft1_node = TransformNode(transform=ft1, contents=["ft1_volume"])
-        self._ft2_node = TransformNode(transform=ft2, contents=["ft2_volume"])
-
-    def add_to(self, node: TransformNode):
-        node.add(self._ft1_node)
-        self._ft1_node.add(self._ft2_node)
-
-    @classmethod
-    def from_nrrd(cls, path: str):
-        pass
-
 
 class TransformNode:
     transform: geo.FrameTransform # parent to self transform
@@ -82,18 +46,18 @@ class TransformNode:
         self.contents = contents
         self._tree = None    
 
-    def get_tree(self) -> TransformTree:
+    def _get_tree(self) -> TransformTree:
         if self._tree is None:
             raise ValueError("Node does not belong to a tree")
         return self._tree
     
-    def set_tree(self, value: TransformTree):
+    def _set_tree(self, value: TransformTree):
         if self._tree is not None and self._tree != value:
             raise ValueError("Node already belongs to a different tree")
         self._tree = value
 
     def add(self, node: TransformNode):
-        self.get_tree().add(node=node, parent=self)
+        self._get_tree().add(node=node, parent=self)
 
     def __str__(self):
         return self.contents[0] if len(self.contents) > 0 else "TransformTreeNode"
@@ -107,7 +71,7 @@ class TransformTree:
     def __init__(self):
         self._g = nx.DiGraph()
         self._root_node = TransformNode(contents=["root"])
-        self._root_node.set_tree(self)
+        self._root_node._set_tree(self)
 
     def _add_tree_edge(self, parent: TransformNode, child: TransformNode):
         self._g.add_edge(parent, child, forward=True)
@@ -171,7 +135,7 @@ class TransformTree:
             self._add_tree_edge(parent=parent, child=node)
             return
         
-        node.set_tree(self)
+        node._set_tree(self)
         self._g.add_node(node)
         self._add_tree_edge(parent, node)
 
