@@ -15,7 +15,7 @@ class RenderMatrix4x4(BaseModel):
 
 def geo_to_render_matrix4x4(geo: geo.FrameTransform) -> RenderMatrix4x4:
     return RenderMatrix4x4(data=geo.data.astype(np.float32).flatten().tolist())
-                           
+
 def render_matrix4x4_to_geo(render: RenderMatrix4x4) -> geo.FrameTransform:
     return geo.FrameTransform(np.array(render.data, dtype=np.float32).reshape(4, 4))
 

@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 from deepdrr import geo
 from typing import List, Optional, Any, Set
 from abc import ABC, abstractmethod
 
 
-from __future__ import annotations
 import os
 from pathlib import Path
 
@@ -29,7 +30,20 @@ from .transform_manager import *
 
 
 class Primitive:
-    pass
+
+    def __init__(self):
+        self._enabled = True
+
+    @abstractmethod
+    def get_render_primitive(self) -> RenderPrimitive: ...
+
+    @property
+    def enabled(self) -> bool:
+        return self._enabled
+
+    @enabled.setter
+    def enabled(self, value: bool):
+        self._enabled = value
 
 
 class PrimitiveInstance:
@@ -49,9 +63,155 @@ class Camera:
     pass
 
 
-class H5Volume(Primitive):
-    url: Url
+class PrimitiveMesh(Primitive):
+    material_name: str
+    density: float
     priority: int
+    additive: bool
+    subtractive: bool
+
+    def __init__(
+        self,
+        material_name: str,
+        density: float,
+        priority: int,
+        additive: bool,
+        subtractive: bool,
+    ):
+        super().__init__()
+        self.material_name = material_name
+        self.density = density
+        self.priority = priority
+        self.additive = additive
+        self.subtractive = subtractive
+
+    @abstractmethod
+    def get_render_primitive(self) -> RenderPrimitive: ...
+
+
+class StlMesh(PrimitiveMesh):
+    path: str
+
+    def __init__(
+        self,
+        path: str,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.path = path
+
+    def get_render_primitive(self) -> RenderPrimitive:
+        return RenderPrimitive(
+            data=RenderStlMesh(
+                url=Url("file://" + Path(self.path).resolve()),
+                material_name=self.material_name,
+                density=self.density,
+                priority=self.priority,
+                additive=self.additive,
+                subtractive=self.subtractive,
+            )
+        )
+
+
+class PrimitiveVolume(Primitive):
+    priority: int
+
+    def __init__(self, priority: int = 0):
+        super().__init__()
+        self.priority = priority
+
+    @abstractmethod
+    def get_render_primitive(self) -> RenderPrimitive: ...
+
+    @abstractmethod
+    def save_h5(
+        self,
+        path: Optional[str] = None,
+        anatomical_from_IJK: Optional[geo.FrameTransform] = None,
+    ) -> str: ...
+
+
+class H5Volume(PrimitiveVolume):
+    path: str
+
+    def __init__(self, path: str, priority: int = 0):
+        super().__init__(priority)
+        self.path = path
+
+    def get_render_primitive(self) -> RenderPrimitive:
+        return RenderPrimitive(
+            data=RenderH5Volume(
+                url=Url("file://" + Path(self.path).resolve()),
+                priority=self.priority,
+            )
+        )
+
+    def save_h5(
+        self,
+        path: Optional[str] = None,
+        anatomical_from_IJK: Optional[geo.FrameTransform] = None,
+    ) -> str:
+        if path is None:
+            return self.path
+        shutil.copy(self.path, path)
+        return path
+
+
+class MemoryVolume(PrimitiveVolume):
+    data: np.ndarray
+    materials: Dict[str, np.ndarray]
+    anatomical_from_IJK: geo.FrameTransform
+    anatomical_coordinate_system: Optional[str]
+    serialize_path: Optional[str]
+
+    def __init__(
+        self,
+        data: np.ndarray,
+        materials: Dict[str, np.ndarray],
+        anatomical_from_IJK: geo.FrameTransform,
+        anatomical_coordinate_system: Optional[str],
+        serialize_path: Optional[str],
+        priority: int = 0,
+    ):
+        super().__init__(priority)
+        self.data = data
+        self.materials = materials
+        self.anatomical_coordinate_system = anatomical_coordinate_system
+        self.serialize_path = serialize_path
+        self.anatomical_from_IJK = geo.FrameTransform.identity()
+
+    def get_render_primitive(self) -> RenderPrimitive:
+        saved_path = self.save_h5(self.serialize_path)
+
+        return H5Volume(
+            path=saved_path,
+            priority=self.priority,
+        ).get_render_primitive()
+
+    def save_h5(
+        self,
+        path: Optional[str] = None,
+        anatomical_from_IJK: Optional[geo.FrameTransform] = None,
+    ) -> str:
+        if anatomical_from_IJK is None:
+            anatomical_from_IJK = self.anatomical_from_IJK
+
+        def save_h5(p):
+            write_h5_file(
+                p,
+                self.data,
+                self.materials,
+                anatomical_from_IJK,
+                self.anatomical_coordinate_system,
+            )
+
+        saved_path = save_or_cache_file(path, save_h5)
+
+        if self.serialize_path is None:
+            log.info(f"Saved H5 file to {saved_path}")
+
+        return saved_path
 
 
 class StlMesh(Primitive):
@@ -175,7 +335,28 @@ class Renderable(TransformDriver):
 
 class Mesh(Renderable):
     # not allowed to change vertex data or material data after construction
-    pass
+
+    def __init__(
+        self,
+        world_from_anatomical: Optional[geo.FrameTransform] = None,
+        mesh: PrimitiveMesh = None,
+        enabled: bool = True,
+    ):
+        self._mesh = mesh
+        self._node_anatomical = TransformNode(
+            transform=world_from_anatomical, contents=[mesh]
+        )
+
+    def add_to(self, node: TransformNode):
+        node.add(self._node_anatomical)
+
+    @property
+    def world_from_anatomical(self) -> geo.FrameTransform:
+        return self._node_anatomical.transform
+
+    @world_from_anatomical.setter
+    def world_from_anatomical(self, value: geo.FrameTransform):
+        self._node_anatomical.transform = value
 
 
 class Volume(Renderable):
@@ -183,19 +364,14 @@ class Volume(Renderable):
 
     def __init__(
         self,
-        data: np.ndarray,
-        materials: Dict[str, np.ndarray],
-        anatomical_from_IJK: Optional[geo.FrameTransform] = None,
         world_from_anatomical: Optional[geo.FrameTransform] = None,
-        anatomical_coordinate_system: Optional[str] = None,
+        anatomical_from_IJK: Optional[geo.FrameTransform] = None,
+        volume: PrimitiveVolume = None,
         enabled: bool = True,
     ):
-        self._node_anatomical = TransformNode(
-            transform=world_from_anatomical, contents=["ft1_volume"]
-        )
-        self._node_ijk = TransformNode(
-            transform=anatomical_from_IJK, contents=["ft2_volume"]
-        )
+        self._volume = volume
+        self._node_anatomical = TransformNode(transform=world_from_anatomical)
+        self._node_ijk = TransformNode(transform=anatomical_from_IJK, contents=[volume])
 
     def add_to(self, node: TransformNode):
         node.add(self._node_anatomical)
@@ -217,31 +393,56 @@ class Volume(Renderable):
     def anatomical_from_IJK(self, value: geo.FrameTransform):
         self._node_ijk.transform = value
 
+    def save_h5(self, path: str):
+        self._volume.save_h5(path, self.anatomical_from_IJK)
+
+    @property
+    def volume(self) -> PrimitiveVolume:
+        return self._volume
+
+    @property
+    def enabled(self) -> bool:
+        return self.volume.enabled
+
+    @enabled.setter
+    def enabled(self, value: bool):
+        self.volume.enabled = value
+
     @classmethod
     def from_h5(cls, path: str):
-        # open the h5 file
         data, materials, anatomical_from_IJK, anatomical_coordinate_system = (
             read_h5_file(path)
         )
-        # get the anatomical_from_IJK transform
+
         world_from_anatomical = geo.FrameTransform.identity()
-        # create a H5Volume from the h5 file
+
+        volume = H5Volume(
+            url=path,
+        )
+
         return cls(
-            data=data,
-            materials=materials,
             anatomical_from_IJK=anatomical_from_IJK,
             world_from_anatomical=world_from_anatomical,
-            anatomical_coordinate_system=anatomical_coordinate_system,
+            volume=volume,
         )
 
     @classmethod
-    def from_nrrd(cls, path: str, h5_path: str = None):
-        saved_path = save_or_cache_file(h5_path, lambda x: h5_from_nrrd(path, x))
+    def from_nrrd(cls, path: str):
+        data, materials, anatomical_from_IJK, anatomical_coordinate_system = load_nrrd(
+            path
+        )
 
-        if h5_path is None:
-            log.info(f"Saved H5 file to {saved_path}")
+        volume = MemoryVolume(
+            data=data,
+            materials=materials,
+            anatomical_coordinate_system=anatomical_coordinate_system,
+        )
 
-        cls.from_h5(h5_path)
+        return cls(
+            anatomical_from_IJK=anatomical_from_IJK,
+            world_from_anatomical=geo.FrameTransform.identity(),
+            volume=volume,
+        )
 
 
 class RenderProfile(ABC):

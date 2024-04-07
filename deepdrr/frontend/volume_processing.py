@@ -2,7 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import networkx as nx
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Tuple, Union
 from abc import ABC, abstractmethod
 import nrrd
 import numpy as np
@@ -95,14 +95,13 @@ def parse_nrrd_header(header) -> geo.FrameTransform:
 
     return anatomical_from_IJK, anatomical_coordinate_system
 
-def h5_from_nrrd(
-        nrrd_path: str, 
-        h5_path: str, 
-        use_thresholding: bool = True,
-    ):
-    
+
+def load_nrrd(
+    nrrd_path: str,
+    use_thresholding: bool = True,
+) -> Tuple[np.ndarray, Dict[str, np.ndarray], np.ndarray, str]:
+
     nrrd_path = Path(nrrd_path)
-    h5_path = Path(h5_path)
 
     hu_values, header = nrrd.read(nrrd_path)
 
@@ -114,9 +113,28 @@ def h5_from_nrrd(
         use_thresholding=use_thresholding,
     )
 
+    return data, materials, anatomical_from_IJK, anatomical_coordinate_system
+
+
+def h5_from_nrrd(
+    nrrd_path: str,
+    h5_path: str,
+    use_thresholding: bool = True,
+):
+    data, materials, anatomical_from_IJK, anatomical_coordinate_system = load_nrrd(
+        nrrd_path
+    )
+
     write_h5_file(h5_path, data, materials, anatomical_from_IJK, anatomical_coordinate_system)
 
-def write_h5_file(h5_path: str, data: np.ndarray, materials: Dict[str, np.ndarray], anatomical_from_IJK: np.ndarray, anatomical_coordinate_system: str):
+
+def write_h5_file(
+    h5_path: str,
+    data: np.ndarray,
+    materials: Dict[str, np.ndarray],
+    anatomical_from_IJK: np.ndarray,
+    anatomical_coordinate_system: str,
+):
     h5_path = str(h5_path)
     with h5py.File(h5_path, "w") as f:
         f.create_dataset("data", data=data, compression="lzf")
@@ -127,6 +145,7 @@ def write_h5_file(h5_path: str, data: np.ndarray, materials: Dict[str, np.ndarra
         meta_grp = f.create_group("meta")
         meta_grp.create_dataset("anatomical_from_IJK", data=anatomical_from_IJK)
         meta_grp.create_dataset("anatomical_coordinate_system", data=anatomical_coordinate_system)
+
 
 def read_h5_file(h5_path: str) -> Tuple[np.ndarray, Dict[str, np.ndarray], np.ndarray, str]:
     h5_path = str(h5_path)
@@ -166,4 +185,3 @@ def h5_from_nifti(
         )
 
     write_h5_file(h5_path, data, materials, anatomical_from_IJK, "RAS")
-        
