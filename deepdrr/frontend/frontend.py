@@ -373,6 +373,8 @@ class Renderable(TransformDriver):
     @abstractmethod
     def _add_to(self, node: TransformNode): ...
 
+    @abstractmethod
+    def add(self, node: TransformNode): ...
 
 class Mesh(Renderable):
     def __init__(
@@ -396,6 +398,9 @@ class Mesh(Renderable):
 
     def _add_to(self, node: TransformNode):
         node.add(self._node_anatomical)
+
+    def add(self, node: TransformNode):
+        self._node_anatomical.add(node)
 
     @property
     def enabled(self) -> bool:
@@ -450,6 +455,9 @@ class Volume(Renderable):
 
     def _add_to(self, node: TransformNode):
         node.add(self._node_anatomical)
+
+    def add(self, node: TransformNode):
+        self._node_anatomical.add(node)
 
     @property
     def enabled(self) -> bool:

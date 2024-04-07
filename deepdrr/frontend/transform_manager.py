@@ -25,6 +25,11 @@ class TransformDriver(ABC):
 
     @abstractmethod
     def _add_to(self, node: TransformNode): ...
+    # add self as a child to node
+
+    @abstractmethod
+    def add(self, node: TransformNode): ...
+    # add a node as a child to self
 
 
 class TransformNode:
@@ -56,6 +61,7 @@ class TransformNode:
         self._tree = value
 
     def add(self, node: TransformNode):
+        # add a node as a child to self
         self._get_tree().add(node=node, parent=self)
 
     def __str__(self):
