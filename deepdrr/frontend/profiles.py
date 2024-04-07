@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .frontend import *
+from .scene import *
 from .renderer import Renderer
 from .transform_manager import *
 
