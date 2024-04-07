@@ -1,12 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
-from deepdrr import geo
-from typing import List, Optional, Any, Set
-from abc import ABC, abstractmethod
-
 from deepdrr.frontend.frontend import Scene
-from deepdrr.serial.render import *
+from deepdrr.frontend.render import *
 from .transform_manager import *
 
 class Renderer(ABC):
