@@ -53,7 +53,7 @@ class GraphScene(Scene):
 
         return instances
 
-    def get_primitives(self) -> List[Primitive]:
+    def _get_primitives(self) -> List[Primitive]:
         if self._primitives is None:
             prim_set = set()
             for instance in self._get_instances():
@@ -67,14 +67,15 @@ class GraphScene(Scene):
     def get_render_primitives(self) -> List[RenderPrimitive]:
         if self._render_primitives is None:
             self._render_primitives = [
-                primitive.to_render_primitive() for primitive in self.get_primitives()
+                primitive.to_render_primitive() for primitive in self._get_primitives()
             ]
         return self._render_primitives
 
     def instance_snapshot(self) -> List[RenderInstance]:
-        self.get_primitives()
         instances = self._get_instances()
         return [instance.to_render_instance(self.get_prim_id) for instance in instances]
 
     def get_prim_id(self, primitive: Primitive):
+        if self._prim_to_id is None:
+            self._get_primitives()
         return self._prim_to_id[primitive]
