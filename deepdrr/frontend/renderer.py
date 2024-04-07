@@ -103,8 +103,8 @@ class DeferredRenderer(Renderer):
                 primitives=self._scene.get_render_primitives(),
                 frames=self._frames,
             )
-            f.write(rs.model_dump_json())
-            # f.write(rs.model_dump_json(indent=2))
+            # f.write(rs.model_dump_json())
+            f.write(rs.model_dump_json(indent=2))
 
     def render_frames(self, frames: List[RenderFrame]):
         self._frames.extend(frames)

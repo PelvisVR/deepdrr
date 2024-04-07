@@ -1,1 +1,1140 @@
-{"render_settings":{"settings":{"render_type":"DRR","width":512,"height":512,"step":0.1,"mode":"linear","spectrum":"90KV_AL40","add_noise":false,"photon_count":10000,"collected_energy":false,"neglog":true,"intensity_upper_bound":null,"attenuate_outside_volume":false,"max_mesh_hits":32}},"primitives":[{"data":{"prim_data_type":"StlMesh","url":"file:///home/pelvisvr/repos/deepdrr/tests/resources/threads.stl","material_name":"iron","density":1.0,"priority":0,"subtractive":false}},{"data":{"prim_data_type":"StlMesh","url":"file:///home/pelvisvr/repos/deepdrr/tests/resources/suzanne.stl","material_name":"iron","density":1.0,"priority":0,"subtractive":false}},{"data":{"prim_data_type":"H5Volume","url":"file:///home/pelvisvr/.cache/deepdrr/7eb9a8ffef66010c67f6b418397c7339d8a55521","priority":0}}],"frames":[{"frame_settings":{"mode":"drr"},"camera":{"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"intrinsic":{"fx":5257.73193359375,"fy":5257.73193359375,"cx":768.0,"cy":768.0,"near":1.0,"far":1020.0}},"instances":[{"primitive_id":2,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":1,"transform":{"data":[1.0,0.0,0.0,-30.0,0.0,1.0,0.0,50.0,0.0,0.0,1.0,200.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":0,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"morph_weights":null}]},{"frame_settings":{"mode":"drr"},"camera":{"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"intrinsic":{"fx":5257.73193359375,"fy":5257.73193359375,"cx":768.0,"cy":768.0,"near":1.0,"far":1020.0}},"instances":[{"primitive_id":2,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":1,"transform":{"data":[1.0,0.0,0.0,-30.0,0.0,1.0,0.0,50.0,0.0,0.0,1.0,200.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":0,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,10.0,0.0,0.0,0.0,1.0]},"morph_weights":null}]},{"frame_settings":{"mode":"drr"},"camera":{"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"intrinsic":{"fx":5257.73193359375,"fy":5257.73193359375,"cx":768.0,"cy":768.0,"near":1.0,"far":1020.0}},"instances":[{"primitive_id":2,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":1,"transform":{"data":[1.0,0.0,0.0,-30.0,0.0,1.0,0.0,50.0,0.0,0.0,1.0,200.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":0,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,20.0,0.0,0.0,0.0,1.0]},"morph_weights":null}]},{"frame_settings":{"mode":"drr"},"camera":{"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"intrinsic":{"fx":5257.73193359375,"fy":5257.73193359375,"cx":768.0,"cy":768.0,"near":1.0,"far":1020.0}},"instances":[{"primitive_id":2,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":1,"transform":{"data":[1.0,0.0,0.0,-30.0,0.0,1.0,0.0,50.0,0.0,0.0,1.0,200.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":0,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,30.0,0.0,0.0,0.0,1.0]},"morph_weights":null}]},{"frame_settings":{"mode":"drr"},"camera":{"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"intrinsic":{"fx":5257.73193359375,"fy":5257.73193359375,"cx":768.0,"cy":768.0,"near":1.0,"far":1020.0}},"instances":[{"primitive_id":2,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":1,"transform":{"data":[1.0,0.0,0.0,-30.0,0.0,1.0,0.0,50.0,0.0,0.0,1.0,200.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":0,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,40.0,0.0,0.0,0.0,1.0]},"morph_weights":null}]},{"frame_settings":{"mode":"drr"},"camera":{"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"intrinsic":{"fx":5257.73193359375,"fy":5257.73193359375,"cx":768.0,"cy":768.0,"near":1.0,"far":1020.0}},"instances":[{"primitive_id":2,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":1,"transform":{"data":[1.0,0.0,0.0,-30.0,0.0,1.0,0.0,50.0,0.0,0.0,1.0,200.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":0,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,50.0,0.0,0.0,0.0,1.0]},"morph_weights":null}]},{"frame_settings":{"mode":"drr"},"camera":{"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"intrinsic":{"fx":5257.73193359375,"fy":5257.73193359375,"cx":768.0,"cy":768.0,"near":1.0,"far":1020.0}},"instances":[{"primitive_id":2,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":1,"transform":{"data":[1.0,0.0,0.0,-30.0,0.0,1.0,0.0,50.0,0.0,0.0,1.0,200.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":0,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,60.0,0.0,0.0,0.0,1.0]},"morph_weights":null}]},{"frame_settings":{"mode":"drr"},"camera":{"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"intrinsic":{"fx":5257.73193359375,"fy":5257.73193359375,"cx":768.0,"cy":768.0,"near":1.0,"far":1020.0}},"instances":[{"primitive_id":2,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":1,"transform":{"data":[1.0,0.0,0.0,-30.0,0.0,1.0,0.0,50.0,0.0,0.0,1.0,200.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":0,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,70.0,0.0,0.0,0.0,1.0]},"morph_weights":null}]},{"frame_settings":{"mode":"drr"},"camera":{"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"intrinsic":{"fx":5257.73193359375,"fy":5257.73193359375,"cx":768.0,"cy":768.0,"near":1.0,"far":1020.0}},"instances":[{"primitive_id":2,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":1,"transform":{"data":[1.0,0.0,0.0,-30.0,0.0,1.0,0.0,50.0,0.0,0.0,1.0,200.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":0,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,80.0,0.0,0.0,0.0,1.0]},"morph_weights":null}]},{"frame_settings":{"mode":"drr"},"camera":{"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"intrinsic":{"fx":5257.73193359375,"fy":5257.73193359375,"cx":768.0,"cy":768.0,"near":1.0,"far":1020.0}},"instances":[{"primitive_id":2,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":1,"transform":{"data":[1.0,0.0,0.0,-30.0,0.0,1.0,0.0,50.0,0.0,0.0,1.0,200.0,0.0,0.0,0.0,1.0]},"morph_weights":null},{"primitive_id":0,"transform":{"data":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,90.0,0.0,0.0,0.0,1.0]},"morph_weights":null}]}]}
+{
+  "render_settings": {
+    "settings": {
+      "render_type": "DRR",
+      "width": 512,
+      "height": 512,
+      "step": 0.1,
+      "mode": "linear",
+      "spectrum": "90KV_AL40",
+      "add_noise": false,
+      "photon_count": 10000,
+      "collected_energy": false,
+      "neglog": true,
+      "intensity_upper_bound": null,
+      "attenuate_outside_volume": false,
+      "max_mesh_hits": 32
+    }
+  },
+  "primitives": [
+    {
+      "data": {
+        "prim_data_type": "H5Volume",
+        "url": "file:///home/pelvisvr/.cache/deepdrr/7eb9a8ffef66010c67f6b418397c7339d8a55521",
+        "priority": 0
+      }
+    },
+    {
+      "data": {
+        "prim_data_type": "StlMesh",
+        "url": "file:///home/pelvisvr/repos/deepdrr/tests/resources/threads.stl",
+        "material_name": "iron",
+        "density": 1.0,
+        "priority": 0,
+        "subtractive": false
+      }
+    },
+    {
+      "data": {
+        "prim_data_type": "StlMesh",
+        "url": "file:///home/pelvisvr/repos/deepdrr/tests/resources/suzanne.stl",
+        "material_name": "iron",
+        "density": 1.0,
+        "priority": 0,
+        "subtractive": false
+      }
+    }
+  ],
+  "frames": [
+    {
+      "frame_settings": {
+        "mode": "drr"
+      },
+      "camera": {
+        "transform": {
+          "data": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        "intrinsic": {
+          "fx": 5257.73193359375,
+          "fy": 5257.73193359375,
+          "cx": 768.0,
+          "cy": 768.0,
+          "near": 1.0,
+          "far": 1020.0
+        }
+      },
+      "instances": [
+        {
+          "primitive_id": 0,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 2,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              -30.0,
+              0.0,
+              1.0,
+              0.0,
+              50.0,
+              0.0,
+              0.0,
+              1.0,
+              200.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 1,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        }
+      ]
+    },
+    {
+      "frame_settings": {
+        "mode": "drr"
+      },
+      "camera": {
+        "transform": {
+          "data": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        "intrinsic": {
+          "fx": 5257.73193359375,
+          "fy": 5257.73193359375,
+          "cx": 768.0,
+          "cy": 768.0,
+          "near": 1.0,
+          "far": 1020.0
+        }
+      },
+      "instances": [
+        {
+          "primitive_id": 0,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 2,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              -30.0,
+              0.0,
+              1.0,
+              0.0,
+              50.0,
+              0.0,
+              0.0,
+              1.0,
+              200.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 1,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              10.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        }
+      ]
+    },
+    {
+      "frame_settings": {
+        "mode": "drr"
+      },
+      "camera": {
+        "transform": {
+          "data": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        "intrinsic": {
+          "fx": 5257.73193359375,
+          "fy": 5257.73193359375,
+          "cx": 768.0,
+          "cy": 768.0,
+          "near": 1.0,
+          "far": 1020.0
+        }
+      },
+      "instances": [
+        {
+          "primitive_id": 0,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 2,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              -30.0,
+              0.0,
+              1.0,
+              0.0,
+              50.0,
+              0.0,
+              0.0,
+              1.0,
+              200.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 1,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              20.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        }
+      ]
+    },
+    {
+      "frame_settings": {
+        "mode": "drr"
+      },
+      "camera": {
+        "transform": {
+          "data": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        "intrinsic": {
+          "fx": 5257.73193359375,
+          "fy": 5257.73193359375,
+          "cx": 768.0,
+          "cy": 768.0,
+          "near": 1.0,
+          "far": 1020.0
+        }
+      },
+      "instances": [
+        {
+          "primitive_id": 0,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 2,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              -30.0,
+              0.0,
+              1.0,
+              0.0,
+              50.0,
+              0.0,
+              0.0,
+              1.0,
+              200.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 1,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              30.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        }
+      ]
+    },
+    {
+      "frame_settings": {
+        "mode": "drr"
+      },
+      "camera": {
+        "transform": {
+          "data": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        "intrinsic": {
+          "fx": 5257.73193359375,
+          "fy": 5257.73193359375,
+          "cx": 768.0,
+          "cy": 768.0,
+          "near": 1.0,
+          "far": 1020.0
+        }
+      },
+      "instances": [
+        {
+          "primitive_id": 0,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 2,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              -30.0,
+              0.0,
+              1.0,
+              0.0,
+              50.0,
+              0.0,
+              0.0,
+              1.0,
+              200.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 1,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              40.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        }
+      ]
+    },
+    {
+      "frame_settings": {
+        "mode": "drr"
+      },
+      "camera": {
+        "transform": {
+          "data": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        "intrinsic": {
+          "fx": 5257.73193359375,
+          "fy": 5257.73193359375,
+          "cx": 768.0,
+          "cy": 768.0,
+          "near": 1.0,
+          "far": 1020.0
+        }
+      },
+      "instances": [
+        {
+          "primitive_id": 0,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 2,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              -30.0,
+              0.0,
+              1.0,
+              0.0,
+              50.0,
+              0.0,
+              0.0,
+              1.0,
+              200.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 1,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              50.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        }
+      ]
+    },
+    {
+      "frame_settings": {
+        "mode": "drr"
+      },
+      "camera": {
+        "transform": {
+          "data": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        "intrinsic": {
+          "fx": 5257.73193359375,
+          "fy": 5257.73193359375,
+          "cx": 768.0,
+          "cy": 768.0,
+          "near": 1.0,
+          "far": 1020.0
+        }
+      },
+      "instances": [
+        {
+          "primitive_id": 0,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 2,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              -30.0,
+              0.0,
+              1.0,
+              0.0,
+              50.0,
+              0.0,
+              0.0,
+              1.0,
+              200.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 1,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              60.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        }
+      ]
+    },
+    {
+      "frame_settings": {
+        "mode": "drr"
+      },
+      "camera": {
+        "transform": {
+          "data": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        "intrinsic": {
+          "fx": 5257.73193359375,
+          "fy": 5257.73193359375,
+          "cx": 768.0,
+          "cy": 768.0,
+          "near": 1.0,
+          "far": 1020.0
+        }
+      },
+      "instances": [
+        {
+          "primitive_id": 0,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 2,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              -30.0,
+              0.0,
+              1.0,
+              0.0,
+              50.0,
+              0.0,
+              0.0,
+              1.0,
+              200.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 1,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              70.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        }
+      ]
+    },
+    {
+      "frame_settings": {
+        "mode": "drr"
+      },
+      "camera": {
+        "transform": {
+          "data": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        "intrinsic": {
+          "fx": 5257.73193359375,
+          "fy": 5257.73193359375,
+          "cx": 768.0,
+          "cy": 768.0,
+          "near": 1.0,
+          "far": 1020.0
+        }
+      },
+      "instances": [
+        {
+          "primitive_id": 0,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 2,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              -30.0,
+              0.0,
+              1.0,
+              0.0,
+              50.0,
+              0.0,
+              0.0,
+              1.0,
+              200.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 1,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              80.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        }
+      ]
+    },
+    {
+      "frame_settings": {
+        "mode": "drr"
+      },
+      "camera": {
+        "transform": {
+          "data": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        "intrinsic": {
+          "fx": 5257.73193359375,
+          "fy": 5257.73193359375,
+          "cx": 768.0,
+          "cy": 768.0,
+          "near": 1.0,
+          "far": 1020.0
+        }
+      },
+      "instances": [
+        {
+          "primitive_id": 0,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 2,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              -30.0,
+              0.0,
+              1.0,
+              0.0,
+              50.0,
+              0.0,
+              0.0,
+              1.0,
+              200.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        },
+        {
+          "primitive_id": 1,
+          "transform": {
+            "data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              90.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "morph_weights": null
+        }
+      ]
+    }
+  ]
+}
