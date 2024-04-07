@@ -37,8 +37,8 @@ class TransformDriver(ABC):
         """
         ...
 
-    @abstractmethod
     @property
+    @abstractmethod
     def base_node(self) -> TransformNode:
         """
         Get the base node of the driver
@@ -114,7 +114,7 @@ class TransformNode:
         self._contents.remove(content)
         content._set_node(None)
 
-    def add(self, node: Union[TransformNode, TransformNodeContent, TransformDriver]):
+    def add(self, node: Union[TransformNode, TransformDriver, TransformNodeContent]):
         if isinstance(node, TransformNode) or isinstance(node, TransformDriver):
             self._get_tree().add(node=node, parent=self)
         elif isinstance(node, TransformNodeContent):
@@ -136,7 +136,7 @@ class TransformNode:
 class TransformTree:
     def __init__(self):
         self._g = nx.DiGraph()
-        self._root_node = TransformNode(contents=["root"])
+        self._root_node = TransformNode()
         self._root_node._set_tree(self)
 
     def _add_tree_edge(self, parent: TransformNode, child: TransformNode):
@@ -232,9 +232,14 @@ class TransformTree:
         source: Union[TransformTree, TransformNode],
         target: Union[TransformTree, TransformNode],
     ) -> geo.FrameTransform:
-        if source is None or isinstance(source, TransformTree):
+        if source is None:
+            source = self._root_node
+        if target is None:
+            target = self._root_node
+
+        if isinstance(source, TransformTree):
             source = source._root_node
-        if target is None or isinstance(target, TransformTree):
+        if isinstance(target, TransformTree):
             target = target._root_node
 
         if source == target:

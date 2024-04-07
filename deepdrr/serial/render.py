@@ -5,6 +5,7 @@ from annotated_types import Len
 from pydantic import BaseModel
 from pydantic import BaseModel, Field, ValidationError
 from typing import Annotated, Literal, Union, Optional
+from typing import Callable, Collection, Dict, Iterable, List, Optional, Any, Set, Union
 
 from pydantic_core import Url
 
@@ -40,7 +41,7 @@ class RenderInstance(BaseModel):
     # primitive_id: str
     primitive_id: int
     transform: RenderMatrix4x4
-    morph_weights: list
+    morph_weights: Optional[List[float]]
 
 
 class RenderCameraIntrinsic(BaseModel):

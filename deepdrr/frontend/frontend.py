@@ -3,6 +3,7 @@ from __future__ import annotations
 from deepdrr import geo
 from typing import List, Optional, Any, Set
 from abc import ABC, abstractmethod
+from .. import utils
 
 
 import os
@@ -18,8 +19,6 @@ import logging
 import tempfile
 import hashlib
 import shutil
-
-from deepdrr.frontend.renderer import Renderer
 
 from .. import load_dicom
 from .volume_processing import *
@@ -50,10 +49,11 @@ class Primitive:
 
 
 class PrimitiveInstance(TransformNodeContent):
+
     def __init__(
         self,
         primitive: Primitive,
-        morph_weights: List[float],
+        morph_weights: Optional[List[float]] = None,
     ):
         self.primitive = primitive
         self.morph_weights = morph_weights
@@ -288,6 +288,7 @@ class MemoryVolume(PrimitiveVolume):
     def to_memory_volume(self) -> MemoryVolume:
         return self
 
+
 # class InstanceData:
 #     primitive_id: int
 #     transform: geo.FrameTransform
@@ -365,6 +366,7 @@ class Device(TransformDriver):
     _camera: Camera
 
     def __init__(self, camera: Camera):
+        assert camera is not None
         self._camera = camera
 
     @property
@@ -372,17 +374,74 @@ class Device(TransformDriver):
         return self._camera
 
 
-class MobileCArm(TransformDriver):
+class MobileCArm(Device):
 
     def __init__(
         self,
         world_from_isocenter: Optional[geo.FrameTransform] = None,
         isocenter_from_camera: Optional[geo.FrameTransform] = None,
-        camera: Optional[Camera] = None,
+        alpha: float = 0,
+        beta: float = 0,
+        gamma: float = 0,  # rotation of detector about principle ray
+        degrees: bool = True,
+        horizontal_movement: float = 200,  # width of window in X and Y planes.
+        vertical_travel: float = 430,  # width of window in Z plane.
+        min_alpha: float = -40,
+        max_alpha: float = 110,
+        # note that this would collide with the patient. Suggested to limit to +/- 45
+        min_beta: float = -225,
+        max_beta: float = 225,
+        source_to_detector_distance: float = 1020,
+        # vertical component of the source point offset from the isocenter of rotation, in -Z. Previously called `isocenter_distance`
+        source_to_isocenter_vertical_distance: float = 530,
+        # horizontal offset of the principle ray from the isocenter of rotation, in +Y. Defaults to 9, but should be 200 in document.
+        source_to_isocenter_horizontal_offset: float = 0,
+        # horizontal distance from principle ray to inner C-arm circumference. Used for visualization
+        immersion_depth: float = 730,
+        # distance from central ray to edge of arm. Used for visualization
+        free_space: float = 820,
+        sensor_height: int = 1536,
+        sensor_width: int = 1536,
+        pixel_size: float = 0.194,
+        rotate_camera_left: bool = True,  # make it so that down in the image corresponds to -x, so that patient images appear as expected (when gamma=0).
+        enforce_isocenter_bounds: bool = False,  # Allow the isocenter to travel arbitrarily far from the device origin
     ):
+
+        self.alpha = utils.radians(alpha, degrees=degrees)
+        self.beta = utils.radians(beta, degrees=degrees)
+        self.gamma = utils.radians(gamma, degrees=degrees)
+        self.horizontal_movement = horizontal_movement
+        self.vertical_travel = vertical_travel
+        self.min_alpha = utils.radians(min_alpha, degrees=degrees)
+        self.max_alpha = utils.radians(max_alpha, degrees=degrees)
+        self.min_beta = utils.radians(min_beta, degrees=degrees)
+        self.max_beta = utils.radians(max_beta, degrees=degrees)
+        self.source_to_detector_distance = source_to_detector_distance
+        self.source_to_isocenter_vertical_distance = (
+            source_to_isocenter_vertical_distance
+        )
+        self.source_to_isocenter_horizontal_offset = (
+            source_to_isocenter_horizontal_offset
+        )
+        self.immersion_depth = immersion_depth
+        self.free_space = free_space
+        self.pixel_size = pixel_size
+        self.sensor_width = sensor_width
+        self.sensor_height = sensor_height
+        self.camera_intrinsics = geo.CameraIntrinsicTransform.from_sizes(
+            sensor_size=(sensor_width, sensor_height),
+            pixel_size=pixel_size,
+            source_to_detector_distance=self.source_to_detector_distance,
+        )
+        camera = Camera(
+            intrinsic=self.camera_intrinsics,
+            near=1,
+            far=source_to_detector_distance,
+        )
+        super().__init__(camera)
         self._node_isocenter = TransformNode(transform=world_from_isocenter)
         self._node_camera = TransformNode(
-            transform=isocenter_from_camera, contents=[camera]
+            transform=isocenter_from_camera, contents=[self.camera]
         )
         self._camera.transform_node = self._node_camera
 
@@ -426,13 +485,8 @@ class MobileCArm(TransformDriver):
 
 
 class Renderable(TransformDriver):
-
-    # @abstractmethod
-    # def _add_to(self, node: TransformNode): ...
-
-    # @abstractmethod
-    # def add(self, node: TransformNode): ...
     pass
+
 
 class Mesh(Renderable):
     def __init__(
@@ -442,8 +496,9 @@ class Mesh(Renderable):
         enabled: bool = True,
     ):
         self._mesh = mesh
+        self._instance = PrimitiveInstance(primitive=mesh)
         self._node_anatomical = TransformNode(
-            transform=world_from_anatomical, contents=[mesh]
+            transform=world_from_anatomical, contents=[self._instance]
         )
         self.enabled = enabled
 
@@ -500,8 +555,9 @@ class Volume(Renderable):
         enabled: bool = True,
     ):
         self._volume = volume
+        self._instance = PrimitiveInstance(primitive=volume)
         self._node_anatomical = TransformNode(
-            transform=world_from_anatomical, contents=[volume]
+            transform=world_from_anatomical, contents=[self._instance]
         )
         self.enabled = enabled
 
@@ -572,56 +628,3 @@ class Volume(Renderable):
 
     def save_h5(self, path: str):
         self._volume.save_h5(path, self.anatomical_from_IJK)
-
-
-class RenderProfile(ABC):
-
-    def __init__(
-        self,
-        settings: RenderSettingsUnion,
-        renderer: Renderer,
-        scene: Scene,
-    ):
-        self.settings = settings
-        self.renderer = renderer
-        self.scene = scene
-
-    def __enter__(self):
-        self.renderer.init(self.scene, self.settings)
-        self.renderer.__enter__()
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.renderer.__exit__(exc_type, exc_value, traceback)
-
-    def render_single(self, frame_settings: FrameSettings):
-        camera = self.scene.get_camera()
-        instances = self.scene.instance_snapshot()
-        render_frame = RenderFrame(
-            frame_settings=frame_settings,
-            camera=camera.to_render_camera_intrinsic(),
-            instances=instances,
-        )
-        self.renderer.render_frames([render_frame])
-
-
-class DRRRenderProfile(RenderProfile):
-
-    def render_drr(self):
-        frame_settings = FrameSettings(mode="drr")
-        self.render_single(frame_settings)
-
-
-class RasterizeRenderProfile(RenderProfile):
-
-    def render_seg(self):
-        frame_settings = FrameSettings(mode="seg")
-        self.render_single(frame_settings)
-
-    def render_travel(self):
-        frame_settings = FrameSettings(mode="travel")
-        self.render_single(frame_settings)
-
-    def render_hits(self):
-        frame_settings = FrameSettings(mode="hits")
-        self.render_single(frame_settings)

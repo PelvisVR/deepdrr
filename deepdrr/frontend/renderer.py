@@ -5,7 +5,7 @@ from deepdrr import geo
 from typing import List, Optional, Any, Set
 from abc import ABC, abstractmethod
 
-from deepdrr.frontend.frontend import RenderProfile, Scene
+from deepdrr.frontend.frontend import Scene
 from deepdrr.serial.render import *
 from .transform_manager import *
 
@@ -30,30 +30,38 @@ class Renderer(ABC):
 class SynchronousRenderer(Renderer):
 
     def __init__(self):
-        pass
+        self._scene = None
+        self._backend = None
+        self._render_settings = None
+
+    @property
+    def is_initialized(self):
+        return self._scene is not None
 
     def init(self, scene: Scene, render_settings: RenderSettings):
-        assert isinstance(scene, Scene)
-        assert isinstance(render_settings, RenderSettings)
-        if self._scene is not None:
+        if self.is_initialized:
             raise ValueError("Renderer already initialized")
+        assert isinstance(scene, Scene), f"Expected Scene, got {type(scene)}"
+        assert isinstance(
+            render_settings, RenderSettings
+        ), f"Expected RenderSettings, got {type(render_settings)}"
         self._scene = scene
         self._backend = Backend.create(render_settings)
         self._render_settings = render_settings
 
     def __enter__(self):
-        if self._scene is None:
+        if not self.is_initialized:
             raise ValueError("Renderer not initialized")
         self._backend.init(self._render_settings, self._scene.get_primitives())
         self._backend.__enter__()
         return self
-    
+
     def __exit__(self, exc_type, exc_value, traceback):
         self._backend.__exit__(exc_type, exc_value, traceback)
-        
+
     def render_frames(self, frames: List[RenderFrame]):
         return self._backend.render_frames(frames)
-    
+
 
 class ProcessRenderer(Renderer):
     pass
@@ -139,17 +147,18 @@ class DRRBackend(Backend):
 
     def __enter__(self):
         return self
-    
+
     def __exit__(self, exc_type, exc_value, traceback):
         pass
 
     def render_frames(self, frames: List[RenderFrame]):
-        render_settings = self._render_settings
-        for frame in frames:
-            frame_settings = frame.frame_settings
-    
+        pass
+        # render_settings = self._render_settings
+        # for frame in frames:
+        #     frame_settings = frame.frame_settings
+
     def render_frame(self, frame: RenderFrame):
-        return self._render_frames([frame])[0]
+        return self.render_frames([frame])[0]
 
 class RasterizeBackend(Backend):
 
@@ -167,16 +176,12 @@ class RasterizeBackend(Backend):
 
     def __enter__(self):
         return self
-    
+
     def __exit__(self, exc_type, exc_value, traceback):
         pass
 
     def render_frames(self, frames: List[RenderFrame]):
         pass
-    
+
     def render_frame(self, frame: RenderFrame):
-        frame_settings = frame.frame_settings
-        render_settings = self._render_settings
-
-
-        pass
+        return self.render_frames([frame])[0]
