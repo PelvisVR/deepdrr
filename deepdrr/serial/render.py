@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from annotated_types import Len
 from pydantic import BaseModel
 from pydantic import BaseModel, Field, ValidationError
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal, Union, Optional
 
 from pydantic_core import Url
 
@@ -25,7 +25,6 @@ class RenderStlMesh(BaseModel):
     material_name: str
     density: float
     priority: int
-    addtive: bool
     subtractive: bool
 
 class RenderH5Volume(BaseModel):
@@ -43,7 +42,8 @@ class RenderInstance(BaseModel):
     transform: RenderMatrix4x4
     morph_weights: list
 
-class CameraIntrinsic(BaseModel):
+
+class RenderCameraIntrinsic(BaseModel):
     fx: float
     fy: float
     cx: float
@@ -51,9 +51,10 @@ class CameraIntrinsic(BaseModel):
     near: float
     far: float
 
+
 class RenderCamera(BaseModel):
     transform: RenderMatrix4x4
-    intrinsic: CameraIntrinsic
+    intrinsic: RenderCameraIntrinsic
 
 class FrameSettings(BaseModel):
     mode: str
@@ -67,16 +68,16 @@ class DRRRenderSettings(BaseModel):
     render_type: Literal["DRR"] = "DRR"
     width: int
     height: int
-    step: float
-    mode: str
-    spectrum: str
-    add_noise: bool
-    photon_count: int
-    collected_energy: bool
-    neglog: bool
-    intensity_upper_bound: float
-    attenuate_outside_volume: bool
-    max_mesh_hits: int
+    step: float = 0.1
+    mode: str = "linear"
+    spectrum: str = "90KV_AL40"
+    add_noise: bool = False
+    photon_count: int = 10000
+    collected_energy: bool = False
+    neglog: bool = True
+    intensity_upper_bound: Optional[float] = None
+    attenuate_outside_volume: bool = False
+    max_mesh_hits: int = 32
 
 class RasterizeRenderSettings(BaseModel):
     render_type: Literal["Rasterize"] = "Rasterize"
@@ -84,8 +85,9 @@ class RasterizeRenderSettings(BaseModel):
     height: int
     max_mesh_hits: int
 
+RenderSettingsUnion = Union[DRRRenderSettings, RasterizeRenderSettings]
 class RenderSettings(BaseModel):
-    settings: Annotated[Union[DRRRenderSettings, RasterizeRenderSettings], Field(discriminator="render_type")]
+    settings: Annotated[RenderSettingsUnion, Field(discriminator="render_type")]
 
 class RenderSequence(BaseModel):
     render_settings: RenderSettings

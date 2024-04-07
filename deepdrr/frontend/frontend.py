@@ -19,6 +19,8 @@ import tempfile
 import hashlib
 import shutil
 
+from deepdrr.frontend.renderer import Renderer
+
 from .. import load_dicom
 from .volume_processing import *
 from .cache import *
@@ -31,11 +33,12 @@ from .transform_manager import *
 
 class Primitive:
 
-    def __init__(self):
+    def __init__(self, tag: Optional[str] = None):
         self._enabled = True
+        self.tag = tag
 
     @abstractmethod
-    def get_render_primitive(self) -> RenderPrimitive: ...
+    def to_render_primitive(self) -> RenderPrimitive: ...
 
     @property
     def enabled(self) -> bool:
@@ -46,47 +49,80 @@ class Primitive:
         self._enabled = value
 
 
-class PrimitiveInstance:
-
+class PrimitiveInstance(TransformNodeContent):
     def __init__(
         self,
         primitive: Primitive,
-        transform_node: TransformNode,
         morph_weights: List[float],
     ):
         self.primitive = primitive
-        self.transform_node = transform_node
         self.morph_weights = morph_weights
 
+    def to_render_instance(
+        self, get_prim_id: Callable[[Primitive], int]
+    ) -> RenderInstance:
+        transform = self.node.tree.get_transform(None, self.node)
+        return RenderInstance(
+            primitive_id=get_prim_id(self.primitive),
+            transform=geo_to_render_matrix4x4(transform),
+            morph_weights=self.morph_weights,
+        )
 
-class Camera:
-    pass
+
+class Camera(TransformNodeContent):
+    intrinsic: geo.CameraIntrinsicTransform
+    near: float
+    far: float
+
+    def __init__(
+        self,
+        intrinsic: geo.CameraIntrinsicTransform,
+        near: float,
+        far: float,
+    ):
+        self.intrinsic = intrinsic
+        self.near = near
+        self.far = far
+
+    def to_render_camera_intrinsic(self) -> RenderCameraIntrinsic:
+        return RenderCameraIntrinsic(
+            fx=self.intrinsic.fx,
+            fy=self.intrinsic.fy,
+            cx=self.intrinsic.cx,
+            cy=self.intrinsic.cy,
+            near=self.near,
+            far=self.far,
+        )
+
+    def to_render_camera(self) -> RenderCamera:
+        return RenderCamera(
+            transform=geo_to_render_matrix4x4(self.node.transform),
+            intrinsic=self.to_render_camera_intrinsic(),
+        )
 
 
 class PrimitiveMesh(Primitive):
     material_name: str
     density: float
     priority: int
-    additive: bool
     subtractive: bool
 
     def __init__(
         self,
-        material_name: str,
-        density: float,
-        priority: int,
-        additive: bool,
-        subtractive: bool,
+        material_name: str = "iron",
+        density: float = 1,
+        priority: int = 0,
+        subtractive: bool = False,
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.material_name = material_name
         self.density = density
         self.priority = priority
-        self.additive = additive
         self.subtractive = subtractive
 
     @abstractmethod
-    def get_render_primitive(self) -> RenderPrimitive: ...
+    def to_render_primitive(self) -> RenderPrimitive: ...
 
 
 class StlMesh(PrimitiveMesh):
@@ -95,20 +131,18 @@ class StlMesh(PrimitiveMesh):
     def __init__(
         self,
         path: str,
-        *args,
         **kwargs,
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
         self.path = path
 
-    def get_render_primitive(self) -> RenderPrimitive:
+    def to_render_primitive(self) -> RenderPrimitive:
         return RenderPrimitive(
             data=RenderStlMesh(
                 url=Url("file://" + Path(self.path).resolve()),
                 material_name=self.material_name,
                 density=self.density,
                 priority=self.priority,
-                additive=self.additive,
                 subtractive=self.subtractive,
             )
         )
@@ -122,7 +156,7 @@ class PrimitiveVolume(Primitive):
         self.priority = priority
 
     @abstractmethod
-    def get_render_primitive(self) -> RenderPrimitive: ...
+    def to_render_primitive(self) -> RenderPrimitive: ...
 
     @abstractmethod
     def save_h5(
@@ -141,7 +175,7 @@ class H5Volume(PrimitiveVolume):
         super().__init__(priority)
         self.path = path
 
-    def get_render_primitive(self) -> RenderPrimitive:
+    def to_render_primitive(self) -> RenderPrimitive:
         return RenderPrimitive(
             data=RenderH5Volume(
                 url=Url("file://" + Path(self.path).resolve()),
@@ -195,13 +229,13 @@ class MemoryVolume(PrimitiveVolume):
     def anatomical_from_IJK(self, value: geo.FrameTransform):
         self._anatomical_from_IJK = value
 
-    def get_render_primitive(self) -> RenderPrimitive:
+    def to_render_primitive(self) -> RenderPrimitive:
         saved_path = self.save_h5(self.serialize_path)
 
         return H5Volume(
             path=saved_path,
             priority=self.priority,
-        ).get_render_primitive()
+        ).to_render_primitive()
 
     def save_h5(
         self,
@@ -254,16 +288,6 @@ class MemoryVolume(PrimitiveVolume):
     def to_memory_volume(self) -> MemoryVolume:
         return self
 
-
-class StlMesh(Primitive):
-    url: Url
-    material_name: str
-    density: float
-    priority: int
-    addtive: bool
-    subtractive: bool
-
-
 # class InstanceData:
 #     primitive_id: int
 #     transform: geo.FrameTransform
@@ -294,7 +318,7 @@ class GraphScene(Scene):
     def get_camera(self) -> Camera:
         if self._camera is None:
             for node in self.graph:
-                for content in node.contents:
+                for content in node:
                     if isinstance(content, Camera):
                         self._camera = content
         return self._camera
@@ -303,7 +327,7 @@ class GraphScene(Scene):
         instances = []
         # get the list of instances
         for node in self.graph:
-            for content in node.contents:
+            for content in node:
                 if isinstance(content, PrimitiveInstance):
                     instances.append(content)
         # look up the primitives for each instance
@@ -331,30 +355,36 @@ class GraphScene(Scene):
     def instance_snapshot(self) -> List[RenderInstance]:
         self.get_primitives()
         instances = self._get_instances()
-        render_instance_list = []
-        for instance in instances:
-            render_instance_list.append(
-                RenderInstance(
-                    primitive_id=self._prim_to_id[instance.primitive],
-                    transform=geo_to_render_matrix4x4(
-                        self.graph.get_transform(None, instance.transform_node)
-                    ),
-                    morph_weights=instance.morph_weights,
-                )
-            )
-        return render_instance_list
+        return [instance.to_render_instance(self.get_prim_id) for instance in instances]
+
+    def get_prim_id(self, primitive: Primitive):
+        return self._prim_to_id[primitive]
+
+
+class Device(TransformDriver):
+    _camera: Camera
+
+    def __init__(self, camera: Camera):
+        self._camera = camera
+
+    @property
+    def camera(self) -> Camera:
+        return self._camera
 
 
 class MobileCArm(TransformDriver):
 
-    # isocenter node field
-    # camera node field
-
-    def __init__(self, graph: TransformTree, parent):
-        # make a node, attach it to parent
-        # make a sub-node, attach it to node
-        # assign a camera to the sub-node
-        pass
+    def __init__(
+        self,
+        world_from_isocenter: Optional[geo.FrameTransform] = None,
+        isocenter_from_camera: Optional[geo.FrameTransform] = None,
+        camera: Optional[Camera] = None,
+    ):
+        self._node_isocenter = TransformNode(transform=world_from_isocenter)
+        self._node_camera = TransformNode(
+            transform=isocenter_from_camera, contents=[camera]
+        )
+        self._camera.transform_node = self._node_camera
 
     def move_by(
         self,
@@ -367,14 +397,42 @@ class MobileCArm(TransformDriver):
         # move the nodes
         pass
 
+    def _add_as_child_of(self, node: TransformNode):
+        node.add(self._node_isocenter)
+        self._node_isocenter.add(self._node_camera)
+
+    def add(self, node: TransformNode):
+        self._node_isocenter.add(node)
+
+    @property
+    def base_node(self) -> TransformNode:
+        return self._node_isocenter
+
+    @property
+    def world_from_isocenter(self) -> geo.FrameTransform:
+        return self._node_isocenter.transform
+
+    @world_from_isocenter.setter
+    def world_from_isocenter(self, value: geo.FrameTransform):
+        self._node_isocenter.transform = value
+
+    @property
+    def isocenter_from_camera(self) -> geo.FrameTransform:
+        return self._node_camera.transform
+
+    @isocenter_from_camera.setter
+    def isocenter_from_camera(self, value: geo.FrameTransform):
+        self._node_camera.transform = value
+
 
 class Renderable(TransformDriver):
 
-    @abstractmethod
-    def _add_to(self, node: TransformNode): ...
+    # @abstractmethod
+    # def _add_to(self, node: TransformNode): ...
 
-    @abstractmethod
-    def add(self, node: TransformNode): ...
+    # @abstractmethod
+    # def add(self, node: TransformNode): ...
+    pass
 
 class Mesh(Renderable):
     def __init__(
@@ -390,17 +448,28 @@ class Mesh(Renderable):
         self.enabled = enabled
 
     @classmethod
-    def from_stl(cls, path: str, **kwargs):
+    def from_stl(
+        cls,
+        path: str,
+        world_from_anatomical: Optional[geo.FrameTransform] = None,
+        enabled: bool = True,
+        **kwargs,
+    ):
         return cls(
             mesh=StlMesh(path=path, **kwargs),
-            **kwargs,
+            world_from_anatomical=world_from_anatomical,
+            enabled=enabled,
         )
 
-    def _add_to(self, node: TransformNode):
+    def _add_as_child_of(self, node: TransformNode):
         node.add(self._node_anatomical)
 
     def add(self, node: TransformNode):
         self._node_anatomical.add(node)
+
+    @property
+    def base_node(self) -> TransformNode:
+        return self._node_anatomical
 
     @property
     def enabled(self) -> bool:
@@ -453,11 +522,15 @@ class Volume(Renderable):
             **kwargs,
         )
 
-    def _add_to(self, node: TransformNode):
+    def _add_as_child_of(self, node: TransformNode):
         node.add(self._node_anatomical)
 
     def add(self, node: TransformNode):
         self._node_anatomical.add(node)
+
+    @property
+    def base_node(self) -> TransformNode:
+        return self._node_anatomical
 
     @property
     def enabled(self) -> bool:
@@ -502,12 +575,53 @@ class Volume(Renderable):
 
 
 class RenderProfile(ABC):
-    pass
+
+    def __init__(
+        self,
+        settings: RenderSettingsUnion,
+        renderer: Renderer,
+        scene: Scene,
+    ):
+        self.settings = settings
+        self.renderer = renderer
+        self.scene = scene
+
+    def __enter__(self):
+        self.renderer.init(self.scene, self.settings)
+        self.renderer.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.renderer.__exit__(exc_type, exc_value, traceback)
+
+    def render_single(self, frame_settings: FrameSettings):
+        camera = self.scene.get_camera()
+        instances = self.scene.instance_snapshot()
+        render_frame = RenderFrame(
+            frame_settings=frame_settings,
+            camera=camera.to_render_camera_intrinsic(),
+            instances=instances,
+        )
+        self.renderer.render_frames([render_frame])
 
 
 class DRRRenderProfile(RenderProfile):
-    pass
+
+    def render_drr(self):
+        frame_settings = FrameSettings(mode="drr")
+        self.render_single(frame_settings)
 
 
 class RasterizeRenderProfile(RenderProfile):
-    pass
+
+    def render_seg(self):
+        frame_settings = FrameSettings(mode="seg")
+        self.render_single(frame_settings)
+
+    def render_travel(self):
+        frame_settings = FrameSettings(mode="travel")
+        self.render_single(frame_settings)
+
+    def render_hits(self):
+        frame_settings = FrameSettings(mode="hits")
+        self.render_single(frame_settings)
