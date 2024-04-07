@@ -134,13 +134,15 @@ def write_h5_file(
     materials: Dict[str, np.ndarray],
     anatomical_from_IJK: np.ndarray,
     anatomical_coordinate_system: str,
+    compression: str = None,
+    # compression: str = "lzf",
 ):
     h5_path = str(h5_path)
     with h5py.File(h5_path, "w") as f:
-        f.create_dataset("data", data=data, compression="lzf")
+        f.create_dataset("data", data=data, compression=compression)
         seg_grp = f.create_group("segmentation")
         for material, segmentation in materials.items():
-            seg_grp.create_dataset(material, data=segmentation, compression="lzf")
+            seg_grp.create_dataset(material, data=segmentation, compression=compression)
 
         meta_grp = f.create_group("meta")
         meta_grp.create_dataset("anatomical_from_IJK", data=anatomical_from_IJK)

@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 import os
 from pathlib import Path
@@ -35,9 +34,9 @@ def deepdrr_cache_dir() -> Path:
 def save_or_cache_file(path: str, func: Callable[[str], None]) -> str:
     with tempfile.NamedTemporaryFile() as f:
         func(f.name)
-        
+
         if path is not None:
-            shutil.remove(path)
+            # TODO: need to remove first or will it overwrite?
             shutil.copy(f.name, path)
         else:
             with open(f.name, "rb") as f:
@@ -46,5 +45,5 @@ def save_or_cache_file(path: str, func: Callable[[str], None]) -> str:
                 dig = sha1.hexdigest()
             path = deepdrr_cache_dir() / dig
             shutil.copy(f.name, path)
-    
+
     return path

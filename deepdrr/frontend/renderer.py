@@ -10,10 +10,14 @@ from deepdrr.serial.render import *
 from .transform_manager import *
 
 class Renderer(ABC):
-    
+
     @abstractmethod
     def init(self, scene: Scene, render_settings: RenderSettings):
         ...
+
+    @property
+    @abstractmethod
+    def is_initialized(self): ...
 
     @abstractmethod
     def render_frames(self, frames: List[RenderFrame]):
@@ -52,7 +56,7 @@ class SynchronousRenderer(Renderer):
     def __enter__(self):
         if not self.is_initialized:
             raise ValueError("Renderer not initialized")
-        self._backend.init(self._render_settings, self._scene.get_primitives())
+        self._backend.init(self._render_settings, self._scene.get_render_primitives())
         self._backend.__enter__()
         return self
 
@@ -70,30 +74,40 @@ class DeferredRenderer(Renderer):
     def __init__(self, path: Union[str, Path]):
         self._path = Path(path)
         self._frames = []
+        self._scene = None
+        self._render_settings = None
+
+    @property
+    def is_initialized(self):
+        return self._scene is not None
 
     def init(self, scene: Scene, render_settings: RenderSettings):
-        assert isinstance(scene, Scene)
-        assert isinstance(render_settings, RenderSettings)
-        if self._scene is not None:
+        assert isinstance(scene, Scene), f"Expected Scene, got {type(scene)}"
+        assert isinstance(
+            render_settings, RenderSettings
+        ), f"Expected RenderSettings, got {type(render_settings)}"
+        if self.is_initialized:
             raise ValueError("Renderer already initialized")
         self._scene = scene
+        self._render_settings = render_settings
 
     def __enter__(self):
+        if not self.is_initialized:
+            raise ValueError("Renderer not initialized")
         return self
-    
+
     def __exit__(self, exc_type, exc_value, traceback):
         with open(self._path, "w") as f:
             rs = RenderSequence(
                 render_settings=self._render_settings,
-                primitives=self._scene.get_primitives(),
-                frames=self._frames
+                primitives=self._scene.get_render_primitives(),
+                frames=self._frames,
             )
-            f.write(rs.model_dump_json(indent=2))
+            f.write(rs.model_dump_json())
+            # f.write(rs.model_dump_json(indent=2))
 
     def render_frames(self, frames: List[RenderFrame]):
         self._frames.extend(frames)
-
-    pass
 
 
 class Backend(ABC):
@@ -146,12 +160,15 @@ class DRRBackend(Backend):
         pass
 
     def __enter__(self):
+        print("Entering DRR Backend")
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        print("Exiting DRR Backend")
         pass
 
     def render_frames(self, frames: List[RenderFrame]):
+        print(f"Rendering {len(frames)} frames")
         pass
         # render_settings = self._render_settings
         # for frame in frames:

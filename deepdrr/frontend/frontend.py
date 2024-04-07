@@ -139,7 +139,7 @@ class StlMesh(PrimitiveMesh):
     def to_render_primitive(self) -> RenderPrimitive:
         return RenderPrimitive(
             data=RenderStlMesh(
-                url=Url("file://" + Path(self.path).resolve()),
+                url=Url("file://" + str(Path(self.path).resolve())),
                 material_name=self.material_name,
                 density=self.density,
                 priority=self.priority,
@@ -178,7 +178,7 @@ class H5Volume(PrimitiveVolume):
     def to_render_primitive(self) -> RenderPrimitive:
         return RenderPrimitive(
             data=RenderH5Volume(
-                url=Url("file://" + Path(self.path).resolve()),
+                url=Url("file://" + str(Path(self.path).resolve())),
                 priority=self.priority,
             )
         )
@@ -209,7 +209,7 @@ class MemoryVolume(PrimitiveVolume):
         materials: Dict[str, np.ndarray],
         anatomical_from_IJK: geo.FrameTransform,
         anatomical_coordinate_system: Optional[str],
-        serialize_path: Optional[str],
+        serialize_path: Optional[str] = None,
         priority: int = 0,
     ):
         super().__init__(priority)
@@ -282,7 +282,7 @@ class MemoryVolume(PrimitiveVolume):
             materials=materials,
             anatomical_from_IJK=anatomical_from_IJK,
             anatomical_coordinate_system=anatomical_coordinate_system,
-            serialize_path=path,
+            serialize_path=None,  # use cache folder
         )
 
     def to_memory_volume(self) -> MemoryVolume:
@@ -303,7 +303,7 @@ class Scene(ABC):
     def get_camera(self) -> Camera: ...
 
     @abstractmethod
-    def get_primitives(self) -> List[Primitive]: ...
+    def get_render_primitives(self) -> List[RenderPrimitive]: ...
 
     @abstractmethod
     def instance_snapshot(self) -> List[RenderInstance]: ...
@@ -315,6 +315,7 @@ class GraphScene(Scene):
         self.graph = graph
         self._primitives = None
         self._camera = None
+        self._render_primitives = None
 
     def get_camera(self) -> Camera:
         if self._camera is None:
@@ -352,6 +353,13 @@ class GraphScene(Scene):
         # pick an arbitrary order, make primitive lookup table
         # cache the return value
         return self._primitives
+
+    def get_render_primitives(self) -> List[RenderPrimitive]:
+        if self._render_primitives is None:
+            self._render_primitives = [
+                primitive.to_render_primitive() for primitive in self.get_primitives()
+            ]
+        return self._render_primitives
 
     def instance_snapshot(self) -> List[RenderInstance]:
         self.get_primitives()
