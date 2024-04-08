@@ -69,10 +69,13 @@ class RenderFrame(BaseModel):
     frame_settings: FrameSettings
     camera: RenderCamera
     instances: List[RenderInstance]
+    extras: Optional[dict] = None
 
 
 class RenderBatch(BaseModel):
+    out_path: Optional[str]
     frames: List[RenderFrame]
+    extras: Optional[dict] = None
 
 
 class DRRRenderSettings(BaseModel):

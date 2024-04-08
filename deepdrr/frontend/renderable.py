@@ -9,16 +9,22 @@ class Renderable(TransformDriver, ABC):
 
 
 class Mesh(Renderable):
+
     def __init__(
         self,
         world_from_anatomical: Optional[geo.FrameTransform] = None,
         mesh: PrimitiveMesh = None,
         enabled: bool = True,
+        tags: Optional[Iterable[str]] = None,
     ):
         self._mesh = mesh
-        self._instance = PrimitiveInstance(primitive=mesh)
+        self._instance = PrimitiveInstance(
+            primitive=mesh,
+            tags=tags,
+        )
         self._node_anatomical = TransformNode(
-            transform=world_from_anatomical, contents=[self._instance]
+            transform=world_from_anatomical,
+            contents=[self._instance],
         )
         self.enabled = enabled
 
@@ -28,12 +34,14 @@ class Mesh(Renderable):
         path: str,
         world_from_anatomical: Optional[geo.FrameTransform] = None,
         enabled: bool = True,
+        tags: Optional[Iterable[str]] = None,
         **kwargs,
     ):
         return cls(
             mesh=StlMesh(path=path, **kwargs),
             world_from_anatomical=world_from_anatomical,
             enabled=enabled,
+            tags=tags,
         )
 
     def _add_as_child_of(self, node: TransformNode):
@@ -68,31 +76,51 @@ class Mesh(Renderable):
 
 
 class Volume(Renderable):
+
     def __init__(
         self,
         world_from_anatomical: Optional[geo.FrameTransform] = None,
         volume: PrimitiveVolume = None,
+        tags: Optional[Iterable[str]] = None,
         enabled: bool = True,
     ):
         self._volume = volume
-        self._instance = PrimitiveInstance(primitive=volume)
+        self._instance = PrimitiveInstance(
+            primitive=volume,
+            tags=tags,
+        )
         self._node_anatomical = TransformNode(
-            transform=world_from_anatomical, contents=[self._instance]
+            transform=world_from_anatomical,
+            contents=[self._instance],
         )
         self.enabled = enabled
 
     @classmethod
-    def from_h5(cls, path: str, in_memory: bool = False, **kwargs):
+    def from_h5(
+        cls,
+        path: str,
+        in_memory: bool = False,
+        tags: Optional[Set[str]] = None,
+        **kwargs,
+    ):
         volume = H5Volume(path)
         if in_memory:
             volume = volume.to_memory_volume()
         return cls(
             volume=volume,
+            tags=tags,
             **kwargs,
         )
 
     @classmethod
-    def from_nrrd(cls, path: str, in_memory: bool = False, h5_path: Optional[str] = None, **kwargs):
+    def from_nrrd(
+        cls,
+        path: str,
+        in_memory: bool = False,
+        h5_path: Optional[str] = None,
+        tags: Optional[Set[str]] = None,
+        **kwargs,
+    ):
         volume = MemoryVolume.from_nrrd(path)
         if not in_memory:
             h5_path = volume.save_h5(h5_path)
@@ -100,6 +128,7 @@ class Volume(Renderable):
 
         return cls(
             volume=volume,
+            tags=tags,
             **kwargs,
         )
 

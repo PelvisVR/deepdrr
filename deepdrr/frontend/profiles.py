@@ -61,18 +61,31 @@ class RenderProfile(ABC):
     def __exit__(self, exc_type, exc_value, traceback):
         self._renderer.__exit__(exc_type, exc_value, traceback)
 
-    def render_frame(self, frame_settings: FrameSettings):
+    def render_frame(
+        self,
+        frame_settings: FrameSettings,
+        out_path: str,
+    ):
         camera = self._get_camera()
+        render_camera = camera.to_render_camera()
         instances = self._get_instance_snapshot()
         render_frame = RenderFrame(
             frame_settings=frame_settings,
-            camera=camera.to_render_camera(),
+            camera=render_camera,
             instances=instances,
         )
-        render_batch = RenderBatch(frames=[render_frame])
+        render_batch = RenderBatch(
+            out_path=out_path,
+            frames=[render_frame],
+        )
         self._renderer.render_batches([render_batch])
 
-    def render_tag_batch(self, frame_settings: FrameSettings, tags: Optional[List[str]] = None):
+    def render_tag_batch(
+        self,
+        frame_settings: FrameSettings,
+        out_path: str,
+        tags: Optional[List[str]] = None,
+    ):
         camera = self._get_camera()
         render_camera = camera.to_render_camera()
         instances = self._get_instances()
@@ -86,6 +99,7 @@ class RenderProfile(ABC):
                     frame_settings=frame_settings,
                     camera=render_camera,
                     instances=render_instances,
+                    extras={"tag": tag},
                 )
                 batch.append(render_frame)
         else:
@@ -97,27 +111,30 @@ class RenderProfile(ABC):
             )
             batch.append(render_frame)
 
-        render_batch = RenderBatch(frames=batch)
+        render_batch = RenderBatch(
+            out_path=out_path,
+            frames=batch,
+        )
         self._renderer.render_batches([render_batch])
 
 
 class DRRRenderProfile(RenderProfile):
 
-    def render_drr(self):
+    def render_drr(self, out_path: str):
         frame_settings = FrameSettings(mode="drr")
-        self.render_frame(frame_settings)
+        self.render_frame(frame_settings, out_path)
 
 
 class RasterizeRenderProfile(RenderProfile):
 
-    def render_seg(self, tags: Optional[List[str]] = None):
+    def render_seg(self, out_path: str, tags: Optional[List[str]] = None):
         frame_settings = FrameSettings(mode="seg")
-        self.render_tag_batch(frame_settings, tags)
+        self.render_tag_batch(frame_settings, out_path, tags)
 
-    def render_travel(self, tags: Optional[List[str]] = None):
+    def render_travel(self, out_path: str, tags: Optional[List[str]] = None):
         frame_settings = FrameSettings(mode="travel")
-        self.render_tag_batch(frame_settings, tags)
+        self.render_tag_batch(frame_settings, out_path, tags)
 
-    def render_hits(self, tags: Optional[List[str]] = None):
+    def render_hits(self, out_path: str, tags: Optional[List[str]] = None):
         frame_settings = FrameSettings(mode="hits")
-        self.render_tag_batch(frame_settings, tags)
+        self.render_tag_batch(frame_settings, out_path, tags)

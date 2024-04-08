@@ -105,9 +105,13 @@ class PrimitiveInstance(GraphSceneContent):
         self,
         primitive: Primitive,
         morph_weights: Optional[List[float]] = None,
+        tags: Optional[Iterable[str]] = None,
     ):
         self.primitive = primitive
         self.morph_weights = morph_weights
+        if tags is None:
+            tags = set()
+        self.tags = tags
 
     def to_render_instance(
         self,

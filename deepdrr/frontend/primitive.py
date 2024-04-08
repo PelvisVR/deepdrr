@@ -6,21 +6,8 @@ from .transform_manager import *
 
 
 class Primitive:
-
-    def __init__(self, tag: Optional[str] = None):
-        self._enabled = True
-        self.tag = tag
-
     @abstractmethod
     def to_render_primitive(self) -> RenderPrimitive: ...
-
-    @property
-    def enabled(self) -> bool:
-        return self._enabled
-
-    @enabled.setter
-    def enabled(self, value: bool):
-        self._enabled = value
 
 
 class PrimitiveMesh(Primitive):
