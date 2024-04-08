@@ -16,7 +16,7 @@ class RenderProfile(ABC):
         self._settings = settings
         self._renderer = renderer
         self._scene = scene
-        self._
+        self._render_primitives = None
 
     @property
     def settings(self):
@@ -34,13 +34,17 @@ class RenderProfile(ABC):
         return self._scene.get_camera()
 
     def _get_primitives(self) -> List[Primitive]:
+        # override this to filter primitives
         return self._scene.get_primitives()
 
     def _get_render_primitives(self) -> List[RenderPrimitive]:
-        primitives = self._get_primitives()
-        return [primitive.to_render_primitive() for primitive in primitives]
+        if self._render_primitives is None:
+            primitives = self._get_primitives()
+            self._render_primitives = [primitive.to_render_primitive() for primitive in primitives]
+        return self._render_primitives
 
     def _get_instances(self) -> List[PrimitiveInstance]:
+        # override this to filter instances
         return self._scene.get_instances()
 
     def _get_instance_snapshot(self) -> List[RenderInstance]:
