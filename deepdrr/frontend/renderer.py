@@ -6,6 +6,11 @@ from .backend import *
 
 class Renderer(ABC):
 
+    def process_sequence(self, sequence: RenderSequence) -> List[Any]:
+        self.init(sequence.render_settings, sequence.primitives)
+        with self:
+            return self.render_batches(sequence.frames)
+
     @abstractmethod
     def init(self, render_primitives: List[RenderPrimitive], render_settings: RenderSettings): ...
 

@@ -9,11 +9,11 @@ class Backend(ABC):
     def __init__(self):
         pass
 
-    def process_sequence(self, sequence: RenderSequence) -> List[Any]:
-        # initialize the backend with the render settings and the primitives
-        # render the sequence
-        self.init(sequence.render_settings, sequence.primitives)
-        return self.render_batches(sequence.frames)
+    # def process_sequence(self, sequence: RenderSequence) -> List[Any]:
+    #     # initialize the backend with the render settings and the primitives
+    #     # render the sequence
+    #     self.init(sequence.render_settings, sequence.primitives)
+    #     return self.render_batches(sequence.frames)
 
     @abstractmethod
     def init(self, render_settings: RenderSettings, primitives: List[RenderPrimitive]): ...
@@ -61,15 +61,15 @@ class DRRBackend(Backend):
         print("Exiting DRR Backend")
         pass
 
-    def render_batches(self, frames: List[RenderFrame]):
-        print(f"Rendering {len(frames)} frames")
+    def render_batches(self, batches: List[RenderBatch]):
+        print(f"Rendering {len(batches)} frames")
         pass
         # render_settings = self._render_settings
         # for frame in frames:
         #     frame_settings = frame.frame_settings
 
-    def render_frame(self, frame: RenderFrame):
-        return self.render_batches([frame])[0]
+    # def render_batch(self, batch: RenderBatch):
+    #     return self.render_batches([batch])[0]
 
 
 class RasterizeBackend(Backend):
@@ -92,8 +92,8 @@ class RasterizeBackend(Backend):
     def __exit__(self, exc_type, exc_value, traceback):
         pass
 
-    def render_batches(self, frames: List[RenderFrame]):
+    def render_batches(self, batches: List[RenderBatch]):
         pass
 
-    def render_frame(self, frame: RenderFrame):
-        return self.render_batches([frame])[0]
+    # def render_batch(self, frame: RenderFrame):
+    #     return self.render_batches([frame])[0]
