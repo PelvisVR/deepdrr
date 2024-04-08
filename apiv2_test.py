@@ -1,7 +1,7 @@
 from deepdrr.utils import test_utils
-from deepdrr.frontend.frontend import *
-from deepdrr.frontend.renderer import *
-from deepdrr.frontend.profiles import *
+from deepdrr.two.frontend import *
+from deepdrr.two.renderer import *
+from deepdrr.two.profiles import *
 
 f = test_utils.download_sampledata("CT-chest")
 mf = Path("tests/resources/suzanne.stl")
