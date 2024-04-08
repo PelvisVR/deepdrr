@@ -71,6 +71,10 @@ class RenderFrame(BaseModel):
     instances: List[RenderInstance]
 
 
+class RenderBatch(BaseModel):
+    frames: List[RenderFrame]
+
+
 class DRRRenderSettings(BaseModel):
     render_type: Literal["DRR"] = "DRR"
     width: int
@@ -104,4 +108,4 @@ class RenderSettings(BaseModel):
 class RenderSequence(BaseModel):
     render_settings: RenderSettings
     primitives: list[RenderPrimitive]
-    frames: list[RenderFrame]
+    batches: list[RenderBatch]

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from .node_content import *
+from .renderable import *
+from .devices import *
+from .scene import *
 
 
 class Scene(ABC):
@@ -11,10 +13,10 @@ class Scene(ABC):
     def get_camera(self) -> Camera: ...
 
     @abstractmethod
-    def get_render_primitives(self) -> List[RenderPrimitive]: ...
+    def get_primitives(self) -> List[Primitive]: ...
 
     @abstractmethod
-    def instance_snapshot(self) -> List[RenderInstance]: ...
+    def get_instances(self) -> List[PrimitiveInstance]: ...
 
 
 class GraphScene(Scene):
@@ -51,7 +53,7 @@ class GraphScene(Scene):
                     return
         raise ValueError("Camera not in scene graph")
 
-    def _get_instances(self) -> List[PrimitiveInstance]:
+    def get_instances(self) -> List[PrimitiveInstance]:
         instances = []
         # get the list of instances
         for node in self.graph:
@@ -69,10 +71,10 @@ class GraphScene(Scene):
 
         return instances
 
-    def _get_primitives(self) -> List[Primitive]:
+    def get_primitives(self) -> List[Primitive]:
         if self._primitives is None:
             prim_set = set()
-            for instance in self._get_instances():
+            for instance in self.get_instances():
                 prim_set.add(instance.primitive)
             self._primitives = list(prim_set)
             self._prim_to_id = {prim: i for i, prim in enumerate(self._primitives)}
@@ -80,18 +82,71 @@ class GraphScene(Scene):
         # cache the return value
         return self._primitives
 
-    def get_render_primitives(self) -> List[RenderPrimitive]:
-        if self._render_primitives is None:
-            self._render_primitives = [
-                primitive.to_render_primitive() for primitive in self._get_primitives()
-            ]
-        return self._render_primitives
-
-    def instance_snapshot(self) -> List[RenderInstance]:
-        instances = self._get_instances()
-        return [instance.to_render_instance(self.get_prim_id) for instance in instances]
-
     def get_prim_id(self, primitive: Primitive):
         if self._prim_to_id is None:
             self._get_primitives()
         return self._prim_to_id[primitive]
+
+
+class GraphSceneContent(TransformNodeContent):
+    _scene: Optional[GraphScene] = None
+
+    def _set_scene(self, scene: Optional[GraphScene]):
+        self._scene = scene
+
+    @property
+    def scene(self) -> Optional[GraphScene]:
+        return self._scene
+
+
+class PrimitiveInstance(GraphSceneContent):
+
+    def __init__(
+        self,
+        primitive: Primitive,
+        morph_weights: Optional[List[float]] = None,
+    ):
+        self.primitive = primitive
+        self.morph_weights = morph_weights
+
+    def to_render_instance(
+        self,
+    ) -> RenderInstance:
+        transform = self.node.tree.get_transform(None, self.node)
+        return RenderInstance(
+            primitive_id=self._scene.get_prim_id(self.primitive),
+            transform=geo_to_render_matrix4x4(transform),
+            morph_weights=self.morph_weights,
+        )
+
+
+class Camera(GraphSceneContent):
+    intrinsic: geo.CameraIntrinsicTransform
+    near: float
+    far: float
+
+    def __init__(
+        self,
+        intrinsic: geo.CameraIntrinsicTransform,
+        near: float,
+        far: float,
+    ):
+        self.intrinsic = intrinsic
+        self.near = near
+        self.far = far
+
+    def to_render_camera_intrinsic(self) -> RenderCameraIntrinsic:
+        return RenderCameraIntrinsic(
+            fx=self.intrinsic.fx,
+            fy=self.intrinsic.fy,
+            cx=self.intrinsic.cx,
+            cy=self.intrinsic.cy,
+            near=self.near,
+            far=self.far,
+        )
+
+    def to_render_camera(self) -> RenderCamera:
+        return RenderCamera(
+            transform=geo_to_render_matrix4x4(self.node.transform),
+            intrinsic=self.to_render_camera_intrinsic(),
+        )
