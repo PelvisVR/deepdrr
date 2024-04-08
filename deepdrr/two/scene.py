@@ -87,6 +87,13 @@ class GraphScene(Scene):
             self.get_primitives()
         return self._prim_to_id[primitive]
 
+    @classmethod
+    def from_flat_list(cls, nodes: List[Union[TransformNode, TransformDriver]], camera: Optional[Camera] = None):
+        graph = TransformTree()
+        for node in nodes:
+            graph.add_node(node)
+        return cls(graph, camera)
+
 
 class GraphSceneContent(TransformNodeContent):
     _scene: Optional[GraphScene] = None

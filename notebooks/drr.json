@@ -20,7 +20,7 @@
     {
       "data": {
         "prim_data_type": "StlMesh",
-        "url": "file:///home/pelvisvr/repos/deepdrr/notebooks/tests/resources/threads.stl",
+        "url": "file:///home/pelvisvr/repos/deepdrr/notebooks/tests/resources/suzanne.stl",
         "material_name": "iron",
         "density": 1.0,
         "priority": 0,
@@ -37,7 +37,7 @@
     {
       "data": {
         "prim_data_type": "StlMesh",
-        "url": "file:///home/pelvisvr/repos/deepdrr/notebooks/tests/resources/suzanne.stl",
+        "url": "file:///home/pelvisvr/repos/deepdrr/notebooks/tests/resources/threads.stl",
         "material_name": "iron",
         "density": 1.0,
         "priority": 0,
@@ -109,7 +109,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 2,
+              "primitive_id": 0,
               "transform": {
                 "data": [
                   1.0,
@@ -133,7 +133,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 0,
+              "primitive_id": 2,
               "transform": {
                 "data": [
                   1.0,
@@ -225,7 +225,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 2,
+              "primitive_id": 0,
               "transform": {
                 "data": [
                   1.0,
@@ -249,7 +249,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 0,
+              "primitive_id": 2,
               "transform": {
                 "data": [
                   1.0,
@@ -341,7 +341,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 2,
+              "primitive_id": 0,
               "transform": {
                 "data": [
                   1.0,
@@ -365,7 +365,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 0,
+              "primitive_id": 2,
               "transform": {
                 "data": [
                   1.0,
@@ -457,7 +457,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 2,
+              "primitive_id": 0,
               "transform": {
                 "data": [
                   1.0,
@@ -481,7 +481,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 0,
+              "primitive_id": 2,
               "transform": {
                 "data": [
                   1.0,
@@ -573,7 +573,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 2,
+              "primitive_id": 0,
               "transform": {
                 "data": [
                   1.0,
@@ -597,7 +597,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 0,
+              "primitive_id": 2,
               "transform": {
                 "data": [
                   1.0,
@@ -689,7 +689,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 2,
+              "primitive_id": 0,
               "transform": {
                 "data": [
                   1.0,
@@ -713,7 +713,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 0,
+              "primitive_id": 2,
               "transform": {
                 "data": [
                   1.0,
@@ -805,7 +805,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 2,
+              "primitive_id": 0,
               "transform": {
                 "data": [
                   1.0,
@@ -829,7 +829,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 0,
+              "primitive_id": 2,
               "transform": {
                 "data": [
                   1.0,
@@ -921,7 +921,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 2,
+              "primitive_id": 0,
               "transform": {
                 "data": [
                   1.0,
@@ -945,7 +945,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 0,
+              "primitive_id": 2,
               "transform": {
                 "data": [
                   1.0,
@@ -1037,7 +1037,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 2,
+              "primitive_id": 0,
               "transform": {
                 "data": [
                   1.0,
@@ -1061,7 +1061,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 0,
+              "primitive_id": 2,
               "transform": {
                 "data": [
                   1.0,
@@ -1153,7 +1153,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 2,
+              "primitive_id": 0,
               "transform": {
                 "data": [
                   1.0,
@@ -1177,7 +1177,7 @@
               "morph_weights": null
             },
             {
-              "primitive_id": 0,
+              "primitive_id": 2,
               "transform": {
                 "data": [
                   1.0,
