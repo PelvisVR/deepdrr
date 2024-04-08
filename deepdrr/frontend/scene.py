@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from .renderable import *
-from .devices import *
-from .scene import *
-
+from .primitive import *
 
 class Scene(ABC):
     def __init__(self):
@@ -42,6 +39,8 @@ class GraphScene(Scene):
                                 "Multiple cameras in scene, use set_camera to specify"
                             )
                         self._camera = content
+        if self._camera is None:
+            raise ValueError("No camera in scene")
         return self._camera
 
     def set_camera(self, camera: Camera):
@@ -59,6 +58,7 @@ class GraphScene(Scene):
         for node in self.graph:
             for content in node:
                 if isinstance(content, PrimitiveInstance):
+                    content._set_scene(self)
                     instances.append(content)
         # look up the primitives for each instance
         # if primitives have already been cached, ensure that no new primitives have been added
@@ -84,7 +84,7 @@ class GraphScene(Scene):
 
     def get_prim_id(self, primitive: Primitive):
         if self._prim_to_id is None:
-            self._get_primitives()
+            self.get_primitives()
         return self._prim_to_id[primitive]
 
 

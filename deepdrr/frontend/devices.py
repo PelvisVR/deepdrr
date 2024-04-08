@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .node_content import Camera
+from .scene import Camera
 from .transform_manager import *
 from .. import utils
 

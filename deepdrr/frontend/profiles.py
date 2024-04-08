@@ -54,7 +54,7 @@ class RenderProfile(ABC):
     def __enter__(self):
         render_settings = RenderSettings(settings=self._settings)
         if not self._renderer.is_initialized:
-            self._renderer.init(self._scene, render_settings)
+            self._renderer.init(self._get_render_primitives(), render_settings)
         self._renderer.__enter__()
         return self
 
@@ -69,7 +69,7 @@ class RenderProfile(ABC):
             camera=camera.to_render_camera(),
             instances=instances,
         )
-        render_batch = RenderBatch([render_frame])
+        render_batch = RenderBatch(frames=[render_frame])
         self._renderer.render_batches([render_batch])
 
     def render_tag_batch(self, frame_settings: FrameSettings, tags: Optional[List[str]] = None):
@@ -97,7 +97,7 @@ class RenderProfile(ABC):
             )
             batch.append(render_frame)
 
-        render_batch = RenderBatch(batch)
+        render_batch = RenderBatch(frames=batch)
         self._renderer.render_batches([render_batch])
 
 
@@ -105,7 +105,7 @@ class DRRRenderProfile(RenderProfile):
 
     def render_drr(self):
         frame_settings = FrameSettings(mode="drr")
-        self.render_single(frame_settings)
+        self.render_frame(frame_settings)
 
 
 class RasterizeRenderProfile(RenderProfile):

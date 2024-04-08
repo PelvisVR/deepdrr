@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .node_content import PrimitiveInstance
+from .scene import PrimitiveInstance
 from .primitive import *
 
 
@@ -82,7 +82,7 @@ class Volume(Renderable):
         self.enabled = enabled
 
     @classmethod
-    def from_h5(cls, path: str, in_memory=False, **kwargs):
+    def from_h5(cls, path: str, in_memory: bool = False, **kwargs):
         volume = H5Volume(path)
         if in_memory:
             volume = volume.to_memory_volume()
@@ -92,9 +92,14 @@ class Volume(Renderable):
         )
 
     @classmethod
-    def from_nrrd(cls, path: str, **kwargs):
+    def from_nrrd(cls, path: str, in_memory: bool = False, h5_path: Optional[str] = None, **kwargs):
+        volume = MemoryVolume.from_nrrd(path)
+        if not in_memory:
+            h5_path = volume.save_h5(h5_path)
+            volume = H5Volume(h5_path)
+
         return cls(
-            volume=MemoryVolume.from_nrrd(path),
+            volume=volume,
             **kwargs,
         )
 
