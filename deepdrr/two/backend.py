@@ -45,24 +45,30 @@ class DRRBackend(Backend):
         pass
 
     def init(self, render_settings: RenderSettings, primitives: List[RenderPrimitive]):
+        # TODO
         pass
 
     def init_render_backend(self, render_settings: RenderSettings):
+        # TODO
         pass
 
     def init_primitives(self, primitives: List[RenderPrimitive]):
+        # TODO
         pass
 
     def __enter__(self):
         print("Entering DRR Backend")
+        # TODO
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         print("Exiting DRR Backend")
+        # TODO
         pass
 
     def render_batches(self, batches: List[RenderBatch]):
         print(f"Rendering {len(batches)} frames")
+        # TODO
         pass
         # render_settings = self._render_settings
         # for frame in frames:
@@ -78,21 +84,27 @@ class RasterizeBackend(Backend):
         pass
 
     def init(self, render_settings: RenderSettings, primitives: List[RenderPrimitive]):
+        # TODO
         pass
 
     def init_render_backend(self, render_settings: RenderSettings):
+        # TODO
         pass
 
     def init_primitives(self, primitives: List[RenderPrimitive]):
+        # TODO
         pass
 
     def __enter__(self):
+        # TODO
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        # TODO
         pass
 
     def render_batches(self, batches: List[RenderBatch]):
+        # TODO
         pass
 
     # def render_batch(self, frame: RenderFrame):

@@ -9,6 +9,7 @@ from .volume_processing import *
 
 log = logging.getLogger(__name__)
 
+# TODO: Replace with separate library like Fledge
 
 class TransformDriver(ABC):
 
@@ -122,6 +123,7 @@ class TransformNode:
         return self._contents.__iter__()
 
 
+# TODO: Replace with separate library like Fledge
 class TransformTree:
     def __init__(self):
         self._g = nx.DiGraph()
